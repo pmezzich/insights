@@ -1,0 +1,1746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>window.process = window.process || { env: {} };
+
+// ===== Debug helpers =====
+window.R6_DEBUG = true;
+function debugLog(msg) {
+  try {
+    console.log("[r6debug]", msg);
+    const out = document.getElementById('outputLog');
+    if (out) { out.value += (out.value ? "\n" : "") + String(msg); out.scrollTop = out.scrollHeight; }
+  } catch (_) {}
+}
+function hexPreview(u8, max=32){
+  try {
+    if (!(u8 instanceof Uint8Array)) u8 = new Uint8Array(u8);
+    const n = Math.min(u8.length, max);
+    let s = "";
+    for (let i=0;i<n;i++){ s += u8[i].toString(16).padStart(2,"0") + (i%2?" ":""); }
+    return s.trim();
+  } catch(e){ return "(hexPreview error)"; }
+}
+// Swallow unhandled 'already exited' rejections so they don't stop our logs
+window.addEventListener('unhandledrejection', (e) => {
+  const msg = String((e && (e.reason?.message || e.reason)) || "").toLowerCase();
+  if (msg.includes("already exited")) { e.preventDefault(); debugLog("⚠️ swallowed unhandledrejection: "+msg); }
+});
+// =========================
+
+// === Firebase key sanitization (lossless placeholders) ===
+function _sanitizeFirebaseKey(k) {
+  if (k == null) return "";
+  return String(k)
+    .replace(/\./g, "(dot)")
+    .replace(/\#/g, "(hash)")
+    .replace(/\$/g, "(dollar)")
+    .replace(/\//g, "(slash)")
+    .replace(/\[/g, "(lbracket)")
+    .replace(/\]/g, "(rbracket)");
+}
+function _sanitizeFirebaseKeysDeep(value) {
+  if (Array.isArray(value)) {
+    return value.map(_sanitizeFirebaseKeysDeep);
+  } else if (value && typeof value === "object") {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) {
+      out[_sanitizeFirebaseKey(k)] = _sanitizeFirebaseKeysDeep(v);
+    }
+    return out;
+  }
+  return value;
+}
+
+// ===== Stats helpers: event normalization, site detection, players/operators, teams/rosters =====
+function normalizeEventRecord(e){
+  const tRaw = (e && (e.type?.name || e.type || e.event || "")).toString();
+  let type = "";
+  if (/^kill$/i.test(tRaw)) type = "kill";
+  else if (/DefuserPlant/i.test(tRaw) || /Plant/i.test(tRaw)) type = "plant";
+  else if (/DefuserDisable/i.test(tRaw) || /Disable/i.test(tRaw) || /Defuse/i.test(tRaw)) type = "defuse";
+  else if (/Operator/i.test(tRaw) && /(Swap|Select|Change)/i.test(tRaw)) type = "op_swap";
+  else type = tRaw.toLowerCase();
+
+  const username = e?.username || e?.player || e?.source || e?.killer || "";
+  const target = e?.target || e?.victim || "";
+  const headshot = !!(e?.headshot || e?.isHeadshot || (e?.hitArea === "Head"));
+  const timestamp = Number(e?.timeInSeconds ?? e?.timestamp ?? e?.time ?? 0);
+  const newOperator = e?.newOperator || e?.operator || e?.op || e?.to || "";
+  const site = e?.site || e?.siteName || "";
+  return { type, username, target, headshot, timestamp, newOperator, site };
+}
+function headerWinningTeam(header){
+  try{
+    const teams = header?.teams || [];
+    const winIdx = teams.findIndex(t => t?.won === true);
+    if (winIdx === 0) return "YOUR TEAM";
+    if (winIdx === 1) return "OPPONENTS";
+  }catch(_){}
+  return "";
+}
+function computeRoundSite(header, events, players){
+  // 1) header.site if present
+  const hs = header?.site;
+  if (typeof hs === "string" && hs.trim()) return hs.trim();
+
+  // 2) events with site fields
+  const plantEvt = (Array.isArray(events)? events: []).find(e => e && e.type === "plant" && (e.site && String(e.site).trim()));
+  const defEvt   = (Array.isArray(events)? events: []).find(e => e && e.type === "defuse" && (e.site && String(e.site).trim()));
+  if (plantEvt) return String(plantEvt.site).trim();
+  if (defEvt)   return String(defEvt.site).trim();
+
+  // 3) majority defender spawn from players
+  const counts = new Map();
+  for (const p of Array.isArray(players)? players: []){
+    const idx = (p?.teamIndex !== undefined) ? Number(p.teamIndex) : (typeof p?.team === 'number' ? Number(p.team) : null);
+    const role = (p?.roleName || p?.role || "").toLowerCase();
+    const alliance = Number(p?.alliance ?? -1);
+    const isDef = (idx === 1) || role.includes("defen") || alliance === 4;
+    if (!isDef) continue;
+    const sp = p?.spawn || p?.defenseSpawn || p?.defSpawn || p?.site || p?.objective || p?.siteName || "";
+    const label = String(sp||"").trim();
+    if (!label) continue;
+    counts.set(label, (counts.get(label)||0)+1);
+  }
+  if (counts.size){
+    let best=null, bestN=-1;
+    for (const [k,v] of counts.entries()) if (v>bestN){best=k;bestN=v;}
+    return best;
+  }
+  return "Unknown";
+}
+function buildRoundPlayers(header, events){
+  const players = header?.players || [];
+  const byKey = new Map();
+  const alias = {};
+  function sanitize(k){
+    return String(k)
+      .replace(/\./g, "(dot)")
+      .replace(/\#/g, "(hash)")
+      .replace(/\$/g, "(dollar)")
+      .replace(/\//g, "(slash)")
+      .replace(/\[/g, "(lbracket)")
+      .replace(/\]/g, "(rbracket)");
+  }
+  // seed from header.players
+  for (const p of (Array.isArray(players) ? players : [])){
+    const name = p?.username || p?.name || p?.player || "";
+    if (!name) continue;
+    const key = sanitize(name);
+    alias[key] = name;
+    const teamIndex = (p?.teamIndex !== undefined) ? Number(p.teamIndex) : (typeof p?.team === 'number' ? Number(p.team) : null);
+    const roleName = p?.roleName || p?.role || "";
+    const operator = p?.operator || p?.op || p?.character || p?.agent || "";
+    const spawn = p?.spawn || p?.attackSpawn || p?.defenseSpawn || p?.defSpawn || p?.site || p?.objective || p?.siteName || "";
+    byKey.set(key, { nameKey:key, name, teamIndex, roleName, spawn, operatorTimeline: [], operator: operator || "" });
+  }
+  // apply operator swap events in chronological order
+  const swaps = (Array.isArray(events)? events : []).filter(e => e.type === "op_swap").sort((a,b)=>a.timestamp-b.timestamp);
+  for (const e of swaps){
+    const name = e?.username || e?.player || "";
+    if (!name) continue;
+    const key = sanitize(name);
+    const op = e?.newOperator || e?.operator || e?.op || e?.to || "";
+    if (!byKey.has(key)) byKey.set(key, { nameKey:key, name, teamIndex:null, roleName:"", spawn:"", operatorTimeline: [], operator:"" });
+    if (op){
+      byKey.get(key).operatorTimeline.push({ t: Number(e.timestamp||0), operator: op });
+      byKey.get(key).operator = op; // latest becomes current
+    }
+  }
+  // build arrays + playerTeams maps
+  const arr = [];
+  const playerTeams = {};
+  for (const [k, v] of byKey.entries()){
+    arr.push(v);
+    playerTeams[k] = (v.teamIndex === 0) ? "YOUR TEAM" : (v.teamIndex === 1 ? "OPPONENTS" : "");
+  }
+  return { playersList: arr, playerTeams, playerTeamsAlias: alias };
+}
+function mergeRosters(mapObj, playersList, teams){
+  if (!mapObj.rosters) mapObj.rosters = {};
+  if (!Array.isArray(mapObj.rosters['YOUR TEAM'])) mapObj.rosters['YOUR TEAM'] = [];
+  if (!Array.isArray(mapObj.rosters['OPPONENTS'])) mapObj.rosters['OPPONENTS'] = [];
+  const our = new Set(mapObj.rosters['YOUR TEAM']);
+  const opp = new Set(mapObj.rosters['OPPONENTS']);
+  
+  // Determine which teamIndex is "YOUR TEAM" based on team names
+  let yourIndex = 0;
+  if (Array.isArray(teams) && teams.length >= 2) {
+    if (/your/i.test(teams[1]?.name || '')) yourIndex = 1;
+    else if (/enemy|opponent/i.test(teams[0]?.name || '')) yourIndex = 1;
+  }
+  
+  for (const p of (playersList||[])){
+    if (p.teamIndex === yourIndex) our.add(p.name);
+    else if (p.teamIndex !== null && p.teamIndex !== undefined) opp.add(p.name);
+  }
+  mapObj.rosters['YOUR TEAM'] = Array.from(our);
+  mapObj.rosters['OPPONENTS'] = Array.from(opp);
+}
+
+</script>
+    <script src="wasm_exec.js"></script>
+<script src="r6-dissect.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Final</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../styles/pro-global.css">
+    <script>
+        window.process = window.process || { env: {} };
+
+// ===== Debug helpers =====
+window.R6_DEBUG = true;
+function debugLog(msg) {
+  try {
+    console.log("[r6debug]", msg);
+    const out = document.getElementById('outputLog');
+    if (out) { out.value += (out.value ? "\n" : "") + String(msg); out.scrollTop = out.scrollHeight; }
+  } catch (_) {}
+}
+function hexPreview(u8, max=32){
+  try {
+    if (!(u8 instanceof Uint8Array)) u8 = new Uint8Array(u8);
+    const n = Math.min(u8.length, max);
+    let s = "";
+    for (let i=0;i<n;i++){ s += u8[i].toString(16).padStart(2,"0") + (i%2?" ":""); }
+    return s.trim();
+  } catch(e){ return "(hexPreview error)"; }
+}
+// Swallow unhandled 'already exited' rejections so they don't stop our logs
+window.addEventListener('unhandledrejection', (e) => {
+  const msg = String((e && (e.reason?.message || e.reason)) || "").toLowerCase();
+  if (msg.includes("already exited")) { e.preventDefault(); debugLog("⚠️ swallowed unhandledrejection: "+msg); }
+});
+// =========================
+
+    </script>
+    <!-- Firebase SDKs must be loaded first -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="../scripts/firebase-config.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <style>
+        :root {
+            --primary: #7C3AED;
+            --primary-dark: #6D28D9;
+            --secondary: #4F46E5;
+            --dark: #1E293B;
+            --darker: #0F172A;
+            --light: #F8FAFC;
+            --gray: #94A3B8;
+            --success: #10B981;
+            --danger: #EF4444;
+            --warning: #F59E0B;
+            --info: #3B82F6;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --card-border: rgba(255, 255, 255, 0.1);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body { color: var(--light); min-height: 100vh; padding: 20px; }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(15, 23, 42, 0.9);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--card-border);
+            backdrop-filter: blur(10px);
+        }
+        
+        .nav-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 18px 28px;
+            background: rgba(30, 41, 59, 0.9);
+            border-bottom: 1px solid var(--card-border);
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .logo-icon {
+            font-size: 28px;
+            color: var(--primary);
+        }
+        
+        .logo-text {
+            font-size: 19px;
+            font-weight: 700;
+            background: linear-gradient(to right, #a78bfa, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        /* .nav-right provided by pro-global.css */
+        
+        /* .team-pill provided by pro-global.css */
+        
+        .content {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 25px;
+            padding: 25px;
+        }
+        
+        .panel {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px solid var(--card-border);
+        }
+        
+        .panel-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--card-border);
+        }
+        
+        .panel-icon {
+            font-size: 24px;
+            color: var(--primary);
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--gray);
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 14px;
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            color: white;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.3);
+        }
+        
+        .upload-area {
+            border: 2px dashed var(--gray);
+            border-radius: 8px;
+            padding: 25px;
+            text-align: center;
+            margin: 20px 0;
+            background: rgba(30, 41, 59, 0.5);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .upload-area:hover {
+            border-color: var(--primary);
+            background: rgba(124, 58, 237, 0.1);
+        }
+        
+        .upload-icon {
+            font-size: 48px;
+            color: var(--primary);
+            margin-bottom: 15px;
+        }
+        
+        .upload-text {
+            margin-bottom: 15px;
+            color: var(--gray);
+        }
+        
+        .btn {
+            padding: 14px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: none;
+            font-weight: 600;
+            font-size: 16px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background: rgba(79, 70, 229, 0.2);
+            color: var(--light);
+            border: 1px solid var(--secondary);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(79, 70, 229, 0.3);
+        }
+        
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #059669;
+        }
+        
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #DC2626;
+        }
+        
+        /* .btn-logout provided by pro-global.css */
+        
+        .btn-outline:hover {
+            background: rgba(124, 58, 237, 0.1);
+        }
+        
+        .form-actions {
+            display: flex;
+            gap: 15px;
+            margin-top: 25px;
+            flex-wrap: wrap;
+        }
+        
+        .output-log {
+            padding: 20px;
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 8px;
+            white-space: pre-wrap;
+            color: white;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            border: 1px solid var(--card-border);
+            margin-top: 20px;
+        }
+        
+        .error-message {
+            padding: 15px;
+            margin: 20px 0;
+            background: rgba(239, 68, 68, 0.2);
+            color: #FECACA;
+            border-radius: 8px;
+            border: 1px solid rgba(239, 68, 68, 0.5);
+            display: none;
+        }
+        
+        .status-indicators {
+            display: flex;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .status-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px;
+            background: rgba(30, 41, 59, 0.7);
+            border-radius: 8px;
+            min-width: 120px;
+            border: 1px solid var(--card-border);
+        }
+        
+        .status-value {
+            font-size: 24px;
+            font-weight: 700;
+            margin: 5px 0;
+        }
+        
+        .status-label {
+            font-size: 14px;
+            color: var(--gray);
+        }
+        
+        .progress-container {
+            margin: 20px 0;
+            background: rgba(30, 41, 59, 0.7);
+            border-radius: 50px;
+            height: 12px;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: var(--primary);
+            width: 0%;
+            transition: width 0.5s ease-in-out;
+        }
+        
+        .map-card {
+            background: rgba(30, 41, 59, 0.7);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid var(--card-border);
+        }
+        
+        .map-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--card-border);
+        }
+        
+        .map-name {
+            font-weight: 700;
+            font-size: 18px;
+            color: var(--primary);
+        }
+        
+        .score-display {
+            display: flex;
+            gap: 25px;
+            font-size: 24px;
+            font-weight: 700;
+        }
+        
+        .team-score {
+            color: var(--success);
+        }
+        
+        .opponent-score {
+            color: var(--danger);
+        }
+        
+        .rounds-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .round-item {
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            font-weight: 700;
+            background: rgba(30, 41, 59, 0.9);
+            border: 1px solid var(--card-border);
+        }
+        
+        .round-win {
+            background: rgba(16, 185, 129, 0.3);
+            border-color: var(--success);
+        }
+        
+        .round-loss {
+            background: rgba(239, 68, 68, 0.3);
+            border-color: var(--danger);
+        }
+        
+        .raw-data-toggle {
+            margin: 20px 0;
+            background: rgba(30, 41, 59, 0.7);
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            border: 1px solid var(--card-border);
+        }
+        
+        .raw-data-content {
+            display: none;
+            background: rgba(15, 23, 42, 0.9);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            white-space: pre-wrap;
+            max-height: 500px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 13px;
+            border: 1px solid var(--card-border);
+        }
+        
+        .raw-data-content.visible {
+            display: block;
+        }
+        
+        .events-container {
+            margin-top: 20px;
+        }
+        
+        .event-item {
+            padding: 15px;
+            background: rgba(30, 41, 59, 0.7);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid var(--primary);
+        }
+        
+        .event-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        .event-type {
+            font-weight: 700;
+            color: var(--primary);
+        }
+        
+        .event-time {
+            color: var(--gray);
+        }
+        
+        .event-details {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .event-player, .event-target {
+            padding: 8px;
+            border-radius: 6px;
+            background: rgba(15, 23, 42, 0.5);
+            text-align: center;
+        }
+        
+        .event-icon {
+            font-size: 20px;
+            color: var(--danger);
+        }
+        
+        .headshot-indicator {
+            color: var(--danger);
+            font-size: 12px;
+            margin-left: 5px;
+        }
+        
+        .login-container {
+            max-width: 500px;
+            margin: 50px auto;
+            padding: 40px;
+            background: var(--card-bg);
+            border-radius: 16px;
+            text-align: center;
+            border: 1px solid var(--card-border);
+        }
+        
+        .login-title {
+            font-size: 32px;
+            margin-bottom: 30px;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .login-icon {
+            font-size: 48px;
+            color: var(--primary);
+            margin-bottom: 20px;
+        }
+        
+        .events-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        
+        .events-table th {
+            background: rgba(30, 41, 59, 0.9);
+            padding: 8px;
+            text-align: left;
+            font-weight: 600;
+        }
+        
+        .events-table td {
+            padding: 8px;
+            border-bottom: 1px solid var(--card-border);
+        }
+        
+        .events-table tr:nth-child(even) {
+            background: rgba(30, 41, 59, 0.5);
+        }
+        
+        .events-table tr:hover {
+            background: rgba(124, 58, 237, 0.1);
+        }
+        
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .back-link i {
+            margin-right: 8px;
+        }
+        
+        .section-title {
+            margin: 25px 0 15px 0;
+            color: var(--primary);
+            font-size: 20px;
+            border-bottom: 1px solid var(--card-border);
+            padding-bottom: 8px;
+        }
+        
+        .map-upload-container {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(30, 41, 59, 0.5);
+            border-radius: 8px;
+            border: 1px solid var(--card-border);
+        }
+        
+        .map-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .map-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .folder-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: rgba(30, 41, 59, 0.7);
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+        
+        .folder-icon {
+            color: var(--primary);
+        }
+        
+        .file-count {
+            margin-left: auto;
+            background: var(--primary);
+            padding: 3px 8px;
+            border-radius: 20px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav-header">
+            <a href="index_pro.html" class="logo">
+                <img src="../styles/r6_insights.png" class="logo-img" alt="R6 Insights">
+                <div class="logo-text">R6 INSIGHTS</div>
+                <span class="nav-badge">Beta</span>
+            </a>
+            <div class="nav-right">
+                <div class="team-pill" id="teamInfo" style="display: none;">
+                    <i class="fas fa-users"></i>
+                    <span id="teamName">Team Name</span>
+                </div>
+                <a href="index_pro.html" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Hub</a>
+                <button class="btn-logout" onclick="logout()">
+                    <i class="fas fa-right-from-bracket"></i> Logout
+                </button>
+            </div>
+        </div>
+
+        <div class="page-title">
+            <div class="page-title-icon" style="background:rgba(6,182,212,0.18);border:1px solid rgba(6,182,212,0.3);color:#22d3ee;">
+                <i class="fas fa-film"></i>
+            </div>
+            <div>
+                <h2>Replay Analyzer</h2>
+                <p>Upload a .rec replay file to extract round events, operators &amp; match data</p>
+            </div>
+        </div>
+
+        
+
+        <div id="replayUploader" style="display: none;">
+            <div class="content">
+                <div class="panel">
+                    <div class="panel-title">
+                        <i class="fas fa-cloud-upload-alt panel-icon"></i>
+                        <h2>Upload Match Replay</h2>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Opponent Team</label>
+                        <input type="text" id="opponentInput" class="form-input" placeholder="Enter opponent team name">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Match Date</label>
+                        <input type="date" id="matchDate" class="form-input">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Upload Maps (Folders)</label>
+                        <p class="upload-text">Each folder represents a map in the match</p>
+                        
+                        <div id="mapUploads">
+                            <!-- Map uploads will be added here -->
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button class="btn btn-secondary" onclick="addMapUpload()">
+                                <i class="fas fa-plus"></i> Add Map Folder
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button class="btn btn-primary" onclick="processFiles()">
+                            <i class="fas fa-cogs"></i> Process Files
+                        </button>
+                        <button class="btn btn-danger" onclick="clearAll()">
+                            <i class="fas fa-trash"></i> Clear All
+                        </button>
+                    </div>
+                    
+                    <div class="progress-container">
+                        <div class="progress-bar" id="progressBar"></div>
+                    </div>
+                </div>
+                
+                <div class="panel">
+                    <div class="panel-title">
+                        <i class="fas fa-chart-line panel-icon"></i>
+                        <h2>Match Analysis</h2>
+                    </div>
+                    
+                    <div class="status-indicators">
+                        <div class="status-item">
+                            <div class="status-label">Your Score</div>
+                            <div class="status-value" id="yourScore">0</div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-label">Opponent</div>
+                            <div class="status-value" id="opponentScore">0</div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-label">Maps</div>
+                            <div class="status-value" id="mapCount">0</div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-label">Rounds</div>
+                            <div class="status-value" id="roundCount">0</div>
+                        </div>
+                    </div>
+                    
+                    <div id="mapContainer"></div>
+                    
+                    <div class="form-actions">
+                        <button class="btn btn-success" id="uploadBtn" onclick="submitReplayData()" style="display: none;">
+                            <i class="fas fa-cloud-upload-alt"></i> Upload to Firebase
+                        </button>
+                        <button class="btn btn-outline" onclick="toggleRawData()">
+                            <i class="fas fa-code"></i> Toggle Raw Data
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="panel" style="margin: 25px;">
+                <div class="panel-title">
+                    <i class="fas fa-terminal panel-icon"></i>
+                    <h2>Processing Log</h2>
+                </div>
+                
+                <div id="errorMessage" class="error-message"></div>
+                
+                <div id="outputLog" class="output-log">[System] Ready to process replay files. Each folder you upload represents a map.</div>
+                
+                <div class="raw-data-toggle" onclick="toggleRawData()">
+                    <i class="fas fa-database"></i> View Raw Data
+                </div>
+                
+                <div id="rawDataDump" class="raw-data-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase configuration
+        // Initialize Firebase after SDK is loaded
+        const app = firebase.initializeApp(FIREBASE_CONFIG);
+        const auth = firebase.auth();
+        const db = firebase.database();
+
+        // Use emulators in development
+        if (window.location.hostname === "localhost") {
+            console.log("Using Firebase emulators");
+            auth.useEmulator("http://localhost:9099");
+            db.useEmulator("localhost", 9000);
+        }
+
+        // Global variables
+        let teamId = null;
+        let userTeamName = "";
+        let rawReplayData = {};
+        let matchData = {
+            opponent: "",
+            teamId: "",
+            date: "",
+            maps: {},
+            scoreSummary: {
+                yourTeam: 0,
+                opponent: 0,
+                finalScore: "0-0"
+            }
+        };
+
+        // DOM Elements
+        const outputLog = document.getElementById('outputLog');
+        const errorMessage = document.getElementById('errorMessage');
+        const progressBar = document.getElementById('progressBar');
+        const yourScoreEl = document.getElementById('yourScore');
+        const opponentScoreEl = document.getElementById('opponentScore');
+        const mapCountEl = document.getElementById('mapCount');
+        const roundCountEl = document.getElementById('roundCount');
+        const mapContainer = document.getElementById('mapContainer');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const mapUploadsContainer = document.getElementById('mapUploads');
+        let mapCounter = 0;
+
+        // Authentication state listener
+        auth.onAuthStateChanged(async (user) => {
+            const uploadSection = document.getElementById('replayUploader');
+            const teamInfo = document.getElementById('teamInfo');
+
+            // Not logged in or email not verified — redirect to hub login
+            if (!user || !user.emailVerified) {
+                window.location.href = 'index_pro.html';
+                return;
+            }
+
+            try {
+                uploadSection.style.display = 'block';
+                teamInfo.style.display = 'flex';
+
+                const teamSnapshot = await db.ref(`users/${user.uid}/teamId`).get();
+                if (!teamSnapshot.exists()) throw new Error('No team association');
+                teamId = teamSnapshot.val();
+
+                const teamNameSnapshot = await db.ref(`teams/${teamId}/info/teamName`).get();
+                userTeamName = teamNameSnapshot.val();
+                document.getElementById('teamName').textContent = userTeamName;
+
+                addMapUpload();
+            } catch (error) {
+                showError(`Authentication error: ${error.message}`);
+                auth.signOut();
+                window.location.href = 'index_pro.html';
+            }
+        });
+
+        // Add a new map upload field
+        function addMapUpload() {
+            mapCounter++;
+            const mapId = `map_${mapCounter}`;
+            
+            const mapUpload = document.createElement('div');
+            mapUpload.className = 'map-upload-container';
+            mapUpload.id = mapId;
+            
+            mapUpload.innerHTML = `
+                <div class="map-header">
+                    <div class="map-name">Map ${mapCounter}</div>
+                    <div class="map-actions">
+                        <button class="btn btn-outline" onclick="document.getElementById('${mapId}-input').click()">
+                            <i class="fas fa-folder-open"></i> Select Folder
+                        </button>
+                        <button class="btn btn-secondary" onclick="addRehostFolder('${mapId}')" style="display:none;" id="${mapId}-rehost-btn">
+                            <i class="fas fa-plus"></i> Add Rehost Folder
+                        </button>
+                        <button class="btn btn-danger" onclick="removeMapUpload('${mapId}')" ${mapCounter === 1 ? 'disabled' : ''}>
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="${mapId}-folders"></div>
+                <input type="file" id="${mapId}-input" class="folder-upload" webkitdirectory directory multiple style="display: none;">
+            `;
+            
+            mapUploadsContainer.appendChild(mapUpload);
+            
+            // Add event listener to the file input
+            const fileInput = document.getElementById(`${mapId}-input`);
+            fileInput.addEventListener('change', (e) => {
+                const files = Array.from(e.target.files);
+                const recFiles = files.filter(f => f.name.endsWith('.rec'));
+                const foldersDiv = document.getElementById(`${mapId}-folders`);
+                const folderName = files[0]?.webkitRelativePath?.split('/')[0] || 'Unknown Folder';
+                
+                if (recFiles.length > 0) {
+                    const folderInfo = document.createElement('div');
+                    folderInfo.className = 'folder-info';
+                    folderInfo.innerHTML = `
+                        <i class="fas fa-folder folder-icon"></i>
+                        <span>${folderName}</span>
+                        <span class="file-count">${recFiles.length} .rec files</span>
+                    `;
+                    foldersDiv.appendChild(folderInfo);
+                    // Show the rehost button after first folder is added
+                    const rehostBtn = document.getElementById(`${mapId}-rehost-btn`);
+                    if (rehostBtn) rehostBtn.style.display = 'inline-flex';
+                    outputLog.textContent += `\n[Map ${mapCounter}] Selected folder: ${folderName} with ${recFiles.length} replay files`;
+                } else {
+                    showError(`No .rec files found in folder: ${folderName}`);
+                }
+            });
+        }
+
+        // Add a rehost folder input to an existing map
+        function addRehostFolder(mapId) {
+            let rehostCount = document.querySelectorAll(`[id^="${mapId}-rehost-input"]`).length + 1;
+            const rehostId = `${mapId}-rehost-input-${rehostCount}`;
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.id = rehostId;
+            input.className = 'folder-upload';
+            input.setAttribute('webkitdirectory', '');
+            input.setAttribute('directory', '');
+            input.setAttribute('multiple', '');
+            input.style.display = 'none';
+            document.getElementById(mapId).appendChild(input);
+            
+            input.addEventListener('change', (e) => {
+                const files = Array.from(e.target.files);
+                const recFiles = files.filter(f => f.name.endsWith('.rec'));
+                const foldersDiv = document.getElementById(`${mapId}-folders`);
+                const folderName = files[0]?.webkitRelativePath?.split('/')[0] || 'Rehost Folder';
+                
+                if (recFiles.length > 0) {
+                    const folderInfo = document.createElement('div');
+                    folderInfo.className = 'folder-info';
+                    folderInfo.style.borderLeft = '3px solid var(--warning)';
+                    folderInfo.innerHTML = `
+                        <i class="fas fa-redo folder-icon" style="color: var(--warning)"></i>
+                        <span>${folderName} (Rehost)</span>
+                        <span class="file-count">${recFiles.length} .rec files</span>
+                    `;
+                    foldersDiv.appendChild(folderInfo);
+                    outputLog.textContent += `\n[${mapId}] Added rehost folder: ${folderName} with ${recFiles.length} replay files`;
+                } else {
+                    showError(`No .rec files found in rehost folder: ${folderName}`);
+                }
+            });
+            
+            input.click();
+        }
+
+        // Remove a map upload field
+        function removeMapUpload(id) {
+            const mapUpload = document.getElementById(id);
+            mapUpload.remove();
+            mapCounter--;
+            outputLog.textContent += `\nRemoved map upload field`;
+        }
+
+        // Clear all map uploads
+        function clearAll() {
+            mapUploadsContainer.innerHTML = '';
+            mapCounter = 0;
+            addMapUpload();
+            outputLog.textContent = '[System] Cleared all map uploads';
+            uploadBtn.style.display = 'none';
+        }
+
+        // Authentication functions
+        // login handled by index_pro.html
+
+        function logout() {
+            auth.signOut();
+        }
+
+        // Processing functions
+        async function processFiles() {
+    // expose rounds to autoscore
+    if (!Array.isArray(window.allRounds)) window.allRounds = [];
+  debugLog('🚀 Starting processFiles');
+
+            const opponentInput = document.getElementById('opponentInput');
+            const matchDate = document.getElementById('matchDate');
+            
+            if (!opponentInput.value.trim()) {
+                showError("Please enter opponent team name");
+                return;
+            }
+            
+            if (!matchDate.value) {
+                showError("Please select match date");
+                return;
+            }
+            
+            // Initialize match data
+            matchData = {
+                opponent: opponentInput.value.trim(),
+                teamId: teamId,
+                date: matchDate.value,
+                maps: {},
+                scoreSummary: {
+                    yourTeam: 0,
+                    opponent: 0,
+                    finalScore: "0-0"
+                }
+            };
+            
+            rawReplayData = {};
+            outputLog.textContent = '🚀 Starting replay processing...\n';
+            progressBar.style.width = '0%';
+            uploadBtn.style.display = 'none';
+            
+            try {
+                // Get all map upload containers
+                const mapUploads = Array.from(document.querySelectorAll('.map-upload-container'));
+                
+                if (mapUploads.length === 0) {
+                    showError("Please add at least one map folder");
+                    return;
+                }
+                
+                let totalFiles = 0;
+                let processedFiles = 0;
+                const allRounds = [];
+                
+                // First pass: count total files
+                for (const mapUpload of mapUploads) {
+                    const mapId = mapUpload.id;
+                    const allInputs = mapUpload.querySelectorAll('input[type="file"]');
+                    for (const input of allInputs) {
+                        const files = Array.from(input.files || []);
+                        const recFiles = files.filter(f => f.name.endsWith('.rec'));
+                        totalFiles += recFiles.length;
+                    }
+                }
+                
+                // Process each map
+                for (const mapUpload of mapUploads) {
+                    const mapId = mapUpload.id;
+                    // Gather .rec files from ALL file inputs in this map (main + rehosts)
+                    const allInputs = mapUpload.querySelectorAll('input[type="file"]');
+                    let allRecFiles = [];
+                    let firstFolderName = '';
+                    for (const input of allInputs) {
+                        const files = Array.from(input.files || []);
+                        const recFiles = files.filter(f => f.name.endsWith('.rec'));
+                        if (recFiles.length > 0 && !firstFolderName) {
+                            firstFolderName = recFiles[0]?.webkitRelativePath?.split('/')[0] || `Map_${mapId.split('_')[1]}`;
+                        }
+                        allRecFiles = allRecFiles.concat(recFiles);
+                    }
+                    const recFiles = allRecFiles;
+                    const folderName = firstFolderName || `Map_${mapId.split('_')[1]}`;
+                    
+                    if (recFiles.length === 0) {
+                        outputLog.textContent += `\n⚠️ Skipping ${mapId} - no replay files found`;
+                        continue;
+                    }
+                    
+                    outputLog.textContent += `\n\n📂 Processing map: ${folderName} (${recFiles.length} rounds)`;
+                    
+                    // Initialize map data (mapName will be updated from parser data)
+                    matchData.maps[mapId] = {
+                        folderName: folderName,
+                        mapName: folderName,
+                        rounds: {},
+                        teamScore: 0,
+                        opponentScore: 0
+                    };
+                    
+                    // Sort files by round number
+                    recFiles.sort((a, b) => {
+                        const aRound = getRoundNumber(a.name);
+                        const bRound = getRoundNumber(b.name);
+                        return (aRound || 0) - (bRound || 0);
+                    });
+                    
+                    // Process each file in this map
+                    for (const file of recFiles) {
+                        const fileName = file.name;
+                        const roundNumber = getRoundNumber(fileName);
+                        
+                        if (!roundNumber) {
+                            outputLog.textContent += `\n⚠️ Invalid filename: ${fileName} - skipping`;
+                            continue;
+                        }
+                        
+                        outputLog.textContent += `\n🔍 Round ${roundNumber}... `;
+                        
+                        try {
+                            // In a real implementation, you would process the file here
+                            // For this demo, we'll simulate processing
+                            const buffer = await file.arrayBuffer();
+debugLog('… calling parseRec');
+const parsed = await parseRec(buffer);
+if (!parsed) {
+    outputLog.textContent += `failed (parser error)`;
+    continue;
+}
+outputLog.textContent += `done`;
+
+                        allRounds.push(parsed);
+                        if (window.autoscoreOnParsed) window.autoscoreOnParsed(parsed);
+// Tag teams for autoscore: index 0 is user's team
+                        try {
+                            const h = parsed?.processedData?.header || parsed?.header || parsed;
+                            const t = h?.teams || parsed?.teams;
+                            if (Array.isArray(t) && t.length >= 2) {
+                                if (typeof t[0].name !== 'string' || !t[0].name) t[0].name = 'YOUR TEAM';
+                                if (typeof t[1].name !== 'string' || !t[1].name) t[1].name = 'ENEMY TEAM';
+                            }
+                        } catch (e) { if (window.R6_DEBUG) console.warn('team tag failed', e); }
+
+                        if (typeof updateScoreFromRounds === 'function') { updateScoreFromRounds(allRounds); }
+
+// ---- Extract all data from parsed result ----
+const header = parsed?.processedData?.header || parsed?.header || parsed || {};
+const teams  = header.teams || parsed?.teams || [];
+const parsedPlayers = header.players || parsed?.players || [];
+const parsedMap = header.map || parsed?.map || {};
+const parsedSite = header.site || parsed?.site || "";
+
+debugLog('parsedPlayers count=' + parsedPlayers.length + ' first=' + JSON.stringify((parsedPlayers[0]||{}).username || 'none'));
+debugLog('teams count=' + teams.length + ' names=' + teams.map(t=>t?.name).join(','));
+
+// Update map name from parser (replace folder name with actual map name like "BankY10")
+if (parsedMap && parsedMap.name && matchData.maps[mapId].mapName === folderName) {
+    // Clean map name: remove Y10/Y11 suffixes (e.g. "BankY10" -> "Bank")
+    matchData.maps[mapId].mapName = parsedMap.name.replace(/Y\d+$/i, '');
+}
+
+// Normalize events
+const _eventsRaw = parsed?.processedData?.matchFeedback || parsed?.matchFeedback || parsed?.events || [];
+const events = (_eventsRaw || []).map(normalizeEventRecord).sort((a,b)=>a.timestamp-b.timestamp);
+
+// Determine which team is ours based on names
+let yourIdx = 0;
+if (Array.isArray(teams) && teams.length >= 2) {
+    if (/your/i.test(teams[1]?.name || '')) yourIdx = 1;
+    else if (/enemy|opponent/i.test(teams[0]?.name || '')) yourIdx = 1;
+}
+const ourTeam = Array.isArray(teams) && teams.length > yourIdx ? teams[yourIdx] : null;
+
+// Determine round result
+let roundWin = false;
+if (ourTeam) {
+    const before = Number(ourTeam.startingScore ?? 0);
+    const after  = Number(ourTeam.score ?? before);
+    roundWin = after > before;
+}
+
+                            if (roundWin) {
+                                matchData.maps[mapId].teamScore++;
+                                matchData.scoreSummary.yourTeam++;
+                            } else {
+                                matchData.maps[mapId].opponentScore++;
+                                matchData.scoreSummary.opponent++;
+                            }
+                            
+                            // Build player list with full operator/team data from parser
+                            const roundPlayers = (Array.isArray(parsedPlayers) ? parsedPlayers : []).map(p => {
+                                const name = p?.username || p?.name || "";
+                                const opData = p?.operator || {};
+                                return {
+                                    name: name,
+                                    nameKey: _sanitizeFirebaseKey(name),
+                                    teamIndex: (p?.teamIndex !== undefined) ? Number(p.teamIndex) : null,
+                                    operator: typeof opData === 'object' ? (opData.name || "") : String(opData || ""),
+                                    operatorId: typeof opData === 'object' ? (opData.id || 0) : 0,
+                                    roleName: p?.roleName || "",
+                                    spawn: p?.spawn || "",
+                                    alliance: p?.alliance ?? 0,
+                                    heroName: p?.heroName ?? 0
+                                };
+                            });
+                            debugLog('roundPlayers count=' + roundPlayers.length + ' sample=' + JSON.stringify(roundPlayers[0] || 'empty'));
+
+                            // Build team data
+                            const roundTeams = (Array.isArray(teams) ? teams : []).map(t => ({
+                                name: t?.name || "",
+                                score: t?.score ?? 0,
+                                startingScore: t?.startingScore ?? 0,
+                                won: t?.won || false,
+                                winCondition: t?.winCondition || "",
+                                role: t?.role || ""
+                            }));
+
+                            // Determine site and winning team
+                            const roundSite = parsedSite || computeRoundSite(header, events, roundPlayers);
+                            const winTeam = headerWinningTeam(header);
+
+                            // Build playerTeams mapping using team names
+                            const playerTeams = {};
+                            const playerTeamsAlias = {};
+                            // Determine which teamIndex is "YOUR TEAM"
+                            let yourTeamIndex = 0;
+                            if (Array.isArray(teams) && teams.length >= 2) {
+                                if (/your/i.test(teams[1]?.name || '')) yourTeamIndex = 1;
+                                else if (/enemy|opponent/i.test(teams[0]?.name || '')) yourTeamIndex = 1;
+                            }
+                            for (const p of roundPlayers) {
+                                const key = _sanitizeFirebaseKey(p.name);
+                                playerTeamsAlias[key] = p.name;
+                                playerTeams[key] = (p.teamIndex === yourTeamIndex) ? "YOUR TEAM" : "OPPONENTS";
+                            }
+
+                            // Store round data with all parsed info
+                            matchData.maps[mapId].rounds[roundNumber] = {
+                                roundNumber: roundNumber,
+                                outcome: roundWin ? "Win" : "Loss",
+                                winningTeam: winTeam,
+                                site: roundSite,
+                                events: events,
+                                yourRole: (ourTeam?.role || ""),
+                                yourTeamIndex: yourTeamIndex,
+                                teams: roundTeams,
+                                players: roundPlayers,
+                                playerTeams: playerTeams,
+                                playerTeamsAlias: playerTeamsAlias
+                            };
+
+                            // Build and merge rosters at map level
+                            mergeRosters(matchData.maps[mapId], roundPlayers, teams);
+                            
+                            // Store raw data for display
+                            rawReplayData[fileName] = {
+                                fileName: fileName,
+                                processedData: { header: header, matchFeedback: events },
+                                rawData: JSON.stringify(parsed, null, 2)
+                            };
+                            
+                            outputLog.textContent += `✔️ ${roundWin ? "Win" : "Loss"}`;
+                        } catch (error) {
+                            console.error(`Error processing ${fileName}:`, error);
+                            outputLog.textContent += `❌ Error: ${error.message}`;
+                        }
+                        
+                        processedFiles++;
+                        const progress = (processedFiles / totalFiles) * 100;
+                        progressBar.style.width = `${progress}%`;
+                    }
+                }
+                
+                // Update UI with results
+                updateMatchSummary();
+                outputLog.textContent += `\n\n🎉 Processing complete! Processed ${processedFiles} rounds across ${mapUploads.length} maps`;
+                uploadBtn.style.display = 'block';
+                hideLoading();
+                
+            } catch (error) {
+                console.error("Processing error:", error);
+                showError(`Processing failed: ${error.message}`);
+                outputLog.textContent += `\n❌ Error: ${error.message}`;
+            }
+        }
+
+        function getRoundNumber(filename) {
+            const match = filename.match(/R(\d+)\.rec/i);
+            return match ? parseInt(match[1]) : null;
+        }
+function updateMatchSummary() {
+            // Update scores
+            yourScoreEl.textContent = matchData.scoreSummary.yourTeam;
+            opponentScoreEl.textContent = matchData.scoreSummary.opponent;
+            
+            // Update map and round counts
+            mapCountEl.textContent = Object.keys(matchData.maps).length;
+            let roundCount = 0;
+            
+            // Update map container
+            mapContainer.innerHTML = '';
+            
+            Object.entries(matchData.maps).forEach(([mapId, mapData]) => {
+                roundCount += Object.keys(mapData.rounds).length;
+                
+                const mapCard = document.createElement('div');
+                mapCard.className = 'map-card';
+                
+                mapCard.innerHTML = `
+                    <div class="map-header">
+                        <div class="map-name">${mapData.mapName}</div>
+                        <div class="score-display">
+                            <div class="team-score">${mapData.teamScore}</div>
+                            <div>:</div>
+                            <div class="opponent-score">${mapData.opponentScore}</div>
+                        </div>
+                    </div>
+                    <div class="rounds-container" id="rounds-${mapId}"></div>
+                `;
+                
+                mapContainer.appendChild(mapCard);
+                
+                const roundsContainer = document.getElementById(`rounds-${mapId}`);
+                
+                // Display rounds
+                Object.entries(mapData.rounds).forEach(([roundNum, roundData]) => {
+                    const roundEl = document.createElement('div');
+                    roundEl.className = `round-item ${roundData.outcome === "Win" ? "round-win" : "round-loss"}`;
+                    roundEl.textContent = roundNum;
+                    roundEl.title = `Round ${roundNum}: ${roundData.outcome} (${roundData.site})`;
+                    roundsContainer.appendChild(roundEl);
+                });
+            });
+            
+            roundCountEl.textContent = roundCount;
+            matchData.scoreSummary.finalScore = 
+                `${matchData.scoreSummary.yourTeam}-${matchData.scoreSummary.opponent}`;
+        }
+
+        // Firebase submission
+        async function submitReplayData() {
+            outputLog.textContent += `\n\n📤 Uploading match data to Firebase...`;
+            
+            try {
+                if (!firebase.apps.length) {
+                    throw new Error("Firebase not initialized!");
+                }
+                
+                if (!teamId) {
+                    throw new Error("No team ID available. Please log in again.");
+                }
+                
+                // Write to Firebase
+                const matchRef = db.ref(`teams/${teamId}/matches_pro`).push();
+
+                await matchRef.set(_sanitizeFirebaseKeysDeep(matchData));
+                
+                outputLog.textContent += `\n✅ Match data uploaded successfully! ID: ${matchRef.key}`;
+                
+                // Show success message
+                showSuccess();
+                
+            } catch (error) {
+                console.error("Firebase error:", error);
+                showError(`Firebase upload failed: ${error.message}`);
+                outputLog.textContent += `\n❌ Error: ${error.message}`;
+            }
+        }
+
+        function showSuccess() {
+            const successEl = document.createElement('div');
+            successEl.className = 'event-item';
+            successEl.style.backgroundColor = 'rgba(16, 185, 129, 0.2)';
+            successEl.style.borderLeftColor = 'var(--success)';
+            successEl.innerHTML = `
+                <div class="event-header">
+                    <div class="event-type">Upload Successful!</div>
+                </div>
+                <div>Match data has been saved to Firebase</div>
+                <div class="form-actions" style="margin-top: 15px;">
+                    <button class="btn btn-primary" onclick="location.reload()">
+                        <i class="fas fa-sync"></i> Process Another Match
+                    </button>
+                </div>
+            `;
+            outputLog.parentNode.insertBefore(successEl, outputLog);
+            
+            // Scroll to success message
+            successEl.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // UI Helpers
+        function toggleRawData() {
+            const dumpElement = document.getElementById('rawDataDump');
+            dumpElement.classList.toggle('visible');
+            
+            if (dumpElement.classList.contains('visible')) {
+                let formattedData = "=== Raw Replay Data ===\n\n";
+                Object.values(rawReplayData).forEach(fileData => {
+                    formattedData += `File: ${fileData.fileName}\n`;
+                    if (fileData.error) {
+                        formattedData += `❌ Error: ${fileData.error}\n\n`;
+                        return;
+                    }
+                    formattedData += "Processed Data:\n" + 
+                        JSON.stringify(fileData.processedData, null, 2) + 
+                        "\n\nRaw Data:\n" + 
+                        fileData.rawData + 
+                        "\n\n────────────────────\n\n";
+                });
+                dumpElement.textContent = formattedData;
+            }
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            setTimeout(() => errorMessage.style.display = 'none', 10000);
+            
+            // Scroll to error message
+            errorMessage.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Initialize the UI with today's date
+        
+let dissectModule = null;
+
+createDissectModule().then((Module) => {
+    dissectModule = Module;
+    console.log("✅ r6-dissect WASM module loaded");
+});
+
+async function parseRec(buffer) {
+    const _t0 = performance.now();
+    try { debugLog('🔎 parseRec start'); } catch(_){}
+
+    // Robust client-side parsing via Go-compiled r6-dissect.wasm.
+    // Tries multiple call signatures to match the Go binding.
+    try {
+        // wait a tick for loader to finish if needed
+        await new Promise(res => setTimeout(res, 0));
+
+        if (typeof createDissectModule === "function" && !window.dissectModule) {
+            try { window.dissectModule = await createDissectModule(); } catch (e) {}
+        }
+        const mod = window.dissectModule || {};
+
+        if (typeof mod.r6dissectParse !== "function") {
+            console.error("r6dissectParse not found on module. Ensure Go code registers it via syscall/js.");
+            if (window.R6_DEBUG) debugLog('❌ parseRec returned null after attempts'); return null;
+        }
+
+        // Normalize input as Uint8Array; some Go bindings expect Uint8Array, others take ArrayBuffer.
+        const u8 = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+        if (window.R6_DEBUG) debugLog('buffer len='+u8.length+' hex='+hexPreview(u8, 32));
+        const len = u8.length;
+
+        // Try a few safe call patterns, stop at the first string result.
+        const attempts = [
+            () => mod.r6dissectParse(u8),
+            () => mod.r6dissectParse(u8, len),
+            () => mod.r6dissectParse(buffer),
+            () => mod.r6dissectParse(buffer, len),
+        ];
+
+        let jsonStr;
+        for (const tryCall of attempts) {
+            try {
+                const out = tryCall();
+                if (typeof out === "string" && out.length) {
+                    jsonStr = out;
+                    break;
+                }
+            } catch (e) {
+                // If the Go program has exited due to a panic, surface and abort further attempts.
+                if (String(e || "").includes("Go program has already exited")) {
+                    throw e;
+                }
+                // Otherwise, continue to next signature.
+                console.warn("r6dissectParse call variant failed, trying next…", e);
+            }
+        }
+
+        if (!jsonStr) {
+            console.error("All r6dissectParse call variants returned nothing. See previous warnings for hints.");
+            if (window.R6_DEBUG) debugLog('❌ parseRec returned null after attempts'); return null;
+        }
+
+        try {
+            const _parsed = JSON.parse(jsonStr);
+            if (window.R6_DEBUG) debugLog('✅ parseRec ok in '+(performance.now()-_t0).toFixed(1)+'ms');
+            return _parsed;
+        } catch (e) {
+            console.error("Failed to JSON.parse parser output:", e, jsonStr?.slice?.(0, 200));
+            if (window.R6_DEBUG) debugLog('❌ parseRec returned null after attempts'); return null;
+        }
+    } catch (err) {
+        console.error("❌ Error during client-side dissection:", err);
+        debugLog('💥 parseRec threw: '+(err && (err.message||err)));
+        if (window.R6_DEBUG) debugLog('❌ parseRec returned null after attempts'); return null;
+    }
+}
+
+
+window.onload = function() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('matchDate').value = today;
+        };
+    </script>
+<script src="../scripts/autoscore_from_teams.js"></script>
+
+<script>
+// === autoscore_from_teams.js (embedded) ===
+(function () {
+  'use strict';
+  function getTeams(round) {
+    if (!round) return null;
+    const h  = round.header || {};
+    const ph = round.processedData && round.processedData.header || {};
+    const rh = round.raw && round.raw.header || {};
+    return ph.teams || h.teams || rh.teams || round.teams || null;
+  }
+  function toScore(entry) {
+    if (!entry) return { after: 0, before: 0 };
+    const before = Number.isFinite(Number(entry.startingScore)) ? Number(entry.startingScore) : 0;
+    const after  = Number.isFinite(Number(entry.score)) ? Number(entry.score) : before;
+    return { after, before };
+  }
+  function findLastMatchWindow(rounds) {
+    let end = -1;
+    for (let i = rounds.length - 1; i >= 0; i--) {
+      const t = getTeams(rounds[i]);
+      if (Array.isArray(t) && t.length >= 2) { end = i; break; }
+    }
+    if (end < 0) return null;
+    const tEnd = getTeams(rounds[end]);
+    let currUser = toScore(tEnd[0]).after;
+    let currOpp  = toScore(tEnd[1]).after;
+    let start = end;
+    for (let i = end - 1; i >= 0; i--) {
+      const t = getTeams(rounds[i]);
+      if (!Array.isArray(t) || t.length < 2) break;
+      const sUser = toScore(t[0]).after;
+      const sOpp  = toScore(t[1]).after;
+      if (sUser > currUser || sOpp > currOpp) break;
+      currUser = sUser;
+      currOpp  = sOpp;
+      start = i;
+    }
+    return { start, end };
+  }
+  function computeFinalScore(rounds) {
+    const win = findLastMatchWindow(rounds);
+    if (!win) return null;
+    let yourMax = 0, oppMax = 0;
+    for (let i = win.start; i <= win.end; i++) {
+      const t = getTeams(rounds[i]);
+      if (!Array.isArray(t) || t.length < 2) continue;
+      const sUser = toScore(t[0]).after;
+      const sOpp  = toScore(t[1]).after;
+      if (sUser > yourMax) yourMax = sUser;
+      if (sOpp  > oppMax)  oppMax  = sOpp;
+    }
+    return { your: yourMax, opp: oppMax, window: win };
+  }
+  function writeHeaderScore(your, opp, opts) {
+    opts = opts || {};
+    const yourSel = opts.yourSel || '#yourScore, [data-your-score]';
+    const oppSel  = opts.oppSel  || '#opponentScore, [data-opponent-score], #oppScore';
+    const yEl = document.querySelector(yourSel);
+    const oEl = document.querySelector(oppSel);
+    if (yEl) yEl.textContent = String(your);
+    if (oEl) oEl.textContent  = String(opp);
+  }
+  window.updateScoreFromTeams = function(rounds, opts){
+    if (!Array.isArray(rounds) || rounds.length === 0) return;
+    const res = computeFinalScore(rounds);
+    if (!res) return;
+    writeHeaderScore(res.your, res.opp, opts);
+    window.userScore = res.your;
+    window.oppScore  = res.opp;
+    if (window.R6_DEBUG) console.log('[autoscore] final', res);
+  };
+})();
+// === shim to expose window.allRounds + hook ===
+(function(){
+  'use strict';
+  if (!Array.isArray(window.allRounds)) window.allRounds = [];
+  window.autoscoreOnParsed = function(parsed){
+    try{
+      if (parsed) window.allRounds.push(parsed);
+      if (typeof updateScoreFromTeams === 'function') {
+        updateScoreFromTeams(window.allRounds, { yourSel: '#yourScore', oppSel: '#opponentScore' });
+      }
+      const rc = document.querySelector('#roundCount');
+      if (rc) rc.textContent = String(window.allRounds.length);
+    }catch(e){ console.error('[autoscore shim] failed', e); }
+  };
+  window.autoscoreRefresh = function(){
+    if (typeof updateScoreFromTeams === 'function') {
+      updateScoreFromTeams(window.allRounds, { yourSel: '#yourScore', oppSel: '#opponentScore' });
+    }
+  };
+})();
+</script>
+
+
+<!-- Loading Screen Modal -->
+<div id="loadingModal" style="
+  position: fixed; inset: 0; background: rgba(10,12,20,.85);
+  display: none; align-items: center; justify-content: center; z-index: 9999;
+">
+  <div style="background:#111a2c;border:1px solid #253153;border-radius:16px;padding:28px 32px;min-width:320px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.45)">
+    <div style="font-weight:700; font-size:18px; margin-bottom:12px;">Processing replays…</div>
+    <div style="opacity:.8; font-size:14px; margin-bottom:18px;">This can take a minute depending on the folder size.</div>
+    <div class="spinner" style="width:42px;height:42px;border-radius:50%;border:4px solid #2b3553;border-top-color:#6d66ff;margin:0 auto;animation:spin 1s linear infinite"></div>
+  </div>
+</div>
+<style>
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+</style>
+
+
+<script>
+// Loading modal controls
+function showLoading(){ const m=document.getElementById('loadingModal'); if(m) m.style.display='flex'; }
+function hideLoading(){ const m=document.getElementById('loadingModal'); if(m) m.style.display='none'; }
+</script>
+
+
+<script>
+(function(){
+  // wrap processFiles if present
+  if (typeof window.processFiles === 'function') {
+    const _orig = window.processFiles;
+    window.processFiles = async function(...args){
+      showLoading();
+      try { return await _orig.apply(this, args); }
+      finally { hideLoading(); }
+    };
+  } else {
+    document.addEventListener('DOMContentLoaded', function(){
+      const btn = document.getElementById('processBtn');
+      if (btn) btn.addEventListener('click', ()=> showLoading());
+    });
+  }
+  window.__r6_showLoading = showLoading;
+  window.__r6_hideLoading = hideLoading;
+})();
+</script>
+
+</body>
+</html>

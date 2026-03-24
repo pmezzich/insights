@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>R6 Insights — Hub</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../styles/pro-global.css">
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="../scripts/firebase-config.js"></script>
+    <style>
+        :root {
+            --primary: #7C3AED;
+            --primary-dark: #6D28D9;
+            --secondary: #4F46E5;
+            --dark: #1E293B;
+            --darker: #0F172A;
+            --light: #F8FAFC;
+            --gray: #94A3B8;
+            --success: #10B981;
+            --danger: #EF4444;
+            --warning: #F59E0B;
+            --info: #3B82F6;
+            --card-bg: rgba(30, 41, 59, 0.75);
+            --card-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--darker), var(--dark));
+            color: var(--light);
+            min-height: 100vh;
+            padding: 20px;
+            background-image: url('https://images.contentstack.io/v3/assets/bltb6530b271fddd0b1/blt6577b1f58530e6b2/5eb7cdc165eec876c4b5d0d8/rainbow6siege_bloodmoon_splash.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(15, 23, 42, 0.92);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+            border: 1px solid var(--card-border);
+            backdrop-filter: blur(12px);
+        }
+
+        /* ── NAV HEADER ── */
+        .nav-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 28px;
+            background: rgba(30, 41, 59, 0.85);
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            font-size: 28px;
+            color: var(--primary);
+        }
+
+        .logo-text {
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-badge {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            text-transform: uppercase;
+        }
+
+        /* ── HERO ── */
+        .hero {
+            text-align: center;
+            padding: 52px 28px 36px;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .hero-icon {
+            font-size: 56px;
+            color: var(--primary);
+            margin-bottom: 18px;
+            filter: drop-shadow(0 0 18px rgba(124,58,237,0.5));
+        }
+
+        .hero h1 {
+            font-size: 38px;
+            font-weight: 800;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 12px;
+        }
+
+        .hero p {
+            font-size: 16px;
+            color: var(--gray);
+            max-width: 560px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        /* ── GRID ── */
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 22px;
+            padding: 36px 28px 48px;
+        }
+
+        @media (max-width: 900px) {
+            .tools-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 560px) {
+            .tools-grid { grid-template-columns: 1fr; }
+            .hero h1 { font-size: 28px; }
+        }
+
+        /* ── CARD ── */
+        .tool-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 14px;
+            padding: 28px 22px 24px;
+            text-decoration: none;
+            color: var(--light);
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            transition: transform 0.25s, box-shadow 0.25s, border-color 0.25s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tool-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(124,58,237,0.08), transparent 60%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .tool-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 32px rgba(124, 58, 237, 0.25);
+            border-color: var(--primary);
+        }
+
+        .tool-card:hover::before {
+            opacity: 1;
+        }
+
+        .card-icon-wrap {
+            width: 52px;
+            height: 52px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            flex-shrink: 0;
+        }
+
+        .card-body {
+            flex: 1;
+        }
+
+        .card-title {
+            font-size: 17px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .card-desc {
+            font-size: 13px;
+            color: var(--gray);
+            line-height: 1.55;
+        }
+
+        .card-arrow {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-top: 4px;
+            opacity: 0.7;
+            transition: opacity 0.2s, gap 0.2s;
+        }
+
+        .tool-card:hover .card-arrow {
+            opacity: 1;
+            gap: 10px;
+        }
+
+        /* Colour themes per card */
+        .theme-purple .card-icon-wrap { background: rgba(124,58,237,0.2); color: #a78bfa; }
+        .theme-purple .card-title     { color: #a78bfa; }
+        .theme-purple .card-arrow     { color: #a78bfa; }
+
+        .theme-blue .card-icon-wrap   { background: rgba(59,130,246,0.2); color: #60a5fa; }
+        .theme-blue .card-title       { color: #60a5fa; }
+        .theme-blue .card-arrow       { color: #60a5fa; }
+
+        .theme-green .card-icon-wrap  { background: rgba(16,185,129,0.2); color: #34d399; }
+        .theme-green .card-title      { color: #34d399; }
+        .theme-green .card-arrow      { color: #34d399; }
+
+        .theme-orange .card-icon-wrap { background: rgba(245,158,11,0.2); color: #fbbf24; }
+        .theme-orange .card-title     { color: #fbbf24; }
+        .theme-orange .card-arrow     { color: #fbbf24; }
+
+        .theme-red .card-icon-wrap    { background: rgba(239,68,68,0.2); color: #f87171; }
+        .theme-red .card-title        { color: #f87171; }
+        .theme-red .card-arrow        { color: #f87171; }
+
+        .theme-cyan .card-icon-wrap   { background: rgba(6,182,212,0.2); color: #22d3ee; }
+        .theme-cyan .card-title       { color: #22d3ee; }
+        .theme-cyan .card-arrow       { color: #22d3ee; }
+
+        /* ── FOOTER ── */
+        .footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 13px;
+            color: var(--gray);
+            border-top: 1px solid var(--card-border);
+        }
+
+        /* ── HUB hidden until authed ── */
+        #hubWrap { display: none; }
+
+        /* ── AUTH LOADING OVERLAY ── */
+        #authLoading {
+            position: fixed; inset: 0;
+            background: rgba(10, 16, 30, 0.98);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            z-index: 9999; gap: 16px;
+        }
+        #authLoading.hidden { display: none; }
+        .spinner {
+            width: 44px; height: 44px;
+            border: 3px solid rgba(124,58,237,0.2);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.75s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner-text { color: var(--gray); font-size: 14px; }
+
+        /* ── LOGIN SCREEN ── */
+        #loginScreen {
+            position: fixed; inset: 0;
+            display: none;
+            align-items: center; justify-content: center;
+            z-index: 9998;
+            background-image: url('https://images.contentstack.io/v3/assets/bltb6530b271fddd0b1/blt6577b1f58530e6b2/5eb7cdc165eec876c4b5d0d8/rainbow6siege_bloodmoon_splash.jpg');
+            background-size: cover; background-position: center;
+        }
+        #loginScreen.visible { display: flex; }
+
+        .login-card {
+            background: rgba(15, 23, 42, 0.97);
+            border: 1px solid var(--card-border);
+            border-radius: 18px;
+            padding: 40px 36px 32px;
+            width: 100%; max-width: 400px;
+            backdrop-filter: blur(16px);
+            box-shadow: 0 24px 64px rgba(0,0,0,0.75);
+            position: relative; overflow: hidden;
+        }
+        .login-card::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+        }
+
+        .login-logo {
+            display: flex; align-items: center; justify-content: center;
+            gap: 10px; margin-bottom: 10px;
+        }
+        .login-logo-img { height:36px; mix-blend-mode:screen; filter:invert(1) sepia(1) saturate(4) hue-rotate(240deg) brightness(0.95); }
+        .login-logo-text {
+            font-size: 22px; font-weight: 800;
+            background: linear-gradient(to right, #a78bfa, #818cf8);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .login-logo-badge {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white; font-size: 10px; font-weight: 700;
+            letter-spacing: 1px; padding: 2px 9px;
+            border-radius: 20px; text-transform: uppercase;
+        }
+        .login-tagline {
+            text-align: center; color: var(--gray);
+            font-size: 13px; margin-bottom: 30px;
+        }
+
+        .login-field { margin-bottom: 16px; }
+        .login-field label {
+            display: block; margin-bottom: 6px;
+            font-size: 11px; font-weight: 700; color: var(--gray);
+            text-transform: uppercase; letter-spacing: 0.6px;
+        }
+        .login-field input {
+            width: 100%; padding: 12px 14px;
+            background: rgba(30, 41, 59, 0.9);
+            border: 1px solid var(--card-border);
+            border-radius: 9px; color: var(--light);
+            font-size: 14px; font-family: inherit;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .login-field input:focus {
+            outline: none; border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(124,58,237,0.2);
+        }
+        .login-field input::placeholder { color: rgba(148,163,184,0.35); }
+
+        #loginBtn {
+            width: 100%; padding: 13px; margin-top: 6px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white; border: none; border-radius: 9px;
+            font-size: 15px; font-weight: 700; cursor: pointer;
+            font-family: inherit;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            transition: opacity 0.2s, transform 0.15s;
+        }
+        #loginBtn:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+        #loginBtn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+        #loginError {
+            margin-top: 14px; padding: 10px 14px;
+            background: rgba(239,68,68,0.12);
+            border: 1px solid rgba(239,68,68,0.35);
+            border-radius: 8px; color: #fca5a5;
+            font-size: 13px; text-align: center;
+            display: none;
+        }
+        #loginError.show { display: block; }
+
+        /* ── NAV ADDITIONS ── */
+        .nav-right { display: flex; align-items: center; gap: 12px; }
+        .team-pill {
+            display: flex; align-items: center; gap: 7px;
+            padding: 6px 14px;
+            background: rgba(124,58,237,0.15);
+            border: 1px solid rgba(124,58,237,0.4);
+            border-radius: 50px; font-size: 13px;
+            color: #a78bfa; font-weight: 600;
+        }
+        .btn-logout {
+            padding: 7px 14px; border-radius: 8px;
+            border: 1px solid rgba(239,68,68,0.4);
+            background: rgba(239,68,68,0.1); color: #fca5a5;
+            font-size: 13px; font-weight: 600; cursor: pointer;
+            font-family: inherit;
+            display: inline-flex; align-items: center; gap: 6px;
+            transition: all 0.18s;
+        }
+        .btn-logout:hover { background: rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.65); }
+    </style>
+</head>
+<body>
+
+    <!-- Spinner shown while Firebase resolves auth state -->
+    <div id="authLoading">
+        <div class="spinner"></div>
+        <div class="spinner-text">Checking session…</div>
+    </div>
+
+    <!-- Login screen — shown when not authenticated -->
+    <div id="loginScreen">
+        <div class="login-card">
+            <div class="login-logo">
+                <img src="../styles/r6_insights.png" class="login-logo-img" alt="R6 Insights">
+                <span class="login-logo-text">R6 INSIGHTS</span>
+                <span class="login-logo-badge">Pro</span>
+            </div>
+            <div class="login-tagline">Sign in to access the Pro Analytics Hub</div>
+
+            <div class="login-field">
+                <label for="loginEmail">Email</label>
+                <input type="email" id="loginEmail" placeholder="team@example.com" autocomplete="email">
+            </div>
+            <div class="login-field">
+                <label for="loginPassword">Password</label>
+                <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
+            </div>
+
+            <button id="loginBtn" onclick="doLogin()">
+                <i class="fas fa-right-to-bracket"></i> Sign In
+            </button>
+            <div id="loginError"></div>
+        </div>
+    </div>
+
+    <!-- Hub — hidden until authenticated -->
+    <div id="hubWrap">
+    <div class="container">
+
+        <!-- Nav Header -->
+        <div class="nav-header">
+            <div class="logo">
+                <img src="../styles/r6_insights.png" class="logo-img" alt="R6 Insights">
+                <div class="logo-text">R6 INSIGHTS</div>
+                <span class="nav-badge">Beta</span>
+            </div>
+            <div class="nav-right">
+                <div class="team-pill">
+                    <i class="fas fa-shield-halved"></i>
+                    <span id="teamNameDisplay">—</span>
+                </div>
+                <button class="btn-logout" onclick="doLogout()">
+                    <i class="fas fa-right-from-bracket"></i> Logout
+                </button>
+            </div>
+        </div>
+
+        <!-- Hero -->
+        <div class="hero">
+            <div class="hero-icon"><i class="fas fa-shield-halved"></i></div>
+            <h1>R6 Insights Hub</h1>
+            <p>All your Rainbow Six Siege team tools in one place — select a module below to get started.</p>
+        </div>
+
+        <!-- Tools Grid -->
+        <div class="tools-grid">
+
+            <!-- Player Stats -->
+            <a href="stats_pro.html" class="tool-card theme-purple">
+                <div class="card-icon-wrap">
+                    <i class="fas fa-chart-bar"></i>
+                </div>
+                <div class="card-body">
+                    <div class="card-title">Player Stats</div>
+                    <div class="card-desc">Detailed individual player performance metrics, K/D ratios, headshot rates, and operator breakdowns.</div>
+                </div>
+                <div class="card-arrow">
+                    Open Module <i class="fas fa-arrow-right"></i>
+                </div>
+            </a>
+
+            <!-- Team Stats -->
+            <a href="teamstats_pro.html" class="tool-card theme-blue">
+                <div class="card-icon-wrap">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="card-body">
+                    <div class="card-title">Team Stats</div>
+                    <div class="card-desc">Aggregate team performance across maps, rounds won/lost, attack vs defence split, and more.</div>
+                </div>
+                <div class="card-arrow">
+                    Open Module <i class="fas fa-arrow-right"></i>
+                </div>
+            </a>
+
+            <!-- Team Management -->
+            <a href="team_managment_pro.html" class="tool-card theme-green">
+                <div class="card-icon-wrap">
+                    <i class="fas fa-user-gear"></i>
+                </div>
+                <div class="card-body">
+                    <div class="card-title">Team Management</div>
+                    <div class="card-desc">Manage your roster, assign roles, update player profiles, and organise your team structure.</div>
+                </div>
+                <div class="card-arrow">
+                    Open Module <i class="fas fa-arrow-right"></i>
+                </div>
+            </a>
+
+            <!-- Compare -->
+            <a href="compare_pro.html" class="tool-card theme-orange">
+                <div class="card-icon-wrap">
+                    <i class="fas fa-code-compare"></i>
+                </div>
+                <div class="card-body">
+                    <div class="card-title">Compare Players</div>
+                    <div class="card-desc">Side-by-side comparison of two players across any stat category to identify strengths and weaknesses.</div>
+                </div>
+                <div class="card-arrow">
+                    Open Module <i class="fas fa-arrow-right"></i>
+                </div>
+            </a>
+
+            <!-- Match History -->
+            <a href="match_history_pro.html" class="tool-card theme-red">
+                <div class="card-icon-wrap">
+                    <i class="fas fa-clock-rotate-left"></i>
+                </div>
+                <div class="card-body">
+                    <div class="card-title">Match History</div>
+                    <div class="card-desc">Browse past match results, round-by-round breakdowns, and review historical performance trends.</div>
+                </div>
+                <div class="card-arrow">
+                    Open Module <i class="fas fa-arrow-right"></i>
+                </div>
+            </a>
+
+            <!-- Replay Analyzer -->
+            <a href="FinalVersion.html" class="tool-card theme-cyan">
+                <div class="card-icon-wrap">
+                    <i class="fas fa-film"></i>
+                </div>
+                <div class="card-body">
+                    <div class="card-title">Replay Analyzer</div>
+                    <div class="card-desc">Upload and parse .rec replay files to extract round events, operator timelines, and match data.</div>
+                </div>
+                <div class="card-arrow">
+                    Open Module <i class="fas fa-arrow-right"></i>
+                </div>
+            </a>
+
+        </div>
+
+        <div class="footer">
+            R6 Insights Beta &mdash; All tools in one place
+        </div>
+
+    </div>
+    </div><!-- end #hubWrap -->
+
+    <script>
+    (function () {
+        firebase.initializeApp(FIREBASE_CONFIG);
+        const auth = firebase.auth();
+        const db   = firebase.database();
+
+        const $ = id => document.getElementById(id);
+
+        // ── Auth state ────────────────────────────────────────────────────────
+        auth.onAuthStateChanged(async user => {
+            if (!user) {
+                showLogin();
+                return;
+            }
+            // Block unverified emails
+            if (!user.emailVerified) {
+                await auth.signOut();
+                showLogin('Please verify your email before signing in. Check your inbox.');
+                return;
+            }
+            try {
+                // Verify user has a valid team
+                const snap = await db.ref(`users/${user.uid}/teamId`).once('value');
+                const teamId = snap.val();
+                if (!teamId) { await auth.signOut(); showLogin(); return; }
+
+                // Load team name
+                const tSnap = await db.ref(`teams/${teamId}/info/teamName`).once('value');
+                const teamName = tSnap.val() || teamId;
+                $('teamNameDisplay').textContent = teamName;
+
+                showHub();
+            } catch (e) {
+                await auth.signOut();
+                showLogin('Session error. Please sign in again.');
+            }
+        });
+
+        // ── Login ─────────────────────────────────────────────────────────────
+        window.doLogin = async function () {
+            const email    = $('loginEmail').value.trim();
+            const password = $('loginPassword').value;
+            const btn      = $('loginBtn');
+            const err      = $('loginError');
+
+            err.className = '';
+            err.textContent = '';
+
+            if (!email || !password) {
+                showError('Please enter your email and password.');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing in…';
+
+            try {
+                await auth.signInWithEmailAndPassword(email, password);
+                // onAuthStateChanged will handle the rest
+            } catch (e) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-right-to-bracket"></i> Sign In';
+                switch (e.code) {
+                    case 'auth/invalid-email':        showError('Invalid email address.');           break;
+                    case 'auth/user-not-found':
+                    case 'auth/wrong-password':
+                    case 'auth/invalid-credential':   showError('Incorrect email or password.');     break;
+                    case 'auth/too-many-requests':    showError('Too many attempts. Try again later.'); break;
+                    default:                          showError('Login failed: ' + e.message);
+                }
+            }
+        };
+
+        // Allow Enter key to submit
+        ['loginEmail', 'loginPassword'].forEach(id => {
+            $(id).addEventListener('keydown', e => { if (e.key === 'Enter') window.doLogin(); });
+        });
+
+        // ── Logout ────────────────────────────────────────────────────────────
+        window.doLogout = function () {
+            auth.signOut();
+        };
+
+        // ── UI helpers ────────────────────────────────────────────────────────
+        function showLogin(errorMsg) {
+            $('authLoading').classList.add('hidden');
+            $('hubWrap').style.display = 'none';
+            $('loginScreen').classList.add('visible');
+            $('loginEmail').value    = '';
+            $('loginPassword').value = '';
+            const btn = $('loginBtn');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-right-to-bracket"></i> Sign In';
+            if (errorMsg) showError(errorMsg);
+        }
+
+        function showHub() {
+            $('authLoading').classList.add('hidden');
+            $('loginScreen').classList.remove('visible');
+            $('hubWrap').style.display = 'block';
+        }
+
+        function showError(msg) {
+            const el = $('loginError');
+            el.textContent = msg;
+            el.className = 'show';
+        }
+    })();
+    </script>
+</body>
+</html>
