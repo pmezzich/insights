@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>window.process = window.process || { env: {} };</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trial Scrim — R6 Insights</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="../styles/pro-global.css">
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+<script src="../scripts/firebase-config.js"></script>
+<script src="wasm_exec.js"></script>
+<script src="r6-dissect.js"></script>
+<style>
+:root {
+    --primary:#7C3AED;--secondary:#4F46E5;
+    --dark:#1E293B;--darker:#0F172A;--light:#F8FAFC;--gray:#94A3B8;
+    --success:#10B981;--danger:#EF4444;--warning:#F59E0B;
+    --card-bg:rgba(30,41,59,0.75);--card-border:rgba(255,255,255,0.1);
+}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;}
+body{color:var(--light);min-height:100vh;padding:20px;}
+.container{max-width:1100px;margin:0 auto;background:rgba(15,23,42,0.93);border-radius:16px;overflow:hidden;box-shadow:0 12px 48px rgba(0,0,0,0.7);border:1px solid var(--card-border);backdrop-filter:blur(14px);}
+
+/* ── CONTENT ── */
+.content{padding:22px 26px;display:flex;flex-direction:column;gap:20px;}
+.panel{background:var(--card-bg);border:1px solid var(--card-border);border-radius:12px;overflow:hidden;}
+.panel-hdr{padding:13px 18px;border-bottom:1px solid var(--card-border);font-size:12px;font-weight:700;display:flex;align-items:center;gap:8px;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;}
+.panel-body{padding:20px;}
+
+/* ── FORM ── */
+.form-row{display:flex;flex-direction:column;gap:5px;margin-bottom:16px;}
+.form-row:last-child{margin-bottom:0;}
+.form-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);}
+.form-input,.form-select{padding:11px 13px;border-radius:8px;border:1px solid var(--card-border);background:rgba(10,16,28,0.9);color:var(--light);font-size:14px;font-family:inherit;transition:border-color .2s;}
+.form-input:focus,.form-select:focus{outline:none;border-color:var(--primary);}
+.form-input::placeholder{color:rgba(148,163,184,0.3);}
+
+/* ── BUTTONS ── */
+.btn{padding:10px 18px;border-radius:8px;border:none;cursor:pointer;font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:8px;transition:all .18s;font-family:inherit;color:var(--light);}
+.btn:hover{transform:translateY(-1px);}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none;}
+.btn-primary{background:linear-gradient(135deg,var(--primary),var(--secondary));color:white;}
+.btn-primary:hover{opacity:.9;}
+.btn-secondary{background:rgba(79,70,229,0.2);border:1px solid var(--secondary);}
+.btn-secondary:hover{background:rgba(79,70,229,0.32);}
+.btn-warning{background:rgba(245,158,11,0.2);border:1px solid rgba(245,158,11,0.5);color:#fbbf24;}
+.btn-warning:hover{background:rgba(245,158,11,0.32);}
+
+/* ── UPLOAD AREA ── */
+.upload-area{border:2px dashed rgba(255,255,255,0.15);border-radius:10px;padding:28px;text-align:center;background:rgba(15,23,42,0.5);cursor:pointer;transition:all .2s;}
+.upload-area:hover{border-color:var(--primary);background:rgba(124,58,237,0.08);}
+.upload-area.has-files{border-color:var(--success);background:rgba(16,185,129,0.06);}
+
+/* ── PLAYER PICKER ── */
+.player-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;}
+.player-card{border-radius:10px;padding:14px 12px;text-align:center;border:2px solid var(--card-border);background:rgba(15,23,42,0.5);cursor:pointer;transition:all .2s;}
+.player-card:hover{border-color:var(--primary);background:rgba(124,58,237,0.08);}
+.player-card.selected{border-color:#fbbf24;background:rgba(245,158,11,0.1);}
+.player-card.our-team{border-color:rgba(16,185,129,0.4);}
+.player-card.selected.our-team{border-color:#fbbf24;}
+.pc-av{width:44px;height:44px;border-radius:10px;margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;background:rgba(124,58,237,0.2);color:#a78bfa;}
+.pc-name{font-size:12px;font-weight:700;word-break:break-all;}
+.pc-team{font-size:10px;margin-top:3px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;}
+.our-team .pc-team{color:#34d399;}
+.player-card:not(.our-team) .pc-team{color:var(--gray);}
+
+/* ── STATS DISPLAY ── */
+.kpi-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;}
+.kpi{background:var(--card-bg);border:1px solid var(--card-border);border-radius:10px;padding:14px 12px;text-align:center;position:relative;overflow:hidden;}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.kpi-blue::before{background:linear-gradient(to right,#3B82F6,#60a5fa);}
+.kpi-green::before{background:linear-gradient(to right,#10B981,#34d399);}
+.kpi-purple::before{background:linear-gradient(to right,#7C3AED,#a78bfa);}
+.kpi-amber::before{background:linear-gradient(to right,#F59E0B,#fbbf24);}
+.kpi-red::before{background:linear-gradient(to right,#EF4444,#f87171);}
+.kpi-val{font-size:24px;font-weight:800;margin:6px 0 2px;}
+.kpi-blue .kpi-val{color:#60a5fa;}.kpi-green .kpi-val{color:#34d399;}.kpi-purple .kpi-val{color:#a78bfa;}
+.kpi-amber .kpi-val{color:#fbbf24;}.kpi-red .kpi-val{color:#f87171;}
+.kpi-lbl{font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.4px;font-weight:600;}
+
+/* ── OP TABLE ── */
+.op-tbl{width:100%;border-collapse:collapse;font-size:13px;}
+.op-tbl th{padding:9px 12px;border-bottom:1px solid var(--card-border);text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:rgba(148,163,184,0.5);}
+.op-tbl th.tc{text-align:center;}
+.op-tbl td{padding:9px 12px;border-bottom:1px solid rgba(255,255,255,0.04);vertical-align:middle;}
+.op-tbl tr:last-child td{border-bottom:none;}
+.op-tbl tr:hover td{background:rgba(124,58,237,0.05);}
+.op-tbl .tc{text-align:center;}
+.op-av{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;}
+
+/* ── ROUND TABLE ── */
+.round-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(60px,1fr));gap:8px;margin-top:12px;}
+.round-pill{height:56px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:700;font-size:11px;gap:2px;border:1px solid var(--card-border);background:rgba(30,41,59,0.8);}
+.round-pill.win{background:rgba(16,185,129,0.2);border-color:rgba(16,185,129,0.5);color:#34d399;}
+.round-pill.loss{background:rgba(239,68,68,0.2);border-color:rgba(239,68,68,0.5);color:#f87171;}
+.rp-num{font-size:9px;opacity:.6;}
+
+/* ── AI PANEL ── */
+.ai-output{background:rgba(15,23,42,0.8);border:1px solid var(--card-border);border-radius:8px;padding:16px;font-size:13px;line-height:1.7;color:rgba(248,250,252,0.85);white-space:pre-wrap;min-height:80px;}
+.ai-output.loading{display:flex;align-items:center;gap:10px;color:var(--gray);}
+
+/* ── SECTION DIVIDER ── */
+.sdiv{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:rgba(148,163,184,0.35);display:flex;align-items:center;gap:8px;margin:18px 0 12px;}
+.sdiv::after{content:'';flex:1;height:1px;background:var(--card-border);}
+
+/* ── LOG ── */
+.log-box{background:rgba(10,14,24,0.9);border:1px solid var(--card-border);border-radius:8px;padding:14px;font-family:monospace;font-size:12px;color:#94A3B8;max-height:180px;overflow-y:auto;white-space:pre-wrap;line-height:1.6;}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:22px;right:22px;padding:11px 17px;border-radius:10px;font-size:13px;font-weight:600;z-index:9998;display:flex;align-items:center;gap:7px;animation:tin .2s ease;box-shadow:0 4px 20px rgba(0,0,0,.5);color:white;}
+.toast.success{background:rgba(16,185,129,0.95);}
+.toast.error{background:rgba(239,68,68,0.95);}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+@media(max-width:640px){
+    body{padding:10px;}.content{padding:12px;}
+    .kpi-strip{grid-template-columns:repeat(3,1fr);}
+    .player-grid{grid-template-columns:repeat(3,1fr);}
+}
+</style>
+</head>
+<body>
+<div class="container">
+    <!-- Nav -->
+    <div class="nav-header">
+        <a href="index_pro.html" class="logo">
+            <img src="../styles/r6_insights.png" class="logo-img" alt="R6 Insights">
+            <div class="logo-text">R6 INSIGHTS</div>
+            <span class="nav-badge">Beta</span>
+        </a>
+        <div class="nav-right">
+            <a href="FinalVersion.html" class="btn btn-secondary" style="padding:8px 14px;font-size:13px;"><i class="fas fa-film"></i> Replay Analyzer</a>
+            <a href="index_pro.html" class="btn btn-secondary" style="padding:8px 14px;font-size:13px;"><i class="fas fa-arrow-left"></i> Hub</a>
+            <button class="btn-logout" onclick="auth.signOut().then(()=>location.href='index_pro.html')">
+                <i class="fas fa-right-from-bracket"></i> Logout
+            </button>
+        </div>
+    </div>
+
+    <!-- Page Title -->
+    <div class="page-title">
+        <div class="page-title-icon" style="background:rgba(245,158,11,0.18);border:1px solid rgba(245,158,11,0.35);color:#fbbf24;">
+            <i class="fas fa-flask"></i>
+        </div>
+        <div>
+            <h2>Trial Scrim</h2>
+            <p>Upload a replay, pick a player, get full stats — no data saved to the team</p>
+        </div>
+    </div>
+
+    <div class="content">
+
+        <!-- Step 1: Upload -->
+        <div class="panel">
+            <div class="panel-hdr"><i class="fas fa-upload" style="color:#fbbf24;"></i> Step 1 — Upload Replay Folder</div>
+            <div class="panel-body">
+                <div class="upload-area" id="uploadArea" onclick="document.getElementById('folderInput').click()">
+                    <div style="font-size:40px;color:var(--primary);margin-bottom:12px;"><i class="fas fa-folder-open"></i></div>
+                    <div style="font-weight:700;margin-bottom:6px;">Click to select a replay folder</div>
+                    <div style="font-size:13px;color:var(--gray);">Select the folder containing .rec files for one map</div>
+                    <div id="fileCountLabel" style="margin-top:10px;font-size:13px;color:#34d399;display:none;"></div>
+                </div>
+                <input type="file" id="folderInput" webkitdirectory directory multiple style="display:none;" accept=".rec">
+                <div id="processRow" style="margin-top:14px;display:none;">
+                    <button class="btn btn-primary" onclick="processTrialFiles()">
+                        <i class="fas fa-cogs"></i> Process Replay
+                    </button>
+                </div>
+                <div class="log-box" id="trialLog" style="margin-top:14px;">Ready — select a folder to begin.</div>
+            </div>
+        </div>
+
+        <!-- Step 2: Pick player -->
+        <div class="panel" id="playerPickerPanel" style="display:none;">
+            <div class="panel-hdr"><i class="fas fa-users" style="color:#a78bfa;"></i> Step 2 — Select a Player to Analyse</div>
+            <div class="panel-body">
+                <div style="font-size:13px;color:var(--gray);margin-bottom:14px;">
+                    <span style="color:#34d399;font-weight:700;">Green border</span> = your team's players (identified from roster data).
+                    Select any player to see their full stats for this match.
+                </div>
+                <div class="player-grid" id="playerGrid"></div>
+            </div>
+        </div>
+
+        <!-- Step 3: Stats -->
+        <div id="statsSection" style="display:none;">
+
+            <!-- Player header -->
+            <div class="panel">
+                <div class="panel-hdr"><i class="fas fa-chart-bar" style="color:#60a5fa;"></i> Stats — <span id="statPlayerName" style="color:var(--light);text-transform:none;letter-spacing:0;font-size:13px;"></span></div>
+                <div class="panel-body">
+                    <div class="kpi-strip" id="kpiStrip"></div>
+
+                    <div class="sdiv" style="margin-top:20px;"><i class="fas fa-crosshairs" style="font-size:10px;color:#f87171;"></i> Attack / Defence Split</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;" id="splitGrid"></div>
+
+                    <div class="sdiv"><i class="fas fa-bolt" style="font-size:10px;color:#fbbf24;"></i> Entry & Objective</div>
+                    <div class="kpi-strip" style="grid-template-columns:repeat(4,1fr);" id="entryStrip"></div>
+                </div>
+            </div>
+
+            <!-- Round by round -->
+            <div class="panel">
+                <div class="panel-hdr"><i class="fas fa-list" style="color:#34d399;"></i> Round Breakdown</div>
+                <div class="panel-body">
+                    <div class="round-grid" id="roundGrid"></div>
+                </div>
+            </div>
+
+            <!-- Operators -->
+            <div class="panel">
+                <div class="panel-hdr"><i class="fas fa-user-secret" style="color:#a78bfa;"></i> Operator Breakdown</div>
+                <div class="panel-body" style="overflow-x:auto;">
+                    <table class="op-tbl" id="opTable">
+                        <thead>
+                            <tr>
+                                <th>Operator</th>
+                                <th>Role</th>
+                                <th class="tc">Rounds</th>
+                                <th class="tc">Kills</th>
+                                <th class="tc">Deaths</th>
+                                <th class="tc">K/D</th>
+                                <th class="tc">HS%</th>
+                                <th class="tc">Win%</th>
+                            </tr>
+                        </thead>
+                        <tbody id="opTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- AI Summary -->
+            <div class="panel">
+                <div class="panel-hdr">
+                    <i class="fas fa-robot" style="color:#a78bfa;"></i> AI Scout Report
+                    <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+                        <button class="btn btn-warning" style="padding:6px 14px;font-size:12px;" onclick="generateAI()" id="aiBtn">
+                            <i class="fas fa-wand-magic-sparkles"></i> Generate Report
+                        </button>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div id="aiOutput" class="ai-output" style="display:none;"></div>
+                    <div style="font-size:12px;color:rgba(148,163,184,0.4);margin-top:8px;">
+                        AI analysis is not saved anywhere — for your eyes only.
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+// ── WASM helpers (same as FinalVersion) ──────────────────────────────────────
+window.process = window.process || { env: {} };
+
+function _sanitizeFirebaseKey(k) {
+    return String(k||'').replace(/\./g,'(dot)').replace(/\#/g,'(hash)').replace(/\$/g,'(dollar)').replace(/\//g,'(slash)').replace(/\[/g,'(lbracket)').replace(/\]/g,'(rbracket)');
+}
+
+function normalizeEventRecord(e){
+    const tRaw = (e&&(e.type?.name||e.type||e.event||'')).toString();
+    let type='';
+    if(/^kill$/i.test(tRaw)) type='kill';
+    else if(/DefuserPlant/i.test(tRaw)||/Plant/i.test(tRaw)) type='plant';
+    else if(/DefuserDisable/i.test(tRaw)||/Disable/i.test(tRaw)||/Defuse/i.test(tRaw)) type='defuse';
+    else if(/Operator/i.test(tRaw)&&/(Swap|Select|Change)/i.test(tRaw)) type='op_swap';
+    else type=tRaw.toLowerCase();
+    return {
+        type, headshot: !!(e?.headshot||e?.isHeadshot||(e?.hitArea==='Head')),
+        username: e?.username||e?.player||e?.source||e?.killer||'',
+        target: e?.target||e?.victim||'',
+        timestamp: Number(e?.timeInSeconds??e?.timestamp??e?.time??0),
+        newOperator: e?.newOperator||e?.operator||e?.op||e?.to||'',
+        site: e?.site||e?.siteName||'',
+    };
+}
+
+// ── OP_ROLES ─────────────────────────────────────────────────────────────────
+const OP_ROLES = {
+    'Ash':'frag','Zofia':'frag','Sledge':'frag','Buck':'frag','Hibana':'frag',
+    'Thermite':'support','Thatcher':'support','Twitch':'support','Ace':'support',
+    'Lion':'support','Finka':'support','Maverick':'frag','Flores':'flex',
+    'Iana':'frag','Nomad':'flex','Nokk':'frag','Zero':'support','Grim':'support',
+    'Brava':'frag','Ram':'frag','Deimos':'frag','Striker':'frag','SolidSnake':'frag',
+    'Sens':'support','IQ':'support',
+    'Jager':'anchor','Bandit':'anchor','Echo':'anchor','Pulse':'anchor',
+    'Doc':'support','Rook':'support','Castle':'anchor','Caveira':'roam',
+    'Valkyrie':'support','Mute':'anchor','Smoke':'anchor','Frost':'anchor',
+    'Lesion':'flex','Ela':'roam','Vigil':'roam','Mozzie':'flex','Warden':'anchor',
+    'Goyo':'anchor','Melusi':'anchor','Aruni':'anchor','Thorn':'anchor',
+    'Fenrir':'anchor','Skopos':'flex','Denari':'flex',
+    'Mira':'anchor','Tachanka':'anchor','Wamai':'support','Azami':'anchor',
+    'Blitz':'frag','Montagne':'support','Clash':'anchor',
+    'Dokkaebi':'support','Gridlock':'support','Kaid':'anchor',
+    'Capitao':'frag','Blackbeard':'frag','Glaz':'frag',
+};
+
+const OP_COLORS = {
+    frag:   {bg:'rgba(239,68,68,0.2)',   color:'#f87171'},
+    support:{bg:'rgba(59,130,246,0.2)',  color:'#60a5fa'},
+    flex:   {bg:'rgba(245,158,11,0.2)',  color:'#fbbf24'},
+    anchor: {bg:'rgba(16,185,129,0.2)',  color:'#34d399'},
+    roam:   {bg:'rgba(124,58,237,0.2)',  color:'#a78bfa'},
+};
+
+// ── Firebase ──────────────────────────────────────────────────────────────────
+if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db   = firebase.database();
+
+auth.onAuthStateChanged(user=>{
+    if(!user||!user.emailVerified) window.location.href='index_pro.html';
+});
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let allRounds = [];      // parsed round objects
+let allPlayers = {};     // name -> { rounds, ops, ... }
+let ourRoster  = new Set();
+let selectedPlayer = null;
+
+// ── Log helper ────────────────────────────────────────────────────────────────
+function log(msg){ const b=document.getElementById('trialLog'); b.textContent+='\n'+msg; b.scrollTop=b.scrollHeight; }
+function toast(msg,type='success'){ const t=document.createElement('div'); t.className=`toast ${type}`; t.innerHTML=`<i class="fas ${type==='error'?'fa-circle-xmark':'fa-circle-check'}"></i>${msg}`; document.body.appendChild(t); setTimeout(()=>t.remove(),3500); }
+
+// ── File input handler ────────────────────────────────────────────────────────
+document.getElementById('folderInput').addEventListener('change', function(e){
+    const files = Array.from(e.target.files).filter(f=>f.name.endsWith('.rec'));
+    if(!files.length){ toast('No .rec files found in that folder.','error'); return; }
+    const folderName = e.target.files[0]?.webkitRelativePath?.split('/')[0]||'Folder';
+    document.getElementById('fileCountLabel').textContent = `✓ ${files.length} .rec files from "${folderName}"`;
+    document.getElementById('fileCountLabel').style.display = 'block';
+    document.getElementById('uploadArea').classList.add('has-files');
+    document.getElementById('processRow').style.display = 'block';
+    log(`Selected: ${folderName} — ${files.length} replay files`);
+});
+
+// ── WASM setup ────────────────────────────────────────────────────────────────
+let dissectModule = null;
+createDissectModule && createDissectModule().then(m=>{ dissectModule=m; log('✓ Parser loaded.'); }).catch(()=>log('⚠ Parser not loaded — is wasm_exec.js present?'));
+
+async function parseRec(buffer){
+    if(!dissectModule){ log('✗ Parser not ready.'); return null; }
+    const mod = dissectModule;
+    if(typeof mod.r6dissectParse !== 'function'){ log('✗ r6dissectParse not found.'); return null; }
+    const u8 = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+    try{
+        const out = mod.r6dissectParse(u8) || mod.r6dissectParse(u8, u8.length);
+        if(typeof out==='string'&&out.length) return JSON.parse(out);
+    }catch(e){ log('✗ Parse error: '+e.message); }
+    return null;
+}
+
+// ── Process replays ───────────────────────────────────────────────────────────
+async function processTrialFiles(){
+    const files = Array.from(document.getElementById('folderInput').files).filter(f=>f.name.endsWith('.rec'));
+    if(!files.length){ toast('No files to process','error'); return; }
+
+    document.getElementById('trialLog').textContent = '🚀 Processing...';
+    document.getElementById('playerPickerPanel').style.display = 'none';
+    document.getElementById('statsSection').style.display = 'none';
+    allRounds = []; allPlayers = {}; ourRoster = new Set();
+
+    // Sort by round number
+    files.sort((a,b)=>{
+        const n = s => parseInt((s.match(/\d+/)||['0'])[0]);
+        return n(a.name)-n(b.name);
+    });
+
+    let ok=0;
+    for(const file of files){
+        log(`Round ${file.name}...`);
+        try{
+            const buf = await file.arrayBuffer();
+            const parsed = await parseRec(buf);
+            if(!parsed){ log('  ✗ parse failed'); continue; }
+            allRounds.push(parsed);
+            ok++;
+            log(`  ✓ done`);
+        }catch(e){ log('  ✗ '+e.message); }
+    }
+
+    if(!ok){ toast('No rounds parsed successfully','error'); return; }
+
+    log(`\n✅ Parsed ${ok} / ${files.length} rounds`);
+    buildPlayerList();
+    showPlayerPicker();
+}
+
+// ── Build player data from rounds ─────────────────────────────────────────────
+function buildPlayerList(){
+    allPlayers = {};
+    let yourTeamIndex = 0;
+
+    for(const parsed of allRounds){
+        const header = parsed?.processedData?.header || parsed?.header || parsed || {};
+        const teams  = header.teams || parsed?.teams || [];
+        const players= header.players || parsed?.players || [];
+        const eventsRaw = parsed?.processedData?.matchFeedback || parsed?.matchFeedback || parsed?.events || [];
+        const events = eventsRaw.map(normalizeEventRecord).sort((a,b)=>a.timestamp-b.timestamp);
+
+        // Detect which index is YOUR team
+        if(Array.isArray(teams)&&teams.length>=2){
+            if(/your/i.test(teams[1]?.name||'')) yourTeamIndex=1;
+            else if(/enemy|opponent/i.test(teams[0]?.name||'')) yourTeamIndex=1;
+        }
+
+        const teamWon = Array.isArray(teams)&&teams.length>yourTeamIndex?!!(teams[yourTeamIndex]?.won):false;
+        const oppWon  = !teamWon;
+        const ourRole = (Array.isArray(teams)&&teams.length>yourTeamIndex?teams[yourTeamIndex]?.role:'')||'';
+
+        for(const p of players){
+            const name = p?.username||p?.name||'';
+            if(!name) continue;
+            const isOurs = (p?.teamIndex!==undefined)?Number(p.teamIndex)===yourTeamIndex:false;
+            if(isOurs) ourRoster.add(name);
+
+            if(!allPlayers[name]) allPlayers[name]={name, isOurs, rounds:[], ops:{}};
+            const pRef = allPlayers[name];
+
+            // Count this round's events for this player
+            const myKills   = events.filter(e=>e.type==='kill'&&mpMatch(e.username,name)).length;
+            const myDeaths  = events.filter(e=>e.type==='kill'&&mpMatch(e.target,name)).length;
+            const myHS      = events.filter(e=>e.type==='kill'&&mpMatch(e.username,name)&&e.headshot).length;
+            const myPlants  = events.filter(e=>e.type==='plant'&&mpMatch(e.username,name)).length;
+            const myDefuses = events.filter(e=>e.type==='defuse'&&mpMatch(e.username,name)).length;
+
+            // Entry kill/death
+            const sortedKills = events.filter(e=>e.type==='kill').sort((a,b)=>a.timestamp-b.timestamp);
+            const firstKill = sortedKills[0];
+            const entryKill  = firstKill&&mpMatch(firstKill.username,name)?1:0;
+            const entryDeath = firstKill&&mpMatch(firstKill.target,name)?1:0;
+
+            // Operator from player data or op_swap events
+            const opObj = p?.operator||{};
+            let opName  = typeof opObj==='object'?(opObj.name||''):String(opObj||'');
+            const lastSwap = [...events].reverse().find(e=>e.type==='op_swap'&&mpMatch(e.username,name));
+            if(lastSwap?.newOperator) opName = lastSwap.newOperator;
+
+            const roundResult = isOurs ? (teamWon?'Win':'Loss') : (oppWon?'Win':'Loss');
+
+            pRef.rounds.push({
+                roundNum: allRounds.indexOf(parsed)+1,
+                outcome: roundResult,
+                kills: myKills, deaths: myDeaths, hs: myHS,
+                plants: myPlants, defuses: myDefuses,
+                entryKill, entryDeath,
+                operator: opName,
+                side: ourRole.toLowerCase().includes('attack')?'atk':ourRole.toLowerCase().includes('defen')?'def':'unknown',
+            });
+
+            if(opName){
+                if(!pRef.ops[opName]) pRef.ops[opName]={rounds:0,kills:0,deaths:0,hs:0,wins:0,entryKills:0};
+                const op = pRef.ops[opName];
+                op.rounds++; op.kills+=myKills; op.deaths+=myDeaths; op.hs+=myHS;
+                if(roundResult==='Win') op.wins++;
+                op.entryKills+=entryKill;
+            }
+        }
+    }
+}
+
+function mpMatch(n,t){
+    const nm=s=>(s||'').toLowerCase().replace(/\s+/g,'');
+    const nn=nm(n), nt=nm(t);
+    return nn===nt||nn.includes(nt)||nt.includes(nn);
+}
+
+// ── Player picker UI ──────────────────────────────────────────────────────────
+function showPlayerPicker(){
+    const grid = document.getElementById('playerGrid');
+    const entries = Object.values(allPlayers).sort((a,b)=>{
+        if(a.isOurs&&!b.isOurs) return -1;
+        if(!a.isOurs&&b.isOurs) return 1;
+        return a.name.localeCompare(b.name);
+    });
+
+    grid.innerHTML = entries.map(p=>{
+        const initial = p.name[0]?.toUpperCase()||'?';
+        const ours = p.isOurs;
+        return `<div class="player-card${ours?' our-team':''}" onclick="selectPlayer('${p.name.replace(/'/g,"\\'")}')">
+            <div class="pc-av">${initial}</div>
+            <div class="pc-name">${p.name}</div>
+            <div class="pc-team">${ours?'Your Team':'Opponent'}</div>
+        </div>`;
+    }).join('');
+
+    document.getElementById('playerPickerPanel').style.display = 'block';
+    document.getElementById('playerPickerPanel').scrollIntoView({behavior:'smooth'});
+}
+
+// ── Select player & compute stats ─────────────────────────────────────────────
+function selectPlayer(name){
+    // Highlight selected card
+    document.querySelectorAll('.player-card').forEach(c=>c.classList.remove('selected'));
+    const cards = document.querySelectorAll('.player-card');
+    cards.forEach(c=>{ if(c.querySelector('.pc-name')?.textContent===name) c.classList.add('selected'); });
+
+    selectedPlayer = name;
+    const p = allPlayers[name];
+    if(!p) return;
+
+    document.getElementById('statPlayerName').textContent = name + (p.isOurs?' (Your Team)':' (Opponent)');
+
+    const rounds = p.rounds;
+    const total  = rounds.length;
+    const wins   = rounds.filter(r=>r.outcome==='Win').length;
+    const kills  = rounds.reduce((s,r)=>s+r.kills,0);
+    const deaths = rounds.reduce((s,r)=>s+r.deaths,0);
+    const hs     = rounds.reduce((s,r)=>s+r.hs,0);
+    const plants = rounds.reduce((s,r)=>s+r.plants,0);
+    const def    = rounds.reduce((s,r)=>s+r.defuses,0);
+    const eKills = rounds.reduce((s,r)=>s+r.entryKill,0);
+    const eDeaths= rounds.reduce((s,r)=>s+r.entryDeath,0);
+    const kd     = deaths?kills/deaths:kills;
+    const kpr    = total?kills/total:0;
+    const winPct = total?(wins/total*100):0;
+    const hsPct  = kills?(hs/kills*100):0;
+    const survPct= total?((total-deaths)/total*100):0;
+
+    // ATK/DEF split
+    const atkR = rounds.filter(r=>r.side==='atk');
+    const defR = rounds.filter(r=>r.side==='def');
+    const atkWins = atkR.filter(r=>r.outcome==='Win').length;
+    const defWins = defR.filter(r=>r.outcome==='Win').length;
+    const atkKills= atkR.reduce((s,r)=>s+r.kills,0);
+    const defKills= defR.reduce((s,r)=>s+r.kills,0);
+
+    // ── KPI strip ─────────────────────────────────────────────
+    document.getElementById('kpiStrip').innerHTML = [
+        {c:'kpi-blue',  icon:'fa-skull-crossbones', val:kills,              lbl:'Total Kills'},
+        {c:'kpi-red',   icon:'fa-heart-crack',      val:deaths,             lbl:'Total Deaths'},
+        {c:'kpi-green', icon:'fa-chart-line',        val:kd.toFixed(2),     lbl:'K/D Ratio'},
+        {c:'kpi-amber', icon:'fa-crosshairs',        val:kpr.toFixed(2),    lbl:'Kills/Round'},
+        {c:'kpi-purple',icon:'fa-trophy',             val:winPct.toFixed(0)+'%', lbl:'Win Rate'},
+    ].map(k=>`<div class="kpi ${k.c}"><i class="fas ${k.icon}" style="font-size:12px;color:currentColor;margin-bottom:4px;display:block;"></i><div class="kpi-val">${k.val}</div><div class="kpi-lbl">${k.lbl}</div></div>`).join('');
+
+    // ── ATK/DEF split ─────────────────────────────────────────
+    document.getElementById('splitGrid').innerHTML = [
+        {label:'Attack', rounds:atkR.length, wins:atkWins, kills:atkKills, color:'#f87171', bg:'rgba(239,68,68,0.1)', border:'rgba(239,68,68,0.25)', icon:'fa-sword'},
+        {label:'Defence',rounds:defR.length, wins:defWins, kills:defKills, color:'#60a5fa', bg:'rgba(59,130,246,0.1)', border:'rgba(59,130,246,0.25)', icon:'fa-shield-halved'},
+    ].map(s=>`<div style="border-radius:10px;padding:16px;text-align:center;background:${s.bg};border:1px solid ${s.border};">
+        <i class="fas ${s.icon}" style="color:${s.color};font-size:20px;margin-bottom:8px;display:block;"></i>
+        <div style="font-size:26px;font-weight:800;color:${s.color};">${s.rounds?((s.wins/s.rounds)*100).toFixed(0):0}%</div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);font-weight:700;">${s.label} Win Rate</div>
+        <div style="font-size:12px;color:var(--gray);margin-top:4px;">${s.wins}W / ${s.rounds-s.wins}L · ${s.kills} kills</div>
+    </div>`).join('');
+
+    // ── Entry strip ───────────────────────────────────────────
+    document.getElementById('entryStrip').innerHTML = [
+        {c:'kpi-red',   val:eKills,                              lbl:'Entry Kills'},
+        {c:'kpi-amber', val:eDeaths,                             lbl:'Entry Deaths'},
+        {c:'kpi-green', val:plants,                              lbl:'Plants'},
+        {c:'kpi-blue',  val:def,                                 lbl:'Defuses'},
+    ].map(k=>`<div class="kpi ${k.c}"><div class="kpi-val">${k.val}</div><div class="kpi-lbl">${k.lbl}</div></div>`).join('');
+
+    // ── Round grid ────────────────────────────────────────────
+    document.getElementById('roundGrid').innerHTML = rounds.map(r=>{
+        const win = r.outcome==='Win';
+        return `<div class="round-pill ${win?'win':'loss'}" title="${r.operator||'?'} · ${r.side||''} · ${r.kills}K ${r.deaths}D">
+            <span class="rp-num">R${r.roundNum}</span>
+            <span>${r.kills}K/${r.deaths}D</span>
+            <span style="font-size:9px;opacity:.7;">${r.operator?r.operator.slice(0,6):'?'}</span>
+        </div>`;
+    }).join('');
+
+    // ── Operator table ────────────────────────────────────────
+    const ops = Object.entries(p.ops).sort((a,b)=>b[1].rounds-a[1].rounds);
+    document.getElementById('opTableBody').innerHTML = ops.map(([opName,op])=>{
+        const role  = OP_ROLES[opName]||'flex';
+        const clr   = OP_COLORS[role]||OP_COLORS.flex;
+        const kd    = op.deaths?(op.kills/op.deaths).toFixed(2):op.kills.toFixed(1)+'';
+        const hsPct = op.kills?(op.hs/op.kills*100).toFixed(0)+'%':'0%';
+        const winPct= op.rounds?(op.wins/op.rounds*100).toFixed(0)+'%':'0%';
+        return `<tr>
+            <td><div style="display:flex;align-items:center;gap:8px;">
+                <div class="op-av" style="background:${clr.bg};color:${clr.color};">${opName[0]}</div>
+                <span style="font-weight:700;">${opName}</span>
+            </div></td>
+            <td><span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;background:${clr.bg};color:${clr.color};">${role}</span></td>
+            <td class="tc">${op.rounds}</td>
+            <td class="tc">${op.kills}</td>
+            <td class="tc">${op.deaths}</td>
+            <td class="tc">${kd}</td>
+            <td class="tc">${hsPct}</td>
+            <td class="tc">${winPct}</td>
+        </tr>`;
+    }).join('');
+
+    document.getElementById('aiOutput').style.display = 'none';
+    document.getElementById('statsSection').style.display = 'block';
+    document.getElementById('statsSection').scrollIntoView({behavior:'smooth'});
+}
+
+// ── AI Report ─────────────────────────────────────────────────────────────────
+async function generateAI(){
+    const p = allPlayers[selectedPlayer];
+    if(!p){ toast('Select a player first','error'); return; }
+    const btn = document.getElementById('aiBtn');
+    const out = document.getElementById('aiOutput');
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating…';
+    out.style.display = 'block';
+    out.className = 'ai-output loading';
+    out.textContent = '⏳ Analysing player data…';
+
+    const rounds = p.rounds;
+    const total  = rounds.length;
+    const kills  = rounds.reduce((s,r)=>s+r.kills,0);
+    const deaths = rounds.reduce((s,r)=>s+r.deaths,0);
+    const wins   = rounds.filter(r=>r.outcome==='Win').length;
+    const hs     = rounds.reduce((s,r)=>s+r.hs,0);
+    const eKills = rounds.reduce((s,r)=>s+r.entryKill,0);
+    const plants = rounds.reduce((s,r)=>s+r.plants,0);
+
+    const topOps = Object.entries(p.ops).sort((a,b)=>b[1].rounds-a[1].rounds).slice(0,3)
+        .map(([name,op])=>`${name} (${op.rounds}r, ${op.kills}K, ${(op.wins/op.rounds*100).toFixed(0)}% WR)`).join(', ');
+
+    const prompt = `You are a Rainbow Six Siege esports analyst. Write a concise scout report (3-4 paragraphs) for this trial scrim player.
+
+Player: ${p.name}
+Match: ${total} rounds, ${wins} wins (${(wins/total*100).toFixed(0)}% WR)
+Kills: ${kills} | Deaths: ${deaths} | K/D: ${deaths?(kills/deaths).toFixed(2):kills} | Kills/Round: ${(kills/total).toFixed(2)}
+Headshot%: ${kills?(hs/kills*100).toFixed(0):0}% | Entry Kills: ${eKills} | Plants: ${plants}
+Top Operators: ${topOps||'Unknown'}
+Side: ${rounds.filter(r=>r.side==='atk').length} ATK / ${rounds.filter(r=>r.side==='def').length} DEF rounds
+
+Write about: overall performance, strengths, operator diversity, aggression style, and a suitability recommendation for the team. Be specific and direct.`;
+
+    try{
+        // ── Calls your Cloudflare Worker proxy — the OpenAI key never leaves the server ──
+        const res = await fetch('https://r6insights-ai.YOUR-SUBDOMAIN.workers.dev/ai', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt })
+        });
+        if(!res.ok) throw new Error(`Worker returned ${res.status}`);
+        const data = await res.json();
+        const text = data.result || data.content || data.choices?.[0]?.message?.content || 'No response.';
+        out.className = 'ai-output';
+        out.textContent = text;
+    }catch(e){
+        out.className = 'ai-output';
+        out.textContent = '⚠ AI report unavailable: '+e.message+'\n\nMake sure the Cloudflare Worker is deployed and the URL above is updated.';
+    }finally{
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> Regenerate';
+    }
+}
+</script>
+</body>
+</html>
