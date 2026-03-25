@@ -1,0 +1,509 @@
+/**
+ * R6 Insights — Pro Global Styles
+ * ─────────────────────────────────
+ * Loaded by every page. Provides:
+ *   • CSS variable definitions
+ *   • Body + background
+ *   • Uniform navigation header
+ *   • Shared UI primitives (pills, badges, spinners)
+ *
+ * Page-specific styles remain in each HTML file's <style> block.
+ */
+
+/* ══════════════════════════════════════════════
+   TOKENS
+══════════════════════════════════════════════ */
+:root {
+    --primary:       #7C3AED;
+    --primary-dark:  #6D28D9;
+    --secondary:     #4F46E5;
+    --dark:          #1E293B;
+    --darker:        #0F172A;
+    --light:         #F8FAFC;
+    --gray:          #94A3B8;
+    --success:       #10B981;
+    --danger:        #EF4444;
+    --warning:       #F59E0B;
+    --info:          #3B82F6;
+    --card-bg:       rgba(30, 41, 59, 0.75);
+    --card-border:   rgba(255, 255, 255, 0.1);
+}
+
+/* ══════════════════════════════════════════════
+   BASE RESET
+══════════════════════════════════════════════ */
+/* box-sizing reset — does NOT touch ::before/::after font-family
+   (Font Awesome renders icons via ::before pseudo-elements with its
+   own font-family; overriding that here breaks all FA icons) */
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* font-family on elements only — never on pseudo-elements */
+* {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* ══════════════════════════════════════════════
+   BODY / BACKGROUND
+══════════════════════════════════════════════ */
+body {
+    color: var(--light);
+    min-height: 100vh;
+    padding: 20px;
+    background-color: var(--darker);
+    background-image: url('https://images.contentstack.io/v3/assets/bltb6530b271fddd0b1/blt6577b1f58530e6b2/5eb7cdc165eec876c4b5d0d8/rainbow6siege_bloodmoon_splash.jpg');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+}
+
+/* ══════════════════════════════════════════════
+   CONTAINER
+══════════════════════════════════════════════ */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: rgba(15, 23, 42, 0.93);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.7);
+    border: 1px solid var(--card-border);
+    backdrop-filter: blur(14px);
+}
+
+/* ══════════════════════════════════════════════
+   NAVIGATION HEADER
+══════════════════════════════════════════════ */
+.nav-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 28px;
+    background: rgba(30, 41, 59, 0.92);
+    border-bottom: 1px solid var(--card-border);
+}
+
+/* ── Logo / Brand ── */
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+}
+
+.logo-img {
+    height: 34px;
+    width: auto;
+    /* Blend out the PNG's black background on the dark nav */
+    mix-blend-mode: screen;
+    /* Recolour the logo to match --primary purple */
+    filter: invert(1) sepia(1) saturate(4) hue-rotate(240deg) brightness(0.95);
+    transition: filter 0.25s ease;
+}
+
+.logo:hover .logo-img {
+    filter: invert(1) sepia(1) saturate(5) hue-rotate(240deg) brightness(1.1);
+}
+
+.logo-text {
+    font-size: 19px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    background: linear-gradient(to right, #a78bfa, #818cf8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.nav-badge {
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    padding: 2px 9px;
+    border-radius: 20px;
+    text-transform: uppercase;
+}
+
+/* ── Right side of nav ── */
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* ── Team pill (shows current team name) ── */
+.team-pill {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 14px;
+    background: rgba(124, 58, 237, 0.15);
+    border: 1px solid rgba(124, 58, 237, 0.4);
+    border-radius: 50px;
+    font-size: 13px;
+    color: #a78bfa;
+    font-weight: 600;
+}
+
+/* ── Logout button ── */
+.btn-logout {
+    padding: 7px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    background: rgba(239, 68, 68, 0.1);
+    color: #fca5a5;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.18s;
+}
+.btn-logout:hover {
+    background: rgba(239, 68, 68, 0.22);
+    border-color: rgba(239, 68, 68, 0.65);
+}
+
+/* ══════════════════════════════════════════════
+   PAGE TITLE BAR  (inner pages)
+══════════════════════════════════════════════ */
+.page-title {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 28px;
+    background: rgba(15, 23, 42, 0.5);
+    border-bottom: 1px solid var(--card-border);
+}
+.page-title-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    flex-shrink: 0;
+}
+.page-title h2 { font-size: 17px; font-weight: 700; }
+.page-title p  { font-size: 12px; color: var(--gray); margin-top: 2px; }
+
+/* ══════════════════════════════════════════════
+   SHARED BUTTONS
+══════════════════════════════════════════════ */
+.btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    transition: all 0.18s;
+    text-decoration: none;
+    font-family: inherit;
+    color: var(--light);
+}
+.btn:hover { transform: translateY(-1px); }
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: white;
+}
+.btn-primary:hover  { opacity: 0.9; }
+.btn-primary:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+.btn-secondary {
+    background: rgba(79, 70, 229, 0.18);
+    border: 1px solid rgba(79, 70, 229, 0.5);
+    color: var(--light);
+}
+.btn-secondary:hover { background: rgba(79, 70, 229, 0.32); }
+
+/* ══════════════════════════════════════════════
+   AUTH LOADING OVERLAY
+══════════════════════════════════════════════ */
+#authLoading {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 16, 30, 0.98);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    gap: 16px;
+}
+#authLoading.hidden { display: none; }
+
+.spinner {
+    width: 44px;
+    height: 44px;
+    border: 3px solid rgba(124, 58, 237, 0.2);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: globalSpin 0.75s linear infinite;
+}
+@keyframes globalSpin { to { transform: rotate(360deg); } }
+
+.spinner-text { color: var(--gray); font-size: 14px; }
+
+/* ══════════════════════════════════════════════
+   FOOTER
+══════════════════════════════════════════════ */
+.footer {
+    text-align: center;
+    padding: 20px;
+    font-size: 13px;
+    color: var(--gray);
+    border-top: 1px solid var(--card-border);
+}
+
+/* ══════════════════════════════════════════════
+   RESPONSIVE
+══════════════════════════════════════════════ */
+@media (max-width: 600px) {
+    body { padding: 10px; }
+    .nav-header { padding: 12px 16px; }
+    .page-title { padding: 12px 16px; }
+    .logo-text { font-size: 16px; }
+}
+
+/* ══════════════════════════════════════════════
+   NAV AVATAR
+══════════════════════════════════════════════ */
+.nav-avatar-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    border: 2px solid rgba(124, 58, 237, 0.5);
+    background: rgba(124, 58, 237, 0.18);
+    color: #a78bfa;
+    font-size: 14px;
+    font-weight: 800;
+    transition: border-color 0.2s, transform 0.15s;
+    cursor: pointer;
+    position: relative;
+}
+.nav-avatar-btn:hover {
+    border-color: var(--primary);
+    transform: scale(1.08);
+}
+.nav-avatar-btn img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+/* ══════════════════════════════════════════════
+   LIGHT MODE OVERRIDES
+   Applied when <html class="light-mode"> is set
+   by scripts/theme.js
+══════════════════════════════════════════════ */
+
+html.light-mode {
+    --darker:      #F1F5F9;
+    --dark:        #E2E8F0;
+    --light:       #0F172A;
+    --gray:        #475569;
+    --card-bg:     rgba(255, 255, 255, 0.92);
+    --card-border: rgba(15, 23, 42, 0.1);
+}
+
+html.light-mode body {
+    background-color: #E2E8F0;
+    background-image: url('https://images.contentstack.io/v3/assets/bltb6530b271fddd0b1/blt6577b1f58530e6b2/5eb7cdc165eec876c4b5d0d8/rainbow6siege_bloodmoon_splash.jpg');
+    background-blend-mode: luminosity;
+    opacity: 1;
+}
+
+html.light-mode .container {
+    background: rgba(241, 245, 249, 0.97);
+    border-color: rgba(15, 23, 42, 0.1);
+    box-shadow: 0 4px 32px rgba(0, 0, 0, 0.1);
+}
+
+/* ── Nav ── */
+html.light-mode .nav-header {
+    background: rgba(255, 255, 255, 0.95);
+    border-bottom-color: rgba(15, 23, 42, 0.1);
+}
+html.light-mode .logo-text {
+    background: linear-gradient(to right, #7C3AED, #4F46E5);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+html.light-mode .logo-img {
+    filter: invert(0) sepia(1) saturate(4) hue-rotate(240deg) brightness(0.7);
+}
+html.light-mode .nav-badge {
+    background: rgba(124, 58, 237, 0.12);
+    color: #7C3AED;
+}
+html.light-mode .btn-secondary {
+    background: rgba(15, 23, 42, 0.07);
+    border-color: rgba(15, 23, 42, 0.15);
+    color: #1E293B;
+}
+html.light-mode .btn-secondary:hover {
+    background: rgba(15, 23, 42, 0.13);
+}
+html.light-mode .btn-logout {
+    background: rgba(239, 68, 68, 0.07);
+    border-color: rgba(239, 68, 68, 0.2);
+    color: #DC2626;
+}
+html.light-mode .btn-logout:hover {
+    background: rgba(239, 68, 68, 0.14);
+}
+html.light-mode .nav-avatar-btn {
+    background: rgba(124, 58, 237, 0.1);
+    border-color: rgba(124, 58, 237, 0.3);
+    color: #7C3AED;
+}
+html.light-mode .team-pill {
+    background: rgba(124, 58, 237, 0.08);
+    border-color: rgba(124, 58, 237, 0.25);
+    color: #6D28D9;
+}
+
+/* ── Page title ── */
+html.light-mode .page-title {
+    background: rgba(241, 245, 249, 0.8);
+    border-bottom-color: rgba(15, 23, 42, 0.08);
+}
+html.light-mode .page-title h2 { color: #0F172A; }
+html.light-mode .page-title p  { color: #475569; }
+
+/* ── Cards / panels ── */
+html.light-mode .panel,
+html.light-mode .card,
+html.light-mode .stat-card,
+html.light-mode .pr-panel,
+html.light-mode .match-card,
+html.light-mode .map-card,
+html.light-mode .chip {
+    background: rgba(255, 255, 255, 0.92);
+    border-color: rgba(15, 23, 42, 0.1);
+}
+html.light-mode .panel-hdr,
+html.light-mode .pr-panel-hdr {
+    background: rgba(241, 245, 249, 0.85);
+    border-bottom-color: rgba(15, 23, 42, 0.08);
+    color: #475569;
+}
+
+/* ── Tab bars ── */
+html.light-mode .tab-bar {
+    background: rgba(255, 255, 255, 0.8);
+    border-bottom-color: rgba(15, 23, 42, 0.1);
+}
+html.light-mode .tab-btn       { color: #64748B; }
+html.light-mode .tab-btn:hover { color: #0F172A; }
+html.light-mode .tab-btn.active {
+    color: #7C3AED;
+    border-bottom-color: #7C3AED;
+}
+
+/* ── Form inputs ── */
+html.light-mode input,
+html.light-mode select,
+html.light-mode textarea,
+html.light-mode .form-input,
+html.light-mode .fg select,
+html.light-mode .fg input,
+html.light-mode .input,
+html.light-mode .ms-btn {
+    background: #FFFFFF;
+    border-color: rgba(15, 23, 42, 0.15);
+    color: #0F172A;
+}
+html.light-mode input:focus,
+html.light-mode select:focus,
+html.light-mode textarea:focus,
+html.light-mode .fg select:focus,
+html.light-mode .fg input:focus {
+    border-color: #7C3AED;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+}
+html.light-mode label,
+html.light-mode .fg label { color: #475569; }
+html.light-mode .form-hint { color: #64748B; }
+
+/* ── Tables ── */
+html.light-mode th {
+    background: rgba(241, 245, 249, 0.9) !important;
+    color: #475569 !important;
+    border-bottom-color: rgba(15, 23, 42, 0.1) !important;
+}
+html.light-mode td {
+    border-bottom-color: rgba(15, 23, 42, 0.05) !important;
+    color: #1E293B;
+}
+html.light-mode tr:hover td { background: rgba(124, 58, 237, 0.04); }
+html.light-mode .section-row td {
+    background: rgba(124, 58, 237, 0.05) !important;
+    color: #7C3AED !important;
+}
+
+/* ── Pick/match list items ── */
+html.light-mode .pick-item,
+html.light-mode .match-pick-item {
+    background: rgba(255, 255, 255, 0.85);
+    border-color: rgba(15, 23, 42, 0.1);
+}
+html.light-mode .pick-item:hover,
+html.light-mode .match-pick-item:hover {
+    border-color: rgba(124, 58, 237, 0.35);
+    background: #fff;
+}
+html.light-mode .pick-item.selected,
+html.light-mode .match-pick-item.selected {
+    background: rgba(124, 58, 237, 0.06);
+    border-color: rgba(124, 58, 237, 0.4);
+}
+
+/* ── Misc text ── */
+html.light-mode .muted,
+html.light-mode .empty-compare,
+html.light-mode .empty-state { color: #94A3B8; }
+html.light-mode .mpi-type {
+    background: rgba(15, 23, 42, 0.05);
+    border-color: rgba(15, 23, 42, 0.1);
+    color: #475569;
+}
+
+/* ── Footer ── */
+html.light-mode .footer {
+    border-top-color: rgba(15, 23, 42, 0.08);
+    color: #64748B;
+}
+
+/* ── Scrollbars ── */
+html.light-mode ::-webkit-scrollbar-track { background: rgba(15,23,42,0.05); }
+html.light-mode ::-webkit-scrollbar-thumb { background: rgba(15,23,42,0.18); }
+html.light-mode ::-webkit-scrollbar-thumb:hover { background: rgba(15,23,42,0.32); }
+
+/* ── Smooth transitions on theme switch ── */
+body, .container, .nav-header, .panel, .card, .stat-card,
+.pick-item, .match-pick-item, .tab-bar, .tab-btn,
+input, select, textarea, .btn-secondary, .btn-logout, .page-title {
+    transition: background-color 0.25s ease, border-color 0.25s ease, color 0.2s ease;
+}
