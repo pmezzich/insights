@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Match Notes — R6 Insights</title>
+<link rel="stylesheet" href="../styles/pro-global.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+<script src="../scripts/firebase-config.js"></script>
+<script>if(localStorage.getItem('r6_theme')==='light')document.documentElement.classList.add('light-mode');</script>
+<script src="../scripts/theme.js"></script>
+<script src="../scripts/admin-preview.js"></script>
+<style>
+body { background-color: var(--darker); min-height: 100vh; padding-bottom: 60px; }
+
+/* ── LAYOUT ─────────────────────────────────────────────────────── */
+.main-layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 0;
+    height: calc(100vh - 110px); /* nav + title bar */
+    overflow: hidden;
+}
+
+/* ── MATCH LIST SIDEBAR ─────────────────────────────────────────── */
+.sidebar {
+    border-right: 1px solid var(--card-border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: rgba(15,23,42,0.5);
+}
+.sidebar-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--card-border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(15,23,42,0.7);
+    flex-shrink: 0;
+}
+.sidebar-search {
+    flex: 1;
+    background: rgba(10,16,28,0.8);
+    border: 1px solid var(--card-border);
+    border-radius: 7px;
+    color: var(--light);
+    font-family: inherit;
+    font-size: 12px;
+    padding: 7px 11px;
+    outline: none;
+    transition: border-color .15s;
+}
+.sidebar-search:focus { border-color: var(--primary); }
+.match-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px;
+}
+.match-item {
+    padding: 11px 13px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all .15s;
+    margin-bottom: 3px;
+}
+.match-item:hover {
+    background: rgba(124,58,237,0.06);
+    border-color: rgba(124,58,237,0.2);
+}
+.match-item.active {
+    background: rgba(124,58,237,0.1);
+    border-color: rgba(124,58,237,0.4);
+}
+.match-item-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+.match-result {
+    font-size: 11px;
+    font-weight: 800;
+    width: 18px;
+    flex-shrink: 0;
+}
+.match-opp {
+    font-size: 13px;
+    font-weight: 700;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--light);
+}
+.match-has-notes {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: #a78bfa;
+    flex-shrink: 0;
+    box-shadow: 0 0 5px rgba(167,139,250,0.5);
+}
+.match-item-bottom {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-left: 26px;
+}
+.match-date { font-size: 11px; color: var(--gray); }
+.match-type {
+    font-size: 10px;
+    color: var(--gray);
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--card-border);
+    padding: 1px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+}
+.match-score { font-size: 11px; color: var(--gray); margin-left: auto; }
+
+/* ── NOTES PANEL ────────────────────────────────────────────────── */
+.notes-panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.notes-header {
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--card-border);
+    background: rgba(15,23,42,0.5);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+.notes-header-info { flex: 1; min-width: 0; }
+.notes-match-name {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--light);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.notes-match-meta {
+    font-size: 12px;
+    color: var(--gray);
+    margin-top: 3px;
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+.notes-match-meta span { display: flex; align-items: center; gap: 5px; }
+.notes-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+/* ── EMPTY ──────────────────────────────────────────────────────── */
+.empty-notes {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 14px;
+    color: var(--gray);
+}
+.empty-notes i { font-size: 42px; opacity: .15; color: var(--primary); }
+.empty-notes p { font-size: 13px; text-align: center; line-height: 1.8; }
+
+/* ── SECTION CARD ───────────────────────────────────────────────── */
+.notes-section {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+.notes-section-hdr {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--card-border);
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: var(--gray);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(15,23,42,0.3);
+}
+.notes-section-body { padding: 16px; }
+
+/* ── COACHING NOTES TEXTAREA ────────────────────────────────────── */
+.notes-textarea {
+    width: 100%;
+    min-height: 160px;
+    background: rgba(10,16,28,0.7);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    color: var(--light);
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.7;
+    padding: 12px 14px;
+    outline: none;
+    resize: vertical;
+    transition: border-color .15s, box-shadow .15s;
+}
+.notes-textarea:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(124,58,237,0.12);
+}
+.notes-textarea::placeholder { color: rgba(148,163,184,0.3); }
+.notes-meta-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.notes-saved-info { font-size: 11px; color: var(--gray); }
+.notes-saved-info.saving { color: #fbbf24; }
+.notes-saved-info.saved { color: #34d399; }
+
+/* ── MAP SCORE SUMMARY ──────────────────────────────────────────── */
+.map-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 8px;
+}
+.map-tile {
+    background: rgba(15,23,42,0.5);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 11px 13px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.map-tile-name { font-size: 13px; font-weight: 700; flex: 1; }
+.map-tile-score { font-size: 14px; font-weight: 800; }
+
+/* ── POV LINKS ──────────────────────────────────────────────────── */
+.pov-grid { display: flex; flex-direction: column; gap: 8px; }
+.pov-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.pov-avatar {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: rgba(124,58,237,0.15);
+    border: 1px solid rgba(124,58,237,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 800; color: #a78bfa;
+    flex-shrink: 0;
+}
+.pov-name {
+    font-size: 13px;
+    font-weight: 700;
+    width: 110px;
+    flex-shrink: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.pov-input {
+    flex: 1;
+    background: rgba(10,16,28,0.7);
+    border: 1px solid var(--card-border);
+    border-radius: 7px;
+    color: var(--light);
+    font-family: inherit;
+    font-size: 12px;
+    padding: 7px 11px;
+    outline: none;
+    transition: border-color .15s;
+    min-width: 0;
+}
+.pov-input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(124,58,237,0.12); }
+.pov-input.has-val { border-color: rgba(124,58,237,0.4); }
+.pov-open-btn {
+    width: 32px; height: 32px;
+    background: rgba(124,58,237,0.1);
+    border: 1px solid rgba(124,58,237,0.25);
+    border-radius: 7px;
+    color: #a78bfa;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+    transition: all .15s;
+    text-decoration: none;
+}
+.pov-open-btn:hover { background: rgba(124,58,237,0.2); border-color: rgba(124,58,237,0.5); }
+.pov-open-btn.disabled { opacity: .3; pointer-events: none; }
+
+/* ── WATCH ALL BUTTON ───────────────────────────────────────────── */
+.watch-all-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .18s;
+    text-decoration: none;
+}
+.watch-all-btn:hover { opacity: .9; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(124,58,237,0.4); }
+.watch-all-btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+/* ── AUTOSAVE INDICATOR ─────────────────────────────────────────── */
+@keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+.saved-pulse { animation: fadeIn .2s ease; }
+
+/* ── TOAST ──────────────────────────────────────────────────────── */
+#toast {
+    position: fixed; bottom: 24px; left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    background: rgba(124,58,237,0.92);
+    color: #fff; border-radius: 8px;
+    padding: 10px 20px; font-size: 13px; font-weight: 700;
+    opacity: 0; transition: all .22s; z-index: 9999; pointer-events: none;
+    white-space: nowrap;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── RESPONSIVE ─────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .main-layout { grid-template-columns: 1fr; grid-template-rows: 280px 1fr; }
+    .sidebar { border-right: none; border-bottom: 1px solid var(--card-border); }
+}
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<div class="nav-header">
+    <a href="index_pro.html" class="logo" style="text-decoration:none;">
+        <img src="../styles/r6_insights.png" class="logo-img" alt="R6 Insights">
+        <div class="logo-text">R6 INSIGHTS</div>
+        <span class="nav-badge">Beta</span>
+    </a>
+    <div class="nav-right">
+        <a href="coach_suite.html" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Coach Suite</a>
+        <a href="match_history_pro.html" class="btn btn-secondary"><i class="fas fa-clock-rotate-left"></i> Match History</a>
+        <a href="profile.html" id="navAvatar" class="nav-avatar-btn" title="Profile">?</a>
+        <button class="btn-logout" onclick="firebase.auth().signOut().then(()=>window.location.href='index_pro.html')">
+            <i class="fas fa-right-from-bracket"></i> Logout
+        </button>
+    </div>
+</div>
+
+<!-- Page Title -->
+<div class="page-title">
+    <div class="page-title-icon" style="background:rgba(124,58,237,0.18);border:1px solid rgba(124,58,237,0.3);color:#a78bfa;">
+        <i class="fas fa-note-sticky"></i>
+    </div>
+    <div>
+        <h2>Match Notes</h2>
+        <p>Add coaching notes and VOD links to any match</p>
+    </div>
+</div>
+
+<!-- Main layout -->
+<div class="main-layout">
+
+    <!-- Sidebar: match list -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <input class="sidebar-search" type="text" id="sidebarSearch"
+                placeholder="Search opponent or date…"
+                oninput="filterMatchList(this.value)">
+        </div>
+        <div class="match-list" id="matchList">
+            <div style="padding:30px;text-align:center;color:var(--gray);font-size:13px;">
+                <i class="fas fa-spinner fa-spin"></i> Loading matches…
+            </div>
+        </div>
+    </div>
+
+    <!-- Notes panel -->
+    <div class="notes-panel" id="notesPanel">
+        <div class="empty-notes">
+            <i class="fas fa-note-sticky"></i>
+            <p>Select a match from the list<br>to view or add coaching notes</p>
+        </div>
+    </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script src="../scripts/profile-loader.js"></script>
+<script>
+(function(){
+'use strict';
+
+if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db   = firebase.database();
+
+const x = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+// ── State ─────────────────────────────────────────────────────────
+let teamId       = null;
+let allMatches   = [];
+let rosterPlayers = [];
+let activeMatchId = null;
+let saveTimer    = null;
+let currentRole  = '';
+
+// ── Auth ──────────────────────────────────────────────────────────
+auth.onAuthStateChanged(async user => {
+    if(!user || !user.emailVerified) return window.location.href = 'index_pro.html';
+    R6Theme.init(user.uid, db);
+
+    try {
+        teamId = await getPreviewTeamId(user, db);
+        if(!teamId) throw new Error('No team');
+
+        // Get user role
+        const roleSnap = await db.ref(`teams/${teamId}/players/${user.uid}/role`).once('value');
+        currentRole = (roleSnap.val()||'').toLowerCase();
+
+        // Load roster
+        const rSnap = await db.ref(`teams/${teamId}/players`).once('value');
+        rosterPlayers = [];
+        rSnap.forEach(c => {
+            const p = c.val();
+            if(!p) return;
+            if(p.inRoster === false || p.inRoster === 'false') return;
+            if(['coach','analyst'].includes((p.role||'').toLowerCase())) return;
+            if(p.displayName) rosterPlayers.push(p.displayName);
+        });
+        rosterPlayers.sort();
+
+        // Load matches
+        const mSnap = await db.ref(`teams/${teamId}/matches_pro`).once('value');
+        const raw = mSnap.val() || {};
+        allMatches = Object.entries(raw).map(([id, m]) => {
+            let maps = m.maps;
+            if(!maps) maps = [];
+            else if(!Array.isArray(maps)) maps = Object.values(maps);
+            return { id, ...m, maps };
+        }).sort((a, b) => (b.date||'').localeCompare(a.date||''));
+
+        renderMatchList(allMatches);
+
+        // If URL has ?match=id, auto-open it
+        const params = new URLSearchParams(window.location.search);
+        const preload = params.get('match');
+        if(preload) {
+            const m = allMatches.find(m => m.id === preload);
+            if(m) openMatch(m);
+        }
+
+    } catch(e) {
+        console.error(e);
+        document.getElementById('matchList').innerHTML =
+            `<div style="padding:20px;color:#f87171;font-size:13px;">Error: ${e.message}</div>`;
+    }
+});
+
+// ── Render match list ─────────────────────────────────────────────
+function renderMatchList(matches) {
+    const list = document.getElementById('matchList');
+    if(!matches.length) {
+        list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--gray);font-size:13px;">No matches found.</div>';
+        return;
+    }
+    list.innerHTML = matches.map(m => {
+        const mW = (m.maps||[]).filter(mp => (mp.teamScore||0) > (mp.opponentScore||0)).length;
+        const mL = (m.maps||[]).filter(mp => (mp.teamScore||0) < (mp.opponentScore||0)).length;
+        const win = mW > mL;
+        const resCol = win ? '#34d399' : '#f87171';
+        const hasNotes = !!(m.notes && (m.notes.text || Object.keys(m.notes.povLinks||{}).length));
+        return `
+        <div class="match-item${activeMatchId===m.id?' active':''}" onclick="openMatchById('${m.id}')">
+            <div class="match-item-top">
+                <span class="match-result" style="color:${resCol};">${win?'W':'L'}</span>
+                <span class="match-opp">${x(m.opponent||'Unknown')}</span>
+                ${hasNotes ? '<span class="match-has-notes" title="Has notes"></span>' : ''}
+            </div>
+            <div class="match-item-bottom">
+                <span class="match-date">${x(m.date||'—')}</span>
+                <span class="match-type">${x(m.matchType||'scrim')}</span>
+                <span class="match-score">${mW}–${mL}</span>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+window.filterMatchList = function(q) {
+    const filtered = q
+        ? allMatches.filter(m =>
+            (m.opponent||'').toLowerCase().includes(q.toLowerCase()) ||
+            (m.date||'').includes(q))
+        : allMatches;
+    renderMatchList(filtered);
+};
+
+window.openMatchById = function(id) {
+    const m = allMatches.find(m => m.id === id);
+    if(m) openMatch(m);
+};
+
+// ── Open a match ──────────────────────────────────────────────────
+async function openMatch(m) {
+    activeMatchId = m.id;
+    renderMatchList(allMatches); // re-render to update active state
+
+    // Load notes from Firebase (latest)
+    const notesSnap = await db.ref(`teams/${teamId}/matches_pro/${m.id}/notes`).once('value');
+    const notes = notesSnap.val() || {};
+
+    renderNotesPanel(m, notes);
+}
+
+// ── Render notes panel ────────────────────────────────────────────
+function renderNotesPanel(m, notes) {
+    const mW = (m.maps||[]).filter(mp => (mp.teamScore||0) > (mp.opponentScore||0)).length;
+    const mL = (m.maps||[]).filter(mp => (mp.teamScore||0) < (mp.opponentScore||0)).length;
+    const win = mW > mL;
+    const resCol = win ? '#34d399' : '#f87171';
+    const canEdit = ['captain','coach','analyst'].includes(currentRole);
+
+    const panel = document.getElementById('notesPanel');
+
+    // Map summary
+    const mapTiles = (m.maps||[]).map(mp => {
+        const w = (mp.teamScore||0) > (mp.opponentScore||0);
+        const l = (mp.teamScore||0) < (mp.opponentScore||0);
+        const c = w ? '#34d399' : l ? '#f87171' : '#fbbf24';
+        return `<div class="map-tile">
+            <div class="map-tile-name">${x(mp.mapName||'?')}</div>
+            <div class="map-tile-score" style="color:${c};">${mp.teamScore??'?'}–${mp.opponentScore??'?'}</div>
+        </div>`;
+    }).join('');
+
+    // POV links
+    const povLinks = notes.povLinks || {};
+    const povRows = rosterPlayers.map(player => {
+        const link = povLinks[player] || '';
+        const hasLink = !!link;
+        return `<div class="pov-row">
+            <div class="pov-avatar">${player.slice(0,2).toUpperCase()}</div>
+            <div class="pov-name" title="${x(player)}">${x(player)}</div>
+            <input class="pov-input${hasLink?' has-val':''}" type="text"
+                id="pov_${CSS.escape(player)}"
+                placeholder="YouTube URL…"
+                value="${x(link)}"
+                ${canEdit?'':'readonly'}
+                oninput="onPovInput(this,'${player.replace(/'/g,"\\'")}')">
+            <a class="pov-open-btn${hasLink?'':' disabled'}" id="povbtn_${CSS.escape(player)}"
+                href="${link||'#'}" target="_blank" title="Open in new tab">
+                <i class="fas fa-arrow-up-right-from-square"></i>
+            </a>
+        </div>`;
+    }).join('');
+
+    // Count POVs with links
+    const povCount = rosterPlayers.filter(p => povLinks[p]).length;
+
+    const savedInfo = notes.updatedAt
+        ? `Last saved ${new Date(notes.updatedAt).toLocaleString()} by ${notes.updatedBy||'unknown'}`
+        : 'No notes saved yet';
+
+    panel.innerHTML = `
+    <div class="notes-header">
+        <div class="notes-header-info">
+            <div class="notes-match-name">${x(m.opponent||'Unknown')}</div>
+            <div class="notes-match-meta">
+                <span><i class="fas fa-calendar"></i> ${x(m.date||'—')}</span>
+                <span style="color:${resCol};font-weight:700;"><i class="fas fa-gamepad"></i> ${mW}–${mL} maps</span>
+                <span><i class="fas fa-tag"></i> ${x(m.matchType||'scrim')}</span>
+                ${(m.maps||[]).length ? `<span><i class="fas fa-map"></i> ${(m.maps||[]).map(mp=>mp.mapName||'?').join(' · ')}</span>` : ''}
+            </div>
+        </div>
+        ${povCount >= 2 ? `
+        <button class="watch-all-btn" onclick="watchAllPovs('${m.id}')">
+            <i class="fas fa-tv"></i> Watch All POVs (${povCount})
+        </button>` : ''}
+    </div>
+
+    <div class="notes-body">
+
+        <!-- Map Summary -->
+        ${(m.maps||[]).length ? `
+        <div class="notes-section">
+            <div class="notes-section-hdr"><i class="fas fa-map"></i> Map Results</div>
+            <div class="notes-section-body">
+                <div class="map-summary-grid">${mapTiles}</div>
+            </div>
+        </div>` : ''}
+
+        <!-- Coaching Notes -->
+        <div class="notes-section">
+            <div class="notes-section-hdr">
+                <i class="fas fa-pen-to-square"></i> Coaching Notes
+                ${!canEdit ? '<span style="margin-left:auto;font-size:10px;color:var(--gray);font-weight:400;text-transform:none;">View only</span>' : ''}
+            </div>
+            <div class="notes-section-body">
+                <textarea class="notes-textarea" id="notesText"
+                    placeholder="Add coaching notes, tactical observations, areas to improve…${canEdit?'':'\n(Only coaches, analysts, and captains can edit notes)'}"
+                    ${canEdit?'':'readonly'}
+                    oninput="scheduleNoteSave()">${x(notes.text||'')}</textarea>
+                <div class="notes-meta-bar">
+                    <span class="notes-saved-info" id="saveStatus">${savedInfo}</span>
+                    ${canEdit ? `<button class="btn btn-primary" onclick="saveNotes(true)">
+                        <i class="fas fa-floppy-disk"></i> Save Notes
+                    </button>` : ''}
+                </div>
+            </div>
+        </div>
+
+        <!-- POV Links -->
+        <div class="notes-section">
+            <div class="notes-section-hdr">
+                <i class="fas fa-video"></i> Player POV Links
+                <span style="margin-left:auto;font-size:10px;color:var(--gray);font-weight:400;text-transform:none;letter-spacing:0;">
+                    ${povCount} of ${rosterPlayers.length} linked
+                </span>
+            </div>
+            <div class="notes-section-body">
+                ${rosterPlayers.length ? `
+                <div class="pov-grid" id="povGrid">${povRows}</div>
+                <div style="margin-top:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    ${canEdit ? `<button class="btn btn-primary" onclick="savePovLinks()">
+                        <i class="fas fa-floppy-disk"></i> Save POV Links
+                    </button>` : ''}
+                    ${povCount >= 2 ? `
+                    <button class="watch-all-btn" onclick="watchAllPovs('${m.id}')">
+                        <i class="fas fa-tv"></i> Watch All POVs in Multi-Stream
+                    </button>` : `
+                    <span style="font-size:12px;color:var(--gray);">Add 2+ POV links to enable Multi-Stream</span>`}
+                </div>` : '<p style="color:var(--gray);font-size:13px;">No roster players found.</p>'}
+            </div>
+        </div>
+
+    </div>`;
+}
+
+// ── POV input handler ─────────────────────────────────────────────
+window.onPovInput = function(inp, player) {
+    const hasVal = inp.value.trim().length > 0;
+    inp.classList.toggle('has-val', hasVal);
+    // Update the open button
+    const btn = document.getElementById('povbtn_' + CSS.escape(player));
+    if(btn) {
+        btn.href = hasVal ? inp.value.trim() : '#';
+        btn.classList.toggle('disabled', !hasVal);
+    }
+};
+
+// ── Autosave notes (debounced 1.5s) ──────────────────────────────
+window.scheduleNoteSave = function() {
+    setStatus('saving');
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => saveNotes(false), 1500);
+};
+
+function setStatus(state, msg) {
+    const el = document.getElementById('saveStatus');
+    if(!el) return;
+    if(state === 'saving') {
+        el.className = 'notes-saved-info saving';
+        el.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Saving…';
+    } else if(state === 'saved') {
+        el.className = 'notes-saved-info saved saved-pulse';
+        el.textContent = msg || 'Saved';
+    } else {
+        el.className = 'notes-saved-info';
+        el.textContent = msg || '';
+    }
+}
+
+// ── Save notes text ───────────────────────────────────────────────
+window.saveNotes = async function(manual) {
+    if(!activeMatchId || !teamId) return;
+    const textarea = document.getElementById('notesText');
+    if(!textarea) return;
+    const text = textarea.value;
+    const user = auth.currentUser;
+
+    try {
+        await db.ref(`teams/${teamId}/matches_pro/${activeMatchId}/notes`).update({
+            text,
+            updatedAt: Date.now(),
+            updatedBy: user?.displayName || user?.email || 'unknown'
+        });
+        setStatus('saved', `Saved ${new Date().toLocaleTimeString()}`);
+        if(manual) toast('Notes saved');
+        // Refresh match list to show/hide notes dot
+        refreshMatchNotesDot(activeMatchId);
+    } catch(e) {
+        setStatus('idle', 'Save failed');
+        toast('Save failed: ' + e.message);
+    }
+};
+
+// ── Save POV links ────────────────────────────────────────────────
+window.savePovLinks = async function() {
+    if(!activeMatchId || !teamId) return;
+    const povLinks = {};
+    rosterPlayers.forEach(player => {
+        const inp = document.getElementById('pov_' + CSS.escape(player));
+        if(inp && inp.value.trim()) {
+            povLinks[player] = inp.value.trim();
+        }
+    });
+    try {
+        await db.ref(`teams/${teamId}/matches_pro/${activeMatchId}/notes/povLinks`).set(povLinks);
+        toast('POV links saved');
+        // Re-render header to update "Watch All POVs" button count
+        const m = allMatches.find(m => m.id === activeMatchId);
+        if(m) {
+            const notesSnap = await db.ref(`teams/${teamId}/matches_pro/${activeMatchId}/notes`).once('value');
+            renderNotesPanel(m, notesSnap.val()||{});
+        }
+        refreshMatchNotesDot(activeMatchId);
+    } catch(e) {
+        toast('Save failed: ' + e.message);
+    }
+};
+
+// ── Watch all POVs in multistream ─────────────────────────────────
+window.watchAllPovs = async function(matchId) {
+    const notesSnap = await db.ref(`teams/${teamId}/matches_pro/${matchId}/notes`).once('value');
+    const povLinks = (notesSnap.val()||{}).povLinks || {};
+    const entries = Object.entries(povLinks).filter(([,v]) => v);
+    if(entries.length < 2) { toast('Need at least 2 POV links'); return; }
+
+    // Build URL params for multistream
+    const params = new URLSearchParams();
+    entries.slice(0, 5).forEach(([player, url], i) => {
+        params.set(`url${i+1}`, url);
+        params.set(`pov${i+1}`, player);
+    });
+    window.open(`multistream.html?${params.toString()}`, '_blank');
+};
+
+// ── Refresh notes dot on match list item ──────────────────────────
+function refreshMatchNotesDot(matchId) {
+    // Update in-memory match object
+    const m = allMatches.find(m => m.id === matchId);
+    if(m) {
+        db.ref(`teams/${teamId}/matches_pro/${matchId}/notes`).once('value').then(snap => {
+            const n = snap.val()||{};
+            if(!m.notes) m.notes = {};
+            m.notes = n;
+            renderMatchList(allMatches);
+            // Re-highlight active
+            document.querySelectorAll('.match-item').forEach(el => {
+                if(el.onclick && el.getAttribute('onclick')?.includes(matchId)) {
+                    el.classList.add('active');
+                }
+            });
+        });
+    }
+}
+
+// ── Toast ─────────────────────────────────────────────────────────
+function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._t);
+    t._t = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+})();
+</script>
+
+<!-- Handle multistream URL params (when launched from match notes) -->
+<script>
+(function(){
+    // If this page is multistream.html opened with url params, pre-fill inputs
+    // This runs on multistream.html side — handled there via URL params
+})();
+</script>
+</body>
+</html>
