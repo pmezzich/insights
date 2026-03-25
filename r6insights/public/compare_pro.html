@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Compare — R6 Insights</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="../styles/pro-global.css">
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+<script src="../scripts/firebase-config.js"></script>
+<script src="../scripts/admin-preview.js"></script>
+<style>
+/* ── TABS ── */
+.tab-bar{display:flex;gap:0;border-bottom:1px solid var(--card-border);padding:0 24px;background:rgba(15,23,42,0.4);}
+.tab-btn{padding:14px 20px;font-size:13px;font-weight:700;color:var(--gray);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;transition:all .18s;white-space:nowrap;}
+.tab-btn:hover{color:var(--light);}
+.tab-btn.active{color:var(--primary);border-bottom-color:var(--primary);}
+.tab-pane{display:none;padding:20px 24px;flex-direction:column;gap:16px;}
+.tab-pane.active{display:flex;}
+
+/* ── MULTI-SELECT CHECKBOXES ── */
+.player-pick-grid{display:flex;flex-wrap:wrap;gap:8px;padding:12px 0;}
+.pick-item{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:8px;border:1px solid var(--card-border);background:rgba(10,16,28,0.6);cursor:pointer;transition:all .15s;user-select:none;}
+.pick-item:hover{border-color:rgba(124,58,237,0.4);}
+.pick-item.selected{border-color:rgba(124,58,237,0.6);background:rgba(124,58,237,0.12);}
+.pick-item input[type=checkbox]{display:none;}
+.pick-check{width:16px;height:16px;border-radius:4px;border:1px solid var(--card-border);background:transparent;display:flex;align-items:center;justify-content:center;font-size:10px;color:transparent;flex-shrink:0;transition:all .15s;}
+.pick-item.selected .pick-check{background:var(--primary);border-color:var(--primary);color:#fff;}
+.pick-av{width:28px;height:28px;border-radius:7px;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0;}
+.pick-name{font-size:13px;font-weight:700;}
+.pick-role{font-size:10px;color:var(--gray);}
+
+/* ── MATCH PICK LIST ── */
+.match-list{display:flex;flex-direction:column;gap:6px;max-height:380px;overflow-y:auto;padding-right:4px;}
+.match-pick-item{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;border:1px solid var(--card-border);background:rgba(10,16,28,0.6);cursor:pointer;transition:all .15s;}
+.match-pick-item:hover{border-color:rgba(124,58,237,0.4);}
+.match-pick-item.selected{border-color:rgba(124,58,237,0.55);background:rgba(124,58,237,0.1);}
+.mpi-check{width:16px;height:16px;border-radius:4px;border:1px solid var(--card-border);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:transparent;}
+.match-pick-item.selected .mpi-check{background:var(--primary);border-color:var(--primary);color:#fff;}
+.mpi-date{font-size:11px;color:var(--gray);width:80px;flex-shrink:0;}
+.mpi-opp{font-size:13px;font-weight:700;flex:1;}
+.mpi-type{font-size:10px;color:var(--gray);background:rgba(255,255,255,0.05);border:1px solid var(--card-border);padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.4px;}
+.mpi-score{font-size:13px;font-weight:800;color:var(--primary);width:50px;text-align:right;}
+.mpi-maps{font-size:11px;color:var(--gray);width:60px;text-align:right;}
+.sel-limit{font-size:11px;color:var(--gray);margin-left:8px;}
+
+/* ── COMPARISON TABLE ── */
+.compare-table-wrap{overflow-x:auto;}
+.compare-table{border-collapse:collapse;width:100%;min-width:500px;}
+.compare-table th{padding:10px 14px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);background:rgba(15,23,42,0.7);border-bottom:1px solid var(--card-border);text-align:center;white-space:nowrap;}
+.compare-table th.row-lbl{text-align:left;width:160px;}
+.compare-table td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.04);font-size:13px;text-align:center;}
+.compare-table td.row-lbl{text-align:left;font-size:12px;font-weight:600;color:var(--gray);}
+.compare-table tr:hover td{background:rgba(124,58,237,0.05);}
+.col-hdr{min-width:120px;}
+.col-hdr .ch-name{font-size:13px;font-weight:800;color:var(--light);}
+.col-hdr .ch-sub{font-size:10px;color:var(--gray);margin-top:2px;font-weight:400;text-transform:none;letter-spacing:0;}
+.best-cell{color:#34d399;font-weight:800;}
+.worst-cell{color:#f87171;}
+.section-row td{background:rgba(124,58,237,0.06);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#a78bfa;padding:6px 14px;}
+
+/* ── EMPTY / LOADING ── */
+.empty-compare{text-align:center;padding:60px 20px;color:var(--gray);}
+.empty-compare i{font-size:36px;margin-bottom:12px;display:block;opacity:.3;}
+
+/* ── PANEL ── */
+.panel{background:var(--card-bg);border:1px solid var(--card-border);border-radius:12px;overflow:hidden;}
+.panel-hdr{padding:13px 18px;border-bottom:1px solid var(--card-border);font-size:12px;font-weight:700;display:flex;align-items:center;gap:8px;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;}
+.panel-body{padding:16px 18px;}
+
+/* ── FILTER ROW ── */
+.filter-row{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;}
+.fg{display:flex;flex-direction:column;gap:5px;}
+.fg label{font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;}
+.fg select,.fg input{background:rgba(10,16,28,0.8);border:1px solid var(--card-border);color:var(--light);border-radius:8px;padding:9px 12px;font-size:13px;font-family:inherit;min-width:140px;}
+.fg select:focus,.fg input:focus{outline:none;border-color:var(--primary);}
+
+/* ── WIN/LOSS INDICATOR ── */
+.wr-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:6px;font-size:12px;font-weight:700;}
+.wr-good{background:rgba(52,211,153,0.15);color:#34d399;border:1px solid rgba(52,211,153,0.3);}
+.wr-mid {background:rgba(251,191,36,0.12);color:#fbbf24;border:1px solid rgba(251,191,36,0.25);}
+.wr-bad {background:rgba(239,68,68,0.12);color:#f87171;border:1px solid rgba(239,68,68,0.25);}
+
+/* ── PRINT ── */
+#printHeader{display:none;padding:0 24px 10px;}
+#printHeader h1{font-size:18px;font-weight:800;color:var(--primary);}
+#printHeader p{font-size:12px;color:var(--gray);margin-top:2px;}
+@media print{
+    .nav-header,.page-title,.tab-bar,.panel:first-child,.btn,.btn-logout{display:none!important;}
+    #printHeader{display:block!important;}
+    .container{box-shadow:none!important;border:none!important;}
+}
+</style>
+</head>
+<body>
+<div id="printHeader"><h1 id="printTitle">R6 Insights — Compare</h1><p id="printSub"></p></div>
+<div class="container">
+
+<!-- Nav -->
+<div class="nav-header">
+    <a href="index_pro.html" class="logo" style="text-decoration:none;">
+        <img src="../styles/r6_insights.png" class="logo-img" alt="R6 Insights">
+        <div class="logo-text">R6 INSIGHTS</div>
+        <span class="nav-badge">Beta</span>
+    </a>
+    <div class="nav-right">
+        <a href="index_pro.html" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Hub</a>
+        <a href="profile.html" id="navAvatar" class="nav-avatar-btn" title="Profile">?</a>
+        <button class="btn-logout" onclick="firebase.auth().signOut().then(()=>window.location.href='index_pro.html')"><i class="fas fa-right-from-bracket"></i> Logout</button>
+    </div>
+</div>
+
+<!-- Page Title -->
+<div class="page-title">
+    <div class="page-title-icon" style="background:rgba(124,58,237,0.18);border:1px solid rgba(124,58,237,0.3);color:#a78bfa;">
+        <i class="fas fa-code-compare"></i>
+    </div>
+    <div>
+        <h2>Compare</h2>
+        <p>Compare players, matches, or opponents side by side</p>
+    </div>
+</div>
+
+<!-- Tab Bar -->
+<div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('players')" id="tab-players">
+        <i class="fas fa-users"></i> Players
+    </button>
+    <button class="tab-btn" onclick="switchTab('matches')" id="tab-matches">
+        <i class="fas fa-gamepad"></i> Matches
+    </button>
+    <button class="tab-btn" onclick="switchTab('teams')" id="tab-teams">
+        <i class="fas fa-shield-halved"></i> Opponents
+    </button>
+</div>
+
+<!-- ══ TAB: PLAYERS ══════════════════════════════════════════════ -->
+<div class="tab-pane active" id="pane-players">
+    <div class="panel">
+        <div class="panel-hdr"><i class="fas fa-users"></i> Select Players to Compare</div>
+        <div class="panel-body">
+            <div id="playerPickGrid" class="player-pick-grid"></div>
+            <div class="filter-row" style="margin-top:12px;">
+                <div class="fg">
+                    <label>Map</label>
+                    <select id="pMapSel"><option value="">All Maps</option></select>
+                </div>
+                <div class="fg">
+                    <label>Match Type</label>
+                    <select id="pTypeSel">
+                        <option value="">All Types</option>
+                        <option value="scrim">Scrim</option>
+                        <option value="gameday">Game Day</option>
+                    </select>
+                </div>
+                <div class="fg">
+                    <label>Last N Matches</label>
+                    <input type="number" id="pNSel" value="0" min="0" style="width:90px;">
+                </div>
+                <div class="fg" style="margin-left:auto;">
+                    <label>&nbsp;</label>
+                    <button class="btn btn-primary" onclick="runPlayerCompare()"><i class="fas fa-play"></i> Compare</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="playerCompareResult">
+        <div class="empty-compare"><i class="fas fa-users"></i><p>Select two or more players and click Compare.</p></div>
+    </div>
+</div>
+
+<!-- ══ TAB: MATCHES ══════════════════════════════════════════════ -->
+<div class="tab-pane" id="pane-matches">
+    <div class="panel">
+        <div class="panel-hdr">
+            <i class="fas fa-gamepad"></i> Select Matches
+            <span class="sel-limit" id="matchSelCount">0 / 10 selected</span>
+        </div>
+        <div class="panel-body">
+            <div id="matchPickList" class="match-list"></div>
+        </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn btn-secondary" onclick="clearMatchSel()"><i class="fas fa-rotate-left"></i> Clear</button>
+        <button class="btn btn-primary" onclick="runMatchCompare()"><i class="fas fa-play"></i> Compare Selected</button>
+    </div>
+    <div id="matchCompareResult">
+        <div class="empty-compare"><i class="fas fa-gamepad"></i><p>Select up to 10 matches and click Compare.</p></div>
+    </div>
+</div>
+
+<!-- ══ TAB: OPPONENTS ════════════════════════════════════════════ -->
+<div class="tab-pane" id="pane-teams">
+    <div class="panel">
+        <div class="panel-hdr">
+            <i class="fas fa-shield-halved"></i> Select Opponents to Compare
+            <span class="sel-limit" id="teamSelCount">0 / 10 selected</span>
+        </div>
+        <div class="panel-body">
+            <div id="teamPickGrid" class="player-pick-grid"></div>
+        </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn btn-secondary" onclick="clearTeamSel()"><i class="fas fa-rotate-left"></i> Clear</button>
+        <button class="btn btn-primary" onclick="runTeamCompare()"><i class="fas fa-play"></i> Compare Selected</button>
+    </div>
+    <div id="teamCompareResult">
+        <div class="empty-compare"><i class="fas fa-shield-halved"></i><p>Select opponents from the list and click Compare.</p></div>
+    </div>
+</div>
+
+</div><!-- .container -->
+
+<script src="../scripts/profile-loader.js"></script>
+<script>
+// Global stubs — defined before IIFE so onclick HTML attributes can reach them
+function switchTab(t){if(window._switchTab)window._switchTab(t);}
+function runPlayerCompare(){if(window._runPlayerCompare)window._runPlayerCompare();}
+function runMatchCompare(){if(window._runMatchCompare)window._runMatchCompare();}
+function runTeamCompare(){if(window._runTeamCompare)window._runTeamCompare();}
+function clearMatchSel(){if(window._clearMatchSel)window._clearMatchSel();}
+function clearTeamSel(){if(window._clearTeamSel)window._clearTeamSel();}
+</script>
+<script>
+(function(){
+'use strict';
+
+window._switchTab=window.switchTab=function(tab){
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+    document.getElementById('tab-'+tab).classList.add('active');
+    document.getElementById('pane-'+tab).classList.add('active');
+};
+
+if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+const db=firebase.database();
+
+const x=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const COMPARE_WORKER_URL='https://r6insights-ai.YOUR-SUBDOMAIN.workers.dev/ai';
+
+const OP_ROLES = {
+    'Striker':'flex','Sledge':'support','Thatcher':'support','Ash':'frag','Thermite':'support','Twitch':'flex',
+    'Montagne':'support','Glaz':'flex','Fuze':'support','Blitz':'flex','Iq':'frag','Buck':'flex',
+    'Blackbeard':'flex','Capitao':'flex','Hibana':'support','Jackel':'flex','Ying':'frag',
+    'Zofia':'flex','Dokkaebi':'frag','Lion':'flex','Finka':'flex','Mavrick':'support',
+    'Nomad':'flex','Gridlock':'flex','Nokk':'frag','Amaru':'frag','Kali':'support','Iana':'support',
+    'Ace':'support','Zero':'flex','Flores':'flex','Osa':'support','Sens':'flex',
+    'Grim':'flex','Brava':'support','Ram':'support','Deimos':'frag','Rauora':'flex','SolidSnake':'flex',
+    'Sentry':'flex','Smoke':'support','Mute':'support','Castle':'flex','Pulse':'frag','Doc':'frag',
+    'Rook':'support','Kapkan':'frag','Tachanka':'support','Jager':'flex','Bandit':'support',
+    'Frost':'support','Valkyrie':'frag','Caveira':'frag','Echo':'support','Mira':'support',
+    'Lesion':'flex','Ela':'frag','Vigil':'frag','Maestro':'support','Alibi':'frag',
+    'Clash':'support','Kaid':'support','Mozzie':'frag','Warden':'flex','Goyo':'frag',
+    'Wamai':'flex','Oryx':'frag','Melusi':'support','Azami':'frag','Thunderbird':'support',
+    'Thorn':'flex','Aruni':'frag','Solis':'frag','Fenrir':'flex','Tubarao':'support',
+    'Skopos':'frag','Denari':'flex',
+}
+
+function normRounds(map){
+    if(!map.rounds) return[];
+    const arr=Array.isArray(map.rounds)?map.rounds:Object.values(map.rounds);
+    return arr.filter(Boolean).sort((a,b)=>parseInt(a.roundNumber||a.round||0)-parseInt(b.roundNumber||b.round||0));
+}
+function nm(s){return(s||'').toLowerCase().replace(/\s+/g,'');}
+function mpMatch(n,t){const nn=nm(n),nt=nm(t);return nn===nt||nn.includes(nt)||nt.includes(nn);}
+function isWin(r){const o=(r.outcome||'').toLowerCase();return o==='win'||o==='won'||o.startsWith('won');}
+function side(r,map){
+    const rl=(r.yourRole||'').toLowerCase();
+    if(rl.includes('attack')||rl==='atk') return'atk';
+    if(rl.includes('defen')||rl==='def')  return'def';
+    if(Array.isArray(r.teams)){
+        const t=r.teams[r.yourTeamIndex??0];
+        const tr=(t?.role||t?.name||'').toLowerCase();
+        if(tr.includes('attack')) return'atk';
+        if(tr.includes('defen'))  return'def';
+    }
+    const rn=parseInt(r.roundNumber||r.round||0);
+    const sd=(map.startingSide||'').toLowerCase();
+    if(rn<=6)  return sd==='attack'?'atk':'def';
+    if(rn<=12) return sd==='attack'?'def':'atk';
+    return((rn-12)%2===1)?'atk':'def';
+}
+
+function computeStats(pName,info,matches,mapFilter){
+    const s={
+        name:info.displayName||pName, rawName:pName,
+        teamRole:info.role||'',
+        rounds:0,wins:0,kills:0,deaths:0,headshots:0,plants:0,defuses:0,
+        entryKills:0,entryDeaths:0,entryConvWins:0,tradedDeaths:0,
+        atkRounds:0,atkWins:0,atkKills:0,atkDeaths:0,
+        defRounds:0,defWins:0,defKills:0,defDeaths:0,
+        ops:{},maps:{}
+    };
+
+    matches.forEach(match=>{
+        match.maps.forEach(map=>{
+            if(mapFilter&&map.mapName!==mapFilter) return;
+            const mapName=map.mapName||'Unknown';
+            const rounds=normRounds(map);
+            const myTIdx=(rounds[0]?.yourTeamIndex)??0;
+
+            rounds.forEach(r=>{
+                const evs=Array.isArray(r.events)?r.events:[];
+                const players=Array.isArray(r.players)?r.players:[];
+                const won=isWin(r);
+                const sd=side(r,map);
+
+                // Player's round record (for operator)
+                const myP=players.find(p=>mpMatch(p.name||p.username||'',pName));
+
+                // Skip round if no events reference this player at all
+                const hasAny=evs.some(e=>{
+                    const a=e.username||e.killer||e.source||'';
+                    const v=e.target||e.victim||'';
+                    return mpMatch(a,pName)||mpMatch(v,pName);
+                });
+                if(!myP&&!hasAny) return;
+
+                const sorted=evs.slice().sort((a,b)=>(a.timestamp||0)-(b.timestamp||0));
+                const firstKillEv=sorted.find(e=>(e.type||'').toLowerCase()==='kill');
+                const firstKiller=firstKillEv?(firstKillEv.username||firstKillEv.killer||''):'';
+
+                let mk=0,md=0,mh=0,mp=0,mdf=0;
+
+                sorted.forEach(ev=>{
+                    const t=(ev.type||'').toLowerCase();
+                    const a=ev.username||ev.killer||ev.source||'';
+                    const v=ev.target||ev.victim||'';
+
+                    if(t==='kill'){
+                        if(mpMatch(a,pName)){
+                            mk++;
+                            if(ev.headshot||ev.isHeadshot||(ev.hitArea==='Head')||(ev.hitArea==='head')) mh++;
+                            if(firstKiller&&mpMatch(firstKiller,pName)){s.entryKills++;if(won)s.entryConvWins++;}
+                        }
+                        if(mpMatch(v,pName)){
+                            md++;
+                            // Entry death: this player was the first victim
+                            if(firstKillEv&&(ev.timestamp||0)===(firstKillEv.timestamp||0)&&!mpMatch(a,pName)) s.entryDeaths++;
+                            // Traded: teammate kills the killer within 5s
+                            const dt=ev.timestamp||0;
+                            const killer=a;
+                            const traded=sorted.some(e2=>{
+                                if((e2.type||'').toLowerCase()!=='kill') return false;
+                                const t2=e2.timestamp||0;
+                                if(t2<=dt||t2-dt>5) return false;
+                                const a2=e2.username||e2.killer||'';
+                                const v2=e2.target||e2.victim||'';
+                                const a2p=players.find(p=>mpMatch(p.name||p.username||'',a2));
+                                return(a2p?.teamIndex??-1)===myTIdx&&mpMatch(v2,killer);
+                            });
+                            if(traded) s.tradedDeaths++;
+                        }
+                    }
+                    if(t==='plant' &&mpMatch(a,pName)) mp++;
+                    if(t==='defuse'&&mpMatch(a,pName)) mdf++;
+                });
+
+                s.rounds++;if(won)s.wins++;
+                s.kills+=mk;s.deaths+=md;s.headshots+=mh;s.plants+=mp;s.defuses+=mdf;
+
+                if(sd==='atk'){s.atkRounds++;if(won)s.atkWins++;s.atkKills+=mk;s.atkDeaths+=md;}
+                else           {s.defRounds++;if(won)s.defWins++;s.defKills+=mk;s.defDeaths+=md;}
+
+                // Operator
+                const opRaw=myP?.operator||'';
+                const opName=(typeof opRaw==='object')?(opRaw?.name||''):opRaw;
+                if(opName){
+                    if(!s.ops[opName]) s.ops[opName]={rounds:0,kills:0,deaths:0,wins:0,hs:0,entryKills:0};
+                    s.ops[opName].rounds++;s.ops[opName].kills+=mk;s.ops[opName].deaths+=md;
+                    s.ops[opName].hs+=mh;if(won)s.ops[opName].wins++;
+                    if(firstKiller&&mpMatch(firstKiller,pName)) s.ops[opName].entryKills++;
+                }
+
+                // Map
+                if(!s.maps[mapName]) s.maps[mapName]={rounds:0,kills:0,deaths:0,wins:0};
+                s.maps[mapName].rounds++;s.maps[mapName].kills+=mk;s.maps[mapName].deaths+=md;
+                if(won)s.maps[mapName].wins++;
+            });
+        });
+    });
+
+    // Derived
+    const R=s.rounds||1;
+    s.kd           =s.deaths>0?s.kills/s.deaths:s.kills;
+    s.kpr          =s.kills/R;
+    s.dpr          =s.deaths/R;
+    s.sr           =(R-s.deaths)/R*100;
+    s.hsp          =s.kills>0?s.headshots/s.kills*100:0;
+    s.winPct       =s.wins/R*100;
+    s.atkKd        =s.atkDeaths>0?s.atkKills/s.atkDeaths:s.atkKills;
+    s.defKd        =s.defDeaths>0?s.defKills/s.defDeaths:s.defKills;
+    s.atkWinPct    =s.atkRounds>0?s.atkWins/s.atkRounds*100:0;
+    s.defWinPct    =s.defRounds>0?s.defWins/s.defRounds*100:0;
+    s.entryKillPct =s.entryKills/R*100;
+    s.entryDeathPct=s.entryDeaths/R*100;
+    s.entryConvPct =s.entryKills>0?s.entryConvWins/s.entryKills*100:0;
+    s.tradedPct    =s.deaths>0?s.tradedDeaths/s.deaths*100:0;
+    return s;
+}
+
+// ─── DATA LAYER ──────────────────────────────────────────────────────────────
+const TEAM_ID='hnh_esports_6dh8x';
+let ALL_MATCHES=[];
+let ROSTER={};
+
+firebase.auth().onAuthStateChanged(user=>{
+    if(!user){window.location.href='/public/index_pro.html';return;}
+    loadData();
+});
+
+async function loadData(){
+    try{
+        const[rs,ms]=await Promise.all([
+            db.ref(`/teams/${TEAM_ID}/roster`).once('value'),
+            db.ref(`/teams/${TEAM_ID}/matches`).once('value')
+        ]);
+        ROSTER=rs.val()||{};
+        const raw=ms.val()||{};
+        ALL_MATCHES=Object.entries(raw)
+            .map(([id,m])=>({id,...m,maps:m.maps?(Array.isArray(m.maps)?m.maps:Object.values(m.maps)):[]}))
+            .filter(m=>m.maps.length)
+            .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+        buildMapFilter();
+        renderPlayerGrid();
+        renderMatchList();
+        renderOpponentGrid();
+    }catch(e){console.error('loadData error',e);}
+}
+
+function buildMapFilter(){
+    const maps=new Set();
+    ALL_MATCHES.forEach(m=>m.maps.forEach(mp=>{if(mp.mapName)maps.add(mp.mapName);}));
+    const sel=document.getElementById('pMapSel');
+    [...maps].sort().forEach(name=>{
+        const o=document.createElement('option');
+        o.value=name;o.textContent=name;sel.appendChild(o);
+    });
+}
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+const ROLE_COLORS={frag:'#f87171',support:'#34d399',flex:'#60a5fa',captain:'#a78bfa',coach:'#fbbf24',analyst:'#fb923c'};
+function initials(name){return(name||'?').split(/[\s._-]/).map(w=>w[0]).join('').toUpperCase().slice(0,2);}
+function roleCol(r){return ROLE_COLORS[(r||'').toLowerCase()]||'#a78bfa';}
+function fmt(v,d=2){return(typeof v==='number'&&isFinite(v))?v.toFixed(d):'-';}
+function pct(v){return fmt(v,1)+'%';}
+
+// ─── PLAYER PICKER ────────────────────────────────────────────────────────────
+let selectedPlayers=new Set();
+
+function renderPlayerGrid(){
+    const grid=document.getElementById('playerPickGrid');
+    grid.innerHTML='';
+    const players=Object.entries(ROSTER)
+        .filter(([,v])=>v.inRoster&&!['coach','analyst'].includes((v.role||'').toLowerCase()))
+        .sort((a,b)=>(a[1].displayName||'').localeCompare(b[1].displayName||''));
+    if(!players.length){grid.innerHTML='<p style="color:var(--gray);font-size:13px;">No roster players found.</p>';return;}
+    players.forEach(([key,info])=>{
+        const name=info.displayName||key;
+        const role=info.playRole||info.role||'flex';
+        const col=roleCol(role);
+        const div=document.createElement('div');
+        div.className='pick-item';div.dataset.key=key;
+        div.innerHTML=`
+            <div class="pick-check"></div>
+            <div class="pick-av" style="background:${col}22;border:1px solid ${col}44;color:${col};">${initials(name)}</div>
+            <div><div class="pick-name">${x(name)}</div><div class="pick-role">${role.toUpperCase()}</div></div>`;
+        div.addEventListener('click',()=>togglePlayer(key,div));
+        grid.appendChild(div);
+    });
+}
+
+function togglePlayer(key,el){
+    if(selectedPlayers.has(key)){
+        selectedPlayers.delete(key);
+        el.classList.remove('selected');
+        el.querySelector('.pick-check').innerHTML='';
+    }else{
+        if(selectedPlayers.size>=10){showToast('Max 10 players');return;}
+        selectedPlayers.add(key);
+        el.classList.add('selected');
+        el.querySelector('.pick-check').innerHTML='<i class="fas fa-check"></i>';
+    }
+}
+
+// ─── MATCH PICKER ─────────────────────────────────────────────────────────────
+let selectedMatches=new Set();
+
+function renderMatchList(){
+    const list=document.getElementById('matchPickList');
+    list.innerHTML='';
+    if(!ALL_MATCHES.length){list.innerHTML='<p style="color:var(--gray);font-size:13px;">No matches found.</p>';return;}
+    ALL_MATCHES.forEach(m=>{
+        const wins=(m.maps||[]).filter(mp=>(mp.outcome||'').toLowerCase().startsWith('w')).length;
+        const losses=(m.maps||[]).filter(mp=>(mp.outcome||'').toLowerCase().startsWith('l')).length;
+        const scoreStr=m.score||(wins||losses?`${wins}W-${losses}L`:'—');
+        const div=document.createElement('div');
+        div.className='match-pick-item';div.dataset.id=m.id;
+        div.innerHTML=`
+            <div class="mpi-check"></div>
+            <div class="mpi-date">${x(m.date||'—')}</div>
+            <div class="mpi-opp">${x(m.opponent||m.opponentTeam||'Unknown')}</div>
+            <div class="mpi-type">${x((m.type||m.matchType||'—').toUpperCase())}</div>
+            <div class="mpi-score">${x(scoreStr)}</div>
+            <div class="mpi-maps">${(m.maps||[]).length} map${(m.maps||[]).length!==1?'s':''}</div>`;
+        div.addEventListener('click',()=>toggleMatch(m.id,div));
+        list.appendChild(div);
+    });
+    updateMatchCount();
+}
+
+function toggleMatch(id,el){
+    if(selectedMatches.has(id)){
+        selectedMatches.delete(id);
+        el.classList.remove('selected');
+        el.querySelector('.mpi-check').innerHTML='';
+    }else{
+        if(selectedMatches.size>=10){showToast('Max 10 matches');return;}
+        selectedMatches.add(id);
+        el.classList.add('selected');
+        el.querySelector('.mpi-check').innerHTML='<i class="fas fa-check"></i>';
+    }
+    updateMatchCount();
+}
+
+function updateMatchCount(){
+    document.getElementById('matchSelCount').textContent=`${selectedMatches.size} / 10 selected`;
+}
+
+window._clearMatchSel=function(){
+    selectedMatches.clear();
+    document.querySelectorAll('.match-pick-item').forEach(el=>{
+        el.classList.remove('selected');
+        el.querySelector('.mpi-check').innerHTML='';
+    });
+    updateMatchCount();
+    document.getElementById('matchCompareResult').innerHTML='<div class="empty-compare"><i class="fas fa-gamepad"></i><p>Select up to 10 matches and click Compare.</p></div>';
+};
+
+// ─── OPPONENT PICKER ──────────────────────────────────────────────────────────
+let selectedTeams=new Set();
+
+function renderOpponentGrid(){
+    const grid=document.getElementById('teamPickGrid');
+    grid.innerHTML='';
+    const oppMap={};
+    ALL_MATCHES.forEach(m=>{
+        const opp=m.opponent||m.opponentTeam||'Unknown';
+        if(!oppMap[opp])oppMap[opp]={matches:0,maps:0};
+        oppMap[opp].matches++;
+        oppMap[opp].maps+=(m.maps||[]).length;
+    });
+    if(!Object.keys(oppMap).length){grid.innerHTML='<p style="color:var(--gray);font-size:13px;">No opponents found.</p>';return;}
+    Object.entries(oppMap).sort((a,b)=>b[1].matches-a[1].matches).forEach(([opp,stats])=>{
+        const div=document.createElement('div');
+        div.className='pick-item';div.dataset.key=opp;
+        div.innerHTML=`
+            <div class="pick-check"></div>
+            <div class="pick-av" style="background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.3);color:#a78bfa;"><i class="fas fa-shield-halved" style="font-size:12px;"></i></div>
+            <div><div class="pick-name">${x(opp)}</div><div class="pick-role">${stats.matches} match${stats.matches!==1?'es':''} · ${stats.maps} maps</div></div>`;
+        div.addEventListener('click',()=>toggleTeam(opp,div));
+        grid.appendChild(div);
+    });
+    document.getElementById('teamSelCount').textContent='0 / 10 selected';
+}
+
+function toggleTeam(key,el){
+    if(selectedTeams.has(key)){
+        selectedTeams.delete(key);
+        el.classList.remove('selected');
+        el.querySelector('.pick-check').innerHTML='';
+    }else{
+        if(selectedTeams.size>=10){showToast('Max 10 opponents');return;}
+        selectedTeams.add(key);
+        el.classList.add('selected');
+        el.querySelector('.pick-check').innerHTML='<i class="fas fa-check"></i>';
+    }
+    document.getElementById('teamSelCount').textContent=`${selectedTeams.size} / 10 selected`;
+}
+
+window._clearTeamSel=function(){
+    selectedTeams.clear();
+    document.querySelectorAll('#teamPickGrid .pick-item').forEach(el=>{
+        el.classList.remove('selected');
+        el.querySelector('.pick-check').innerHTML='';
+    });
+    document.getElementById('teamSelCount').textContent='0 / 10 selected';
+    document.getElementById('teamCompareResult').innerHTML='<div class="empty-compare"><i class="fas fa-shield-halved"></i><p>Select opponents from the list and click Compare.</p></div>';
+};
+
+// ─── PLAYER COMPARE ───────────────────────────────────────────────────────────
+window._runPlayerCompare=function(){
+    const keys=[...selectedPlayers];
+    if(keys.length<2){showToast('Select at least 2 players');return;}
+    const mapFilter=document.getElementById('pMapSel').value||null;
+    const typeFilter=document.getElementById('pTypeSel').value;
+    const nFilter=parseInt(document.getElementById('pNSel').value)||0;
+    let matches=ALL_MATCHES;
+    if(typeFilter)matches=matches.filter(m=>(m.type||m.matchType||'').toLowerCase()===typeFilter.toLowerCase());
+    if(nFilter>0)matches=matches.slice(0,nFilter);
+    const stats=keys.map(k=>computeStats(k,ROSTER[k]||{displayName:k},matches,mapFilter));
+    // Add per-round derived not in computeStats
+    stats.forEach(s=>{const R=s.rounds||1;s.ppr=s.plants/R;s.dfpr=s.defuses/R;});
+    document.getElementById('playerCompareResult').innerHTML=renderPlayerTable(stats);
+};
+
+function renderPlayerTable(stats){
+    const n=stats.length;
+    const ROWS=[
+        {label:'Rounds Played', key:'rounds',       fmt:v=>String(Math.round(v)),  higher:true,  section:'CORE STATS'},
+        {label:'Win Rate',      key:'winPct',        fmt:pct,                        higher:true},
+        {label:'K/D Ratio',     key:'kd',            fmt:v=>fmt(v,2),               higher:true},
+        {label:'Kills / Round', key:'kpr',           fmt:v=>fmt(v,2),               higher:true},
+        {label:'Deaths / Round',key:'dpr',           fmt:v=>fmt(v,2),               higher:false},
+        {label:'Headshot %',    key:'hsp',           fmt:pct,                        higher:true},
+        {label:'Survival Rate', key:'sr',            fmt:pct,                        higher:true},
+        {label:'ATK K/D',       key:'atkKd',         fmt:v=>fmt(v,2),               higher:true,  section:'ATTACK'},
+        {label:'ATK Win %',     key:'atkWinPct',     fmt:pct,                        higher:true},
+        {label:'ATK Rounds',    key:'atkRounds',     fmt:v=>String(Math.round(v)),  higher:true},
+        {label:'DEF K/D',       key:'defKd',         fmt:v=>fmt(v,2),               higher:true,  section:'DEFENCE'},
+        {label:'DEF Win %',     key:'defWinPct',     fmt:pct,                        higher:true},
+        {label:'DEF Rounds',    key:'defRounds',     fmt:v=>String(Math.round(v)),  higher:true},
+        {label:'Plants / Round',key:'ppr',           fmt:v=>fmt(v,3),               higher:true,  section:'OBJECTIVE'},
+        {label:'Defuses / Round',key:'dfpr',         fmt:v=>fmt(v,3),               higher:true},
+        {label:'Entry Kill %',  key:'entryKillPct',  fmt:pct,                        higher:true,  section:'ENTRY'},
+        {label:'Entry Death %', key:'entryDeathPct', fmt:pct,                        higher:false},
+        {label:'Entry Conv %',  key:'entryConvPct',  fmt:pct,                        higher:true},
+        {label:'Trade Death %', key:'tradedPct',     fmt:pct,                        higher:true},
+    ];
+
+    let html=`<div class="compare-table-wrap"><table class="compare-table"><thead><tr><th class="row-lbl">Stat</th>`;
+    stats.forEach(s=>{
+        const info=ROSTER[s.rawName]||{};
+        const col=roleCol(info.playRole||s.teamRole||'flex');
+        html+=`<th class="col-hdr">
+            <div style="width:32px;height:32px;border-radius:8px;background:${col}22;border:1px solid ${col}44;color:${col};display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;margin-bottom:4px;">${initials(s.name)}</div>
+            <div class="ch-name">${x(s.name)}</div>
+            <div class="ch-sub">${s.rounds} rounds</div></th>`;
+    });
+    html+=`</tr></thead><tbody>`;
+
+    let lastSection='';
+    ROWS.forEach(row=>{
+        if(row.section&&row.section!==lastSection){
+            lastSection=row.section;
+            html+=`<tr class="section-row"><td colspan="${n+1}">${row.section}</td></tr>`;
+        }
+        const vals=stats.map(s=>s[row.key]??0);
+        const best=row.higher?Math.max(...vals):Math.min(...vals);
+        const worst=row.higher?Math.min(...vals):Math.max(...vals);
+        const allSame=vals.every(v=>v===vals[0]);
+        html+=`<tr><td class="row-lbl">${row.label}</td>`;
+        vals.forEach(v=>{
+            const isBest=!allSame&&n>1&&v===best;
+            const isWorst=!allSame&&n>1&&v===worst;
+            html+=`<td class="${isBest?'best-cell':isWorst?'worst-cell':''}">${row.fmt(v)}</td>`;
+        });
+        html+='</tr>';
+    });
+    html+=`</tbody></table></div>`;
+    return html;
+}
+
+// ─── MATCH COMPARE ────────────────────────────────────────────────────────────
+window._runMatchCompare=function(){
+    const ids=[...selectedMatches];
+    if(ids.length<2){showToast('Select at least 2 matches');return;}
+    const matches=ALL_MATCHES.filter(m=>ids.includes(m.id));
+    document.getElementById('matchCompareResult').innerHTML=renderMatchTable(matches);
+};
+
+function renderMatchTable(matches){
+    const n=matches.length;
+    const ROWS=[
+        {label:'Date',          fn:m=>m.date||'—'},
+        {label:'Opponent',      fn:m=>m.opponent||m.opponentTeam||'—'},
+        {label:'Type',          fn:m=>(m.type||m.matchType||'—').toUpperCase()},
+        {label:'Maps Played',   fn:m=>(m.maps||[]).length,                                                                                              higher:true,  num:true, section:'RESULTS'},
+        {label:'Maps Won',      fn:m=>(m.maps||[]).filter(mp=>(mp.outcome||'').toLowerCase().startsWith('w')).length,                                   higher:true,  num:true},
+        {label:'Maps Lost',     fn:m=>(m.maps||[]).filter(mp=>(mp.outcome||'').toLowerCase().startsWith('l')).length,                                   higher:false, num:true},
+        {label:'Total Rounds',  fn:m=>{let t=0;(m.maps||[]).forEach(mp=>t+=normRounds(mp).length);return t;},                                          higher:true,  num:true},
+        {label:'Rounds Won',    fn:m=>{let t=0;(m.maps||[]).forEach(mp=>normRounds(mp).forEach(r=>{if(isWin(r))t++;}));return t;},                     higher:true,  num:true},
+        {label:'Round Win %',   fn:m=>{let t=0,w=0;(m.maps||[]).forEach(mp=>{const rs=normRounds(mp);t+=rs.length;rs.forEach(r=>{if(isWin(r))w++;});});return t>0?pct(w/t*100):'—';}, section:''},
+    ];
+
+    let html=`<div class="compare-table-wrap"><table class="compare-table"><thead><tr><th class="row-lbl">Match Info</th>`;
+    matches.forEach((m,i)=>{
+        const opp=m.opponent||m.opponentTeam||`Match ${i+1}`;
+        html+=`<th class="col-hdr"><div class="ch-name">${x(opp)}</div><div class="ch-sub">${x(m.date||'')}</div></th>`;
+    });
+    html+=`</tr></thead><tbody>`;
+
+    let lastSection='';
+    ROWS.forEach(row=>{
+        if(row.section!==undefined&&row.section!==lastSection){
+            lastSection=row.section;
+            if(row.section)html+=`<tr class="section-row"><td colspan="${n+1}">${row.section}</td></tr>`;
+        }
+        const vals=matches.map(m=>row.fn(m));
+        const numVals=row.num?vals.map(v=>Number(v)):null;
+        const allSame=numVals&&numVals.every(v=>v===numVals[0]);
+        const best=numVals&&row.higher&&!allSame?Math.max(...numVals):null;
+        const worst=numVals&&!row.higher&&!allSame?Math.max(...numVals):null;
+        html+=`<tr><td class="row-lbl">${row.label}</td>`;
+        vals.forEach((v,i)=>{
+            const nv=numVals?numVals[i]:null;
+            const isBest=best!==null&&nv===best;
+            const isWorst=worst!==null&&nv===worst;
+            html+=`<td class="${isBest?'best-cell':isWorst?'worst-cell':''}">${x(String(v))}</td>`;
+        });
+        html+='</tr>';
+    });
+
+    // Per-map breakdown
+    html+=`<tr class="section-row"><td colspan="${n+1}">PER MAP BREAKDOWN</td></tr>`;
+    const maxMaps=Math.max(...matches.map(m=>(m.maps||[]).length));
+    for(let i=0;i<maxMaps;i++){
+        html+=`<tr><td class="row-lbl">Map ${i+1}</td>`;
+        matches.forEach(m=>{
+            const mp=(m.maps||[])[i];
+            if(!mp){html+=`<td style="color:var(--gray);">—</td>`;return;}
+            const won=(mp.outcome||'').toLowerCase().startsWith('w');
+            const rds=normRounds(mp);
+            const rWon=rds.filter(r=>isWin(r)).length;
+            html+=`<td><span style="color:${won?'#34d399':'#f87171'};font-weight:700;">${x(mp.mapName||'?')}</span><br><span style="font-size:11px;color:var(--gray);">${rWon}–${rds.length-rWon}</span></td>`;
+        });
+        html+='</tr>';
+    }
+    html+=`</tbody></table></div>`;
+    return html;
+}
+
+// ─── OPPONENT COMPARE ─────────────────────────────────────────────────────────
+window._runTeamCompare=function(){
+    const opps=[...selectedTeams];
+    if(opps.length<2){showToast('Select at least 2 opponents');return;}
+    document.getElementById('teamCompareResult').innerHTML=renderTeamTable(opps);
+};
+
+function aggVsOpp(opp){
+    const ms=ALL_MATCHES.filter(m=>(m.opponent||m.opponentTeam||'')===opp);
+    const a={matches:ms.length,matchWins:0,maps:0,mapWins:0,rounds:0,roundWins:0};
+    ms.forEach(m=>{
+        let mw=false;
+        (m.maps||[]).forEach(mp=>{
+            a.maps++;
+            const won=(mp.outcome||'').toLowerCase().startsWith('w');
+            if(won){a.mapWins++;mw=true;}
+            const rds=normRounds(mp);
+            a.rounds+=rds.length;
+            rds.forEach(r=>{if(isWin(r))a.roundWins++;});
+        });
+        if(mw)a.matchWins++;
+    });
+    a.matchWR=a.matches>0?a.matchWins/a.matches*100:0;
+    a.mapWR=a.maps>0?a.mapWins/a.maps*100:0;
+    a.roundWR=a.rounds>0?a.roundWins/a.rounds*100:0;
+    return a;
+}
+
+function renderTeamTable(opps){
+    const data=opps.map(o=>({opp:o,...aggVsOpp(o)}));
+    const n=data.length;
+    const ROWS=[
+        {label:'Matches Played', key:'matches',  fmt:v=>String(v),  higher:true, num:true, section:'OVERALL'},
+        {label:'Match Win Rate', key:'matchWR',  fmt:pct,            higher:true, num:true},
+        {label:'Match Wins',     key:'matchWins',fmt:v=>String(v),  higher:true, num:true},
+        {label:'Maps Played',    key:'maps',     fmt:v=>String(v),  higher:true, num:true, section:'MAP RESULTS'},
+        {label:'Map Win Rate',   key:'mapWR',    fmt:pct,            higher:true, num:true},
+        {label:'Maps Won',       key:'mapWins',  fmt:v=>String(v),  higher:true, num:true},
+        {label:'Total Rounds',   key:'rounds',   fmt:v=>String(v),  higher:true, num:true, section:'ROUND RESULTS'},
+        {label:'Round Win Rate', key:'roundWR',  fmt:pct,            higher:true, num:true},
+        {label:'Rounds Won',     key:'roundWins',fmt:v=>String(v),  higher:true, num:true},
+    ];
+
+    let html=`<div class="compare-table-wrap"><table class="compare-table"><thead><tr><th class="row-lbl">Stat</th>`;
+    data.forEach(d=>{
+        html+=`<th class="col-hdr"><div class="ch-name">${x(d.opp)}</div><div class="ch-sub">${d.matches} match${d.matches!==1?'es':''}</div></th>`;
+    });
+    html+=`</tr></thead><tbody>`;
+
+    let lastSection='';
+    ROWS.forEach(row=>{
+        if(row.section&&row.section!==lastSection){
+            lastSection=row.section;
+            html+=`<tr class="section-row"><td colspan="${n+1}">${row.section}</td></tr>`;
+        }
+        const vals=data.map(d=>d[row.key]??0);
+        const allSame=vals.every(v=>v===vals[0]);
+        const best=!allSame&&row.higher?Math.max(...vals):null;
+        const worst=!allSame&&!row.higher?Math.max(...vals):null;
+        html+=`<tr><td class="row-lbl">${row.label}</td>`;
+        vals.forEach(v=>{
+            const isBest=best!==null&&v===best;
+            const isWorst=worst!==null&&v===worst;
+            html+=`<td class="${isBest?'best-cell':isWorst?'worst-cell':''}">${row.fmt(v)}</td>`;
+        });
+        html+='</tr>';
+    });
+    html+=`</tbody></table></div>`;
+    return html;
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+function showToast(msg){
+    let t=document.getElementById('cmp-toast');
+    if(!t){
+        t=document.createElement('div');t.id='cmp-toast';
+        t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(124,58,237,0.92);color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:700;z-index:9999;pointer-events:none;transition:opacity .3s;';
+        document.body.appendChild(t);
+    }
+    t.textContent=msg;t.style.opacity='1';
+    clearTimeout(t._to);t._to=setTimeout(()=>t.style.opacity='0',2200);
+}
+
+})();
+</script>
+</body>
+</html>
