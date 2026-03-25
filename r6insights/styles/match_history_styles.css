@@ -1,0 +1,317 @@
+/* match_history_styles.css */
+:root {
+    --primary: #7C3AED;
+    --secondary: #94A3B8;
+    --success: #10B981;
+    --warning: #F59E0B;
+    --danger: #EF4444;
+    --dark: #0F172A;
+    --dark-secondary: #1E293B;
+    --light: #F1F5F9;
+    --radius: 6px;
+    --shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--dark);
+    color: var(--light);
+    line-height: 1.5;
+    padding: 0.5rem;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.9);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    gap: 1rem;
+    color: var(--primary);
+    z-index: 1000;
+}
+
+.spinner {
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 3px solid rgba(255,255,255,0.1);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.nav-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+    background: var(--dark-secondary);
+    border-radius: var(--radius);
+}
+
+.btn {
+    padding: 0.4rem 0.8rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: transform 0.2s;
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.btn-secondary {
+    background: var(--dark-secondary);
+    color: var(--light);
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.btn-danger {
+    background: var(--danger);
+    color: white;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow);
+}
+
+.filters {
+    background: var(--dark-secondary);
+    padding: 0.75rem;
+    border-radius: var(--radius);
+    margin-bottom: 1rem;
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.form-input {
+    padding: 0.5rem;
+    background: var(--dark);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 4px;
+    color: var(--light);
+    width: 100%;
+    font-size: 0.9rem;
+}
+
+.match-list {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.match-card {
+    background: var(--dark-secondary);
+    padding: 0.75rem;
+    border-radius: var(--radius);
+    margin-bottom: 0.5rem;
+}
+
+.match-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.match-date {
+    color: var(--secondary);
+    font-size: 0.8rem;
+}
+
+.match-result {
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.match-result.win {
+    background: var(--success);
+    color: white;
+}
+
+.match-result.loss {
+    background: var(--danger);
+    color: white;
+}
+
+.maps-container {
+    display: grid;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.map-card {
+    background: var(--dark);
+    padding: 0.75rem;
+    border-radius: var(--radius);
+    border: 1px solid transparent;
+}
+
+.map-card.win {
+    border-color: var(--success);
+}
+
+.map-card.loss {
+    border-color: var(--danger);
+}
+
+.map-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.map-name {
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.map-score {
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+}
+
+.map-score.win {
+    background: var(--success);
+    color: white;
+}
+
+.map-score.loss {
+    background: var(--danger);
+    color: white;
+}
+
+.player-stat {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem;
+    margin-bottom: 0.3rem;
+}
+
+.player-name {
+    background: var(--dark);
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    min-width: 100px;
+    text-align: center;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.stats-grid {
+    display: flex;
+    gap: 0.3rem;
+    flex-wrap: wrap;
+    flex: 1;
+}
+
+.stat-box {
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    min-width: 50px;
+    text-align: center;
+    border: 1px solid transparent;
+    font-size: 0.85rem;
+}
+
+.stat-label {
+    font-size: 0.65rem;
+    color: var(--secondary);
+    display: block;
+    margin-bottom: 0.1rem;
+}
+
+.stat-value {
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+/* Color Coding */
+.stat-kills.good { background: rgba(16, 185, 129, 0.15); border-color: #10B981; }
+.stat-kills.medium { background: rgba(245, 158, 11, 0.15); border-color: #F59E0B; }
+.stat-kills.bad { background: rgba(239, 68, 68, 0.15); border-color: #EF4444; }
+
+.stat-deaths.good { background: rgba(16, 185, 129, 0.15); border-color: #10B981; }
+.stat-deaths.medium { background: rgba(245, 158, 11, 0.15); border-color: #F59E0B; }
+.stat-deaths.bad { background: rgba(239, 68, 68, 0.15); border-color: #EF4444; }
+
+.stat-assists.good { background: rgba(16, 185, 129, 0.15); border-color: #10B981; }
+.stat-assists.medium { background: rgba(245, 158, 11, 0.15); border-color: #F59E0B; }
+.stat-assists.bad { background: rgba(239, 68, 68, 0.15); border-color: #EF4444; }
+
+.stat-kd.good { background: rgba(16, 185, 129, 0.15); border-color: #10B981; }
+.stat-kd.medium { background: rgba(245, 158, 11, 0.15); border-color: #F59E0B; }
+.stat-kd.bad { background: rgba(239, 68, 68, 0.15); border-color: #EF4444; }
+
+@media (max-width: 768px) {
+    .filters {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .player-stat {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.3rem;
+    }
+    
+    .player-name {
+        width: 100%;
+        min-width: auto;
+    }
+    
+    .stats-grid {
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .stat-box {
+        flex: 1;
+        min-width: auto;
+    }
+}
+
+@media (max-width: 480px) {
+    .btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .stat-box {
+        font-size: 0.8rem;
+        min-width: 45px;
+    }
+    
+    .player-name {
+        font-size: 0.8rem;
+        padding: 0.2rem 0.4rem;
+    }
+}

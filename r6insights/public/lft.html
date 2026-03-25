@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LFT Board — R6 Insights</title>
+<link rel="stylesheet" href="../styles/pro-global.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="../scripts/firebase-config.js"></script>
+<script>if(localStorage.getItem('r6_theme')==='light')document.documentElement.classList.add('light-mode');</script>
+<script src="../scripts/theme.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+<style>
+    body{background:var(--darker);min-height:100vh;padding-bottom:60px;}
+
+    /* ── FILTER BAR ── */
+    .filter-bar{background:var(--card-bg);border:1px solid var(--card-border);border-radius:14px;padding:20px 24px;margin-bottom:20px;}
+    .filter-bar h3{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--gray);margin:0 0 14px;}
+    .filter-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;align-items:end;}
+    .filter-group{display:flex;flex-direction:column;gap:6px;}
+    .filter-group label{font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;}
+    .filter-input{background:rgba(10,16,28,0.8);border:1px solid var(--card-border);color:var(--light);border-radius:8px;padding:9px 12px;font-size:13px;font-family:inherit;width:100%;transition:border-color .2s;}
+    .filter-input:focus{outline:none;border-color:var(--primary);}
+    .filter-input::placeholder{color:rgba(148,163,184,0.4);}
+    .filter-actions{display:flex;gap:8px;align-items:flex-end;}
+
+    /* ── STATS BAR ── */
+    .lft-stats{display:flex;gap:20px;margin-bottom:20px;flex-wrap:wrap;}
+    .lft-stat{background:var(--card-bg);border:1px solid var(--card-border);border-radius:10px;padding:12px 18px;font-size:13px;color:var(--gray);}
+    .lft-stat strong{color:var(--light);font-size:18px;font-weight:800;display:block;margin-bottom:2px;}
+
+    /* ── PLAYER GRID ── */
+    .player-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;}
+
+    /* ── PLAYER CARD ── */
+    .player-card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:14px;overflow:hidden;cursor:pointer;transition:all .2s;position:relative;}
+    .player-card:hover{border-color:rgba(124,58,237,0.5);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.4);}
+    .pc-header{display:flex;align-items:center;gap:14px;padding:18px 18px 14px;}
+    .pc-avatar{width:52px;height:52px;border-radius:12px;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;}
+    .pc-avatar img{width:100%;height:100%;object-fit:cover;}
+    .pc-info{flex:1;min-width:0;}
+    .pc-name{font-size:15px;font-weight:800;color:var(--light);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .pc-meta{font-size:12px;color:var(--gray);margin-top:2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+    .pc-role-badge{padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;}
+    .role-frag{background:rgba(239,68,68,0.15);color:#f87171;border:1px solid rgba(239,68,68,0.3);}
+    .role-support{background:rgba(59,130,246,0.15);color:#60a5fa;border:1px solid rgba(59,130,246,0.3);}
+    .role-flex{background:rgba(245,158,11,0.15);color:#fbbf24;border:1px solid rgba(245,158,11,0.3);}
+
+    /* ── STAT PILLS ── */
+    .pc-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--card-border);border-top:1px solid var(--card-border);}
+    .pc-stat{background:var(--card-bg);padding:12px 8px;text-align:center;}
+    .pc-stat .sv{font-size:18px;font-weight:800;color:var(--light);}
+    .pc-stat .sl{font-size:10px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:.4px;margin-top:2px;}
+    .pc-stat.good .sv{color:#34d399;}
+    .pc-stat.warn .sv{color:#fbbf24;}
+    .pc-stat.bad  .sv{color:#f87171;}
+
+    /* ── FOOTER ── */
+    .pc-footer{padding:10px 18px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--card-border);}
+    .pc-rounds{font-size:11px;color:var(--gray);}
+    .pc-cta{font-size:12px;font-weight:700;color:var(--primary);display:flex;align-items:center;gap:5px;}
+
+    /* ── EMPTY ── */
+    .empty-state{text-align:center;padding:60px 20px;color:var(--gray);}
+    .empty-state i{font-size:40px;margin-bottom:14px;display:block;opacity:.3;}
+    .empty-state p{font-size:14px;opacity:.6;}
+
+    /* ── LOADING ── */
+    .loading-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;}
+    .loading-card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:14px;height:160px;position:relative;overflow:hidden;}
+    .loading-card::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.03),transparent);animation:shimmer 1.4s infinite;}
+    @keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+</style>
+</head>
+<body>
+<div class="container">
+
+    <!-- Nav -->
+    <div class="nav-header">
+        <a href="index_pro.html" class="logo" style="text-decoration:none;">
+            <img src="../styles/r6_insights.png" class="logo-img" alt="R6 Insights">
+            <div class="logo-text">R6 INSIGHTS</div>
+            <span class="nav-badge">Beta</span>
+        </a>
+        <div class="nav-right">
+            <a href="index_pro.html" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Hub</a>
+            <a href="profile.html" id="navAvatar" class="nav-avatar-btn" title="Profile">?</a>
+            <button class="btn-logout" onclick="auth.signOut().then(()=>window.location.href='index_pro.html')">
+                <i class="fas fa-right-from-bracket"></i> Logout
+            </button>
+        </div>
+    </div>
+
+    <!-- Page Title -->
+    <div class="page-title">
+        <div class="page-title-icon" style="background:rgba(52,211,153,0.15);border:1px solid rgba(52,211,153,0.3);color:#34d399;">
+            <i class="fas fa-magnifying-glass"></i>
+        </div>
+        <div>
+            <h2>LFT Board</h2>
+            <p>Players looking for a team — filtered by stats, click any card to view full profile</p>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+        <h3><i class="fas fa-filter" style="margin-right:6px;"></i>Filters</h3>
+        <div class="filter-grid">
+            <div class="filter-group">
+                <label>Min K/D</label>
+                <input class="filter-input" id="filtKd" type="number" step="0.1" min="0" placeholder="e.g. 1.2" oninput="applyFilters()">
+            </div>
+            <div class="filter-group">
+                <label>Min KOST %</label>
+                <input class="filter-input" id="filtKost" type="number" step="1" min="0" max="100" placeholder="e.g. 60" oninput="applyFilters()">
+            </div>
+            <div class="filter-group">
+                <label>Min Survival %</label>
+                <input class="filter-input" id="filtSurv" type="number" step="1" min="0" max="100" placeholder="e.g. 40" oninput="applyFilters()">
+            </div>
+            <div class="filter-group">
+                <label>Min Rounds</label>
+                <input class="filter-input" id="filtRounds" type="number" step="10" min="0" placeholder="e.g. 50" oninput="applyFilters()">
+            </div>
+            <div class="filter-group">
+                <label>Role</label>
+                <select class="filter-input" id="filtRole" onchange="applyFilters()">
+                    <option value="">All Roles</option>
+                    <option value="frag">Frag</option>
+                    <option value="support">Support</option>
+                    <option value="flex">Flex</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Search Name</label>
+                <input class="filter-input" id="filtName" type="text" placeholder="Player name…" oninput="applyFilters()">
+            </div>
+            <div class="filter-actions">
+                <button class="btn btn-secondary" onclick="resetFilters()" style="white-space:nowrap;">
+                    <i class="fas fa-rotate-left"></i> Reset
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats bar -->
+    <div class="lft-stats">
+        <div class="lft-stat"><strong id="statTotal">—</strong>Players Listed</div>
+        <div class="lft-stat"><strong id="statShowing">—</strong>Showing</div>
+        <div class="lft-stat"><strong id="statAvgKd">—</strong>Avg K/D</div>
+        <div class="lft-stat"><strong id="statAvgKost">—</strong>Avg KOST</div>
+    </div>
+
+    <!-- Player Grid -->
+    <div id="playerGrid">
+        <div class="loading-cards">
+            <div class="loading-card"></div>
+            <div class="loading-card"></div>
+            <div class="loading-card"></div>
+        </div>
+    </div>
+
+</div>
+
+<script src="../scripts/profile-loader.js"></script>
+<script>
+(function(){
+'use strict';
+
+if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db   = firebase.database();
+
+let allPlayers = []; // computed player objects
+
+// ── Helper ────────────────────────────────────────────────────────────────────
+function x(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function pct(v){ return (v*100).toFixed(0)+'%'; }
+function kd(k,d){ return d>0?(k/d).toFixed(2):k>0?k.toFixed(1):'0.00'; }
+
+// KD colour thresholds
+function kdClass(v){ return v>=1.5?'good':v>=0.9?'':'bad'; }
+function kostClass(v){ return v>=65?'good':v>=45?'warn':'bad'; }
+function survClass(v){ return v>=50?'good':v>=30?'warn':'bad'; }
+
+// Role label
+const ROLE_LABELS = { frag:'Frag', support:'Support', flex:'Flex' };
+const ROLE_CLASS  = { frag:'role-frag', support:'role-support', flex:'role-flex' };
+
+// ── Compute stats from users/{uid}/matches ────────────────────────────────────
+function computeStatsFromMatches(matchesObj){
+    let kills=0, deaths=0, rounds=0, kostRounds=0, survivedRounds=0;
+    const matches = Object.values(matchesObj||{});
+    matches.forEach(m=>{
+        const roundArr = Array.isArray(m.rounds) ? m.rounds : Object.values(m.rounds||{});
+        roundArr.forEach(r=>{
+            if(!r) return;
+            rounds++;
+            kills      += (r.kills||0);
+            deaths     += (r.deaths||0);
+            if(r.kost)         kostRounds++;
+            if((r.deaths||0)===0) survivedRounds++;
+        });
+    });
+    return {
+        rounds,
+        kd:     deaths>0 ? kills/deaths : (kills>0 ? kills : 0),
+        kost:   rounds>0 ? kostRounds/rounds*100 : 0,
+        surv:   rounds>0 ? survivedRounds/rounds*100 : 0,
+        kills, deaths,
+    };
+}
+
+// ── Avatar HTML ───────────────────────────────────────────────────────────────
+function avatarHtml(player){
+    const colors = ['#7C3AED','#2563EB','#059669','#DC2626','#D97706','#7C3AED'];
+    const bg = colors[player.name.charCodeAt(0) % colors.length];
+    if(player.avatar){
+        return `<img src="${player.avatar}" alt="avatar">`;
+    }
+    return `<div style="width:100%;height:100%;background:${bg};display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#fff;">${(player.name||'?')[0].toUpperCase()}</div>`;
+}
+
+// ── Build card HTML ───────────────────────────────────────────────────────────
+function buildCard(p){
+    const kdVal   = p.stats.kd.toFixed(2);
+    const kostVal = p.stats.kost.toFixed(0)+'%';
+    const survVal = p.stats.surv.toFixed(0)+'%';
+    const roleLabel = ROLE_LABELS[p.role] || '';
+    const roleCls   = ROLE_CLASS[p.role] || '';
+    const roundsTxt = p.stats.rounds > 0 ? `${p.stats.rounds} rounds` : 'No data';
+
+    return `
+    <div class="player-card" onclick="window.location.href='person_stats.html?uid=${x(p.uid)}'">
+        <div class="pc-header">
+            <div class="pc-avatar">${avatarHtml(p)}</div>
+            <div class="pc-info">
+                <div class="pc-name">${x(p.name)}</div>
+                <div class="pc-meta">
+                    ${roleLabel ? `<span class="pc-role-badge ${roleCls}">${roleLabel}</span>` : ''}
+                    ${p.teamName ? `<span style="color:var(--gray);font-size:11px;">${x(p.teamName)}</span>` : ''}
+                </div>
+            </div>
+            <div style="flex-shrink:0;">
+                <span style="background:rgba(52,211,153,0.15);border:1px solid rgba(52,211,153,0.3);color:#34d399;font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;text-transform:uppercase;letter-spacing:.4px;">LFT</span>
+            </div>
+        </div>
+        <div class="pc-stats">
+            <div class="pc-stat ${kdClass(p.stats.kd)}">
+                <div class="sv">${kdVal}</div>
+                <div class="sl">K/D</div>
+            </div>
+            <div class="pc-stat ${kostClass(p.stats.kost)}">
+                <div class="sv">${kostVal}</div>
+                <div class="sl">KOST</div>
+            </div>
+            <div class="pc-stat ${survClass(p.stats.surv)}">
+                <div class="sv">${survVal}</div>
+                <div class="sl">Survival</div>
+            </div>
+        </div>
+        <div class="pc-footer">
+            <span class="pc-rounds"><i class="fas fa-gamepad" style="margin-right:4px;opacity:.5;"></i>${roundsTxt}</span>
+            <span class="pc-cta"><i class="fas fa-arrow-right" style="font-size:10px;"></i> View Profile</span>
+        </div>
+    </div>`;
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function applyFilters(){
+    const minKd    = parseFloat(document.getElementById('filtKd').value)    || 0;
+    const minKost  = parseFloat(document.getElementById('filtKost').value)  || 0;
+    const minSurv  = parseFloat(document.getElementById('filtSurv').value)  || 0;
+    const minRounds= parseFloat(document.getElementById('filtRounds').value)|| 0;
+    const role     = document.getElementById('filtRole').value;
+    const name     = (document.getElementById('filtName').value||'').toLowerCase().trim();
+
+    const filtered = allPlayers.filter(p=>{
+        if(p.stats.kd   < minKd)   return false;
+        if(p.stats.kost < minKost) return false;
+        if(p.stats.surv < minSurv) return false;
+        if(p.stats.rounds < minRounds) return false;
+        if(role && p.role !== role) return false;
+        if(name && !p.name.toLowerCase().includes(name)) return false;
+        return true;
+    });
+
+    renderGrid(filtered);
+
+    // Update stats bar
+    document.getElementById('statShowing').textContent = filtered.length;
+    if(filtered.length){
+        const avgKd   = filtered.reduce((a,p)=>a+p.stats.kd,0)/filtered.length;
+        const avgKost = filtered.reduce((a,p)=>a+p.stats.kost,0)/filtered.length;
+        document.getElementById('statAvgKd').textContent   = avgKd.toFixed(2);
+        document.getElementById('statAvgKost').textContent = avgKost.toFixed(0)+'%';
+    } else {
+        document.getElementById('statAvgKd').textContent   = '—';
+        document.getElementById('statAvgKost').textContent = '—';
+    }
+}
+
+function renderGrid(players){
+    const grid = document.getElementById('playerGrid');
+    if(!players.length){
+        grid.innerHTML = `<div class="empty-state"><i class="fas fa-magnifying-glass"></i><p>No players match your filters.<br>Try loosening the requirements.</p></div>`;
+        return;
+    }
+    // Sort by KD desc
+    players.sort((a,b)=>b.stats.kd - a.stats.kd);
+    grid.innerHTML = `<div class="player-grid">${players.map(buildCard).join('')}</div>`;
+}
+
+function resetFilters(){
+    ['filtKd','filtKost','filtSurv','filtRounds','filtName'].forEach(id=>{ document.getElementById(id).value=''; });
+    document.getElementById('filtRole').value = '';
+    applyFilters();
+}
+
+// ── Load all LFT players ──────────────────────────────────────────────────────
+async function loadLftPlayers(){
+    // Scan all users for lft:true in their profile
+    // Then fetch their matches and team info
+    const usersSnap = await db.ref('users').once('value');
+    const users = usersSnap.val() || {};
+
+    const lftUids = [];
+    Object.entries(users).forEach(([uid, u])=>{
+        if(u?.profile?.lft === true) lftUids.push(uid);
+    });
+
+    document.getElementById('statTotal').textContent = lftUids.length;
+
+    if(!lftUids.length){
+        document.getElementById('playerGrid').innerHTML =
+            `<div class="empty-state"><i class="fas fa-user-group"></i><p>No players are currently on the LFT board.<br>Players can opt in from their <strong>Profile</strong> page.</p></div>`;
+        document.getElementById('statShowing').textContent = '0';
+        return;
+    }
+
+    // Fetch all player data in parallel
+    const fetches = lftUids.map(async uid => {
+        const u = users[uid];
+        const profile = u?.profile || {};
+
+        // Get display name — prefer profile activeDisplayName, fallback to team displayName, then username
+        let name = profile.activeDisplayName || u?.displayName || u?.username || uid.slice(0,8);
+
+        // Get role from team
+        let role = '';
+        let teamName = '';
+        const teamId = u?.teamId;
+        if(teamId){
+            try {
+                const [tnSnap, pSnap] = await Promise.all([
+                    db.ref(`teams/${teamId}/info/teamName`).once('value'),
+                    db.ref(`teams/${teamId}/players/${uid}`).once('value'),
+                ]);
+                teamName = tnSnap.val() || '';
+                const pd = pSnap.val() || {};
+                role = (pd.playRole || '').toLowerCase();
+                if(!name || name===uid.slice(0,8)) name = pd.displayName || name;
+            } catch(e){}
+        }
+
+        // Get stats from mirrored matches
+        let stats = { rounds:0, kd:0, kost:0, surv:0, kills:0, deaths:0 };
+        try {
+            const matchSnap = await db.ref(`users/${uid}/matches`).once('value');
+            if(matchSnap.exists()) stats = computeStatsFromMatches(matchSnap.val());
+        } catch(e){}
+
+        return {
+            uid,
+            name,
+            role,
+            teamName,
+            avatar: profile.avatar || null,
+            stats,
+        };
+    });
+
+    allPlayers = await Promise.all(fetches);
+
+    // Update stats bar
+    document.getElementById('statTotal').textContent = allPlayers.length;
+    applyFilters();
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+auth.onAuthStateChanged(async user => {
+    if(!user || !user.emailVerified){
+        window.location.href = 'index_pro.html';
+        return;
+    }
+    R6Theme.init(user.uid, db);
+    await loadLftPlayers();
+});
+
+window.applyFilters = applyFilters;
+window.resetFilters = resetFilters;
+
+})();
+</script>
+</body>
+</html>

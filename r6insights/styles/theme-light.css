@@ -1,0 +1,357 @@
+/* ═══════════════════════════════════════════════════════════════════
+   R6 INSIGHTS — LIGHT MODE OVERRIDES
+   Append this entire block to the bottom of pro-global.css
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── CSS variable overrides ─────────────────────────────────────── */
+html.light-mode {
+    --darker     : #F1F5F9;
+    --dark       : #E2E8F0;
+    --light      : #0F172A;
+    --gray       : #475569;
+    --card-bg    : rgba(255, 255, 255, 0.92);
+    --card-border: rgba(15, 23, 42, 0.1);
+    /* primary purple stays the same — brand consistency */
+}
+
+/* ── Body & page background ─────────────────────────────────────── */
+html.light-mode body {
+    background-color: #F1F5F9;
+    /* Keep the splash but very faint */
+    background-image: url('../styles/r6_bloodmoon.jpg');
+    background-blend-mode: luminosity;
+    filter: none;
+}
+
+/* ── Container ──────────────────────────────────────────────────── */
+html.light-mode .container {
+    background: rgba(241, 245, 249, 0.97);
+    border-color: rgba(15, 23, 42, 0.1);
+    box-shadow: 0 4px 32px rgba(0, 0, 0, 0.08);
+}
+
+/* ── Nav header ─────────────────────────────────────────────────── */
+html.light-mode .nav-header {
+    background: rgba(255, 255, 255, 0.95);
+    border-bottom-color: rgba(15, 23, 42, 0.1);
+}
+
+html.light-mode .logo-text {
+    color: #0F172A;
+}
+
+html.light-mode .nav-badge {
+    background: rgba(124, 58, 237, 0.12);
+    color: #7C3AED;
+    border-color: rgba(124, 58, 237, 0.25);
+}
+
+/* ── Buttons ────────────────────────────────────────────────────── */
+html.light-mode .btn-secondary {
+    background: rgba(15, 23, 42, 0.07);
+    border-color: rgba(15, 23, 42, 0.15);
+    color: #1E293B;
+}
+
+html.light-mode .btn-secondary:hover {
+    background: rgba(15, 23, 42, 0.12);
+}
+
+html.light-mode .btn-logout {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.2);
+    color: #DC2626;
+}
+
+/* ── Nav avatar ─────────────────────────────────────────────────── */
+html.light-mode .nav-avatar-btn {
+    background: rgba(124, 58, 237, 0.1);
+    border-color: rgba(124, 58, 237, 0.25);
+    color: #7C3AED;
+}
+
+/* ── Page title ─────────────────────────────────────────────────── */
+html.light-mode .page-title h2 {
+    color: #0F172A;
+}
+
+html.light-mode .page-title p {
+    color: #475569;
+}
+
+/* ── Cards / panels ─────────────────────────────────────────────── */
+html.light-mode .panel,
+html.light-mode .card,
+html.light-mode .stat-card,
+html.light-mode .pr-panel {
+    background: rgba(255, 255, 255, 0.92);
+    border-color: rgba(15, 23, 42, 0.1);
+}
+
+html.light-mode .panel-hdr,
+html.light-mode .pr-panel-hdr {
+    background: rgba(241, 245, 249, 0.8);
+    border-bottom-color: rgba(15, 23, 42, 0.08);
+    color: #475569;
+}
+
+/* ── Tab bar ────────────────────────────────────────────────────── */
+html.light-mode .tab-bar {
+    background: rgba(255, 255, 255, 0.8);
+    border-bottom-color: rgba(15, 23, 42, 0.1);
+}
+
+html.light-mode .tab-btn {
+    color: #64748B;
+}
+
+html.light-mode .tab-btn:hover {
+    color: #0F172A;
+}
+
+html.light-mode .tab-btn.active {
+    color: #7C3AED;
+    border-bottom-color: #7C3AED;
+}
+
+/* ── Pick items / list items ────────────────────────────────────── */
+html.light-mode .pick-item,
+html.light-mode .match-pick-item {
+    background: rgba(255, 255, 255, 0.85);
+    border-color: rgba(15, 23, 42, 0.1);
+}
+
+html.light-mode .pick-item:hover,
+html.light-mode .match-pick-item:hover {
+    border-color: rgba(124, 58, 237, 0.35);
+    background: rgba(255, 255, 255, 0.95);
+}
+
+html.light-mode .pick-item.selected,
+html.light-mode .match-pick-item.selected {
+    background: rgba(124, 58, 237, 0.06);
+    border-color: rgba(124, 58, 237, 0.4);
+}
+
+/* ── Form inputs / selects ──────────────────────────────────────── */
+html.light-mode .fg select,
+html.light-mode .fg input,
+html.light-mode select,
+html.light-mode input[type="text"],
+html.light-mode input[type="number"],
+html.light-mode input[type="email"],
+html.light-mode input[type="password"],
+html.light-mode .input,
+html.light-mode .ms-btn {
+    background: #FFFFFF;
+    border-color: rgba(15, 23, 42, 0.15);
+    color: #0F172A;
+}
+
+html.light-mode .fg select:focus,
+html.light-mode .fg input:focus,
+html.light-mode select:focus,
+html.light-mode input:focus {
+    border-color: #7C3AED;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+}
+
+/* ── Tables ─────────────────────────────────────────────────────── */
+html.light-mode .compare-table th,
+html.light-mode th {
+    background: rgba(241, 245, 249, 0.9);
+    color: #475569;
+    border-bottom-color: rgba(15, 23, 42, 0.1);
+}
+
+html.light-mode .compare-table td,
+html.light-mode td {
+    border-bottom-color: rgba(15, 23, 42, 0.05);
+    color: #1E293B;
+}
+
+html.light-mode .compare-table tr:hover td {
+    background: rgba(124, 58, 237, 0.04);
+}
+
+html.light-mode .compare-table td.row-lbl {
+    color: #475569;
+}
+
+html.light-mode .section-row td {
+    background: rgba(124, 58, 237, 0.05);
+    color: #7C3AED;
+}
+
+html.light-mode .col-hdr .ch-name {
+    color: #0F172A;
+}
+
+html.light-mode .col-hdr .ch-sub {
+    color: #64748B;
+}
+
+/* ── Stat chips / score pills ───────────────────────────────────── */
+html.light-mode .chip {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(15, 23, 42, 0.1);
+}
+
+html.light-mode .mpi-type {
+    background: rgba(15, 23, 42, 0.05);
+    border-color: rgba(15, 23, 42, 0.1);
+    color: #475569;
+}
+
+/* ── Match / map cards ──────────────────────────────────────────── */
+html.light-mode .match-card,
+html.light-mode .map-card {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(15, 23, 42, 0.1);
+}
+
+/* ── Scrollbars ─────────────────────────────────────────────────── */
+html.light-mode ::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.05);
+}
+
+html.light-mode ::-webkit-scrollbar-thumb {
+    background: rgba(15, 23, 42, 0.2);
+}
+
+html.light-mode ::-webkit-scrollbar-thumb:hover {
+    background: rgba(15, 23, 42, 0.35);
+}
+
+/* ── Empty states ───────────────────────────────────────────────── */
+html.light-mode .empty-compare,
+html.light-mode .empty-state {
+    color: #94A3B8;
+}
+
+/* ── Toast ──────────────────────────────────────────────────────── */
+html.light-mode #cmp-toast {
+    background: rgba(124, 58, 237, 0.95);
+    color: #fff;
+}
+
+/* ── Transition for smooth mode switch ──────────────────────────── */
+html, body, .container, .nav-header, .panel, .card,
+.stat-card, .pick-item, .match-pick-item, .tab-bar,
+.tab-btn, select, input, .btn-secondary, .btn-logout {
+    transition: background-color 0.25s ease,
+                border-color 0.25s ease,
+                color 0.2s ease;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   THEME TOGGLE COMPONENT  (used in profile.html)
+   ═══════════════════════════════════════════════════════════════════ */
+
+.r6-theme-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 0;
+}
+
+.r6-theme-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.r6-theme-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    background: rgba(124, 58, 237, 0.12);
+    border: 1px solid rgba(124, 58, 237, 0.25);
+    color: #a78bfa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+}
+
+.r6-theme-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--light);
+}
+
+.r6-theme-label {
+    font-size: 12px;
+    color: var(--gray);
+    margin-top: 2px;
+}
+
+/* The pill-style toggle switch */
+.r6-toggle-switch {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+}
+
+.r6-theme-toggle-input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.r6-toggle-track {
+    width: 48px;
+    height: 26px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--card-border);
+    border-radius: 13px;
+    position: relative;
+    transition: background 0.22s, border-color 0.22s;
+}
+
+.r6-theme-toggle-input:checked + .r6-toggle-track {
+    background: rgba(124, 58, 237, 0.35);
+    border-color: rgba(124, 58, 237, 0.5);
+}
+
+.r6-toggle-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--gray);
+    transition: transform 0.22s cubic-bezier(.34,1.56,.64,1), background 0.22s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.r6-theme-toggle-input:checked + .r6-toggle-track .r6-toggle-thumb {
+    transform: translateX(22px);
+    background: #a78bfa;
+}
+
+/* Light mode adjustments for the toggle itself */
+html.light-mode .r6-toggle-track {
+    background: rgba(15, 23, 42, 0.08);
+    border-color: rgba(15, 23, 42, 0.15);
+}
+
+html.light-mode .r6-theme-toggle-input:checked + .r6-toggle-track {
+    background: rgba(124, 58, 237, 0.2);
+    border-color: rgba(124, 58, 237, 0.4);
+}
+
+html.light-mode .r6-theme-title {
+    color: #0F172A;
+}
+
+html.light-mode .r6-theme-label {
+    color: #475569;
+}
