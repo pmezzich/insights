@@ -152,25 +152,39 @@ window.R6Gate = (function () {
     }
 
     /**
-     * Hide hub cards that the user can't access.
-     * Call after check() resolves on index_pro.
+     * Lock hub cards the user can't access.
      * Cards must have data-gate="level" attribute.
+     * Uses an overlay div instead of relying on overflow:hidden-clipped badges.
      */
     function applyHubGates(access) {
         document.querySelectorAll('[data-gate]').forEach(el => {
-            const needed  = LEVELS[el.dataset.gate] ?? 0;
-            const actual  = LEVELS[access?.level ?? 'any'] ?? 0;
+            const needed = LEVELS[el.dataset.gate] ?? 0;
+            const actual = LEVELS[access?.level ?? 'any'] ?? 0;
             if (actual < needed) {
-                el.style.opacity       = '0.35';
+                // Dim and block clicks
+                el.style.opacity       = '0.4';
                 el.style.pointerEvents = 'none';
                 el.style.cursor        = 'default';
-                // Add lock badge
+                el.style.userSelect    = 'none';
+                // Remove href so screen readers/tab don't navigate
+                if (el.tagName === 'A') el.removeAttribute('href');
+
+                // Inject overlay (works even with overflow:hidden parent)
                 if (!el.querySelector('.gate-lock')) {
-                    const lock = document.createElement('div');
-                    lock.className = 'gate-lock';
-                    lock.style.cssText = 'position:absolute;top:8px;right:8px;background:rgba(15,23,42,.9);border:1px solid rgba(248,113,113,.3);border-radius:5px;padding:3px 8px;font-size:10px;font-weight:700;color:#f87171;';
-                    lock.innerHTML = '<i class="fas fa-lock"></i> ' + _lockLabel(el.dataset.gate, access);
-                    el.style.position = 'relative';
+                    const label = _lockLabel(el.dataset.gate, access);
+                    const lock  = document.createElement('div');
+                    lock.className  = 'gate-lock';
+                    lock.style.cssText = [
+                        'position:absolute','inset:0','z-index:10',
+                        'display:flex','align-items:center','justify-content:center',
+                        'border-radius:inherit',
+                        'background:rgba(5,8,15,0.55)',
+                        'backdrop-filter:blur(2px)',
+                    ].join(';');
+                    lock.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:800;background:rgba(15,23,42,.95);border:1px solid rgba(248,113,113,.4);color:#f87171;letter-spacing:.3px;"><i class="fas fa-lock"></i>${label}</span>`;
+                    // Ensure parent is positioned
+                    const pos = window.getComputedStyle(el).position;
+                    if (pos === 'static') el.style.position = 'relative';
                     el.appendChild(lock);
                 }
             }
@@ -178,8 +192,8 @@ window.R6Gate = (function () {
     }
 
     function _lockLabel(needed, access) {
-        if (!access?.hasSub) return 'Subscription Required';
-        if (!access?.teamId) return 'Team Required';
+        if (!access?.hasSub)  return 'Subscription Required';
+        if (!access?.teamId)  return 'Team Required';
         if (needed === 'staff' || needed === 'captain') return 'Captains Only';
         return 'Locked';
     }
