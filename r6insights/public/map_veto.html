@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Map Veto Tracker — R6 Insights</title>
+<link rel="stylesheet" href="../styles/pro-global.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+<script src="../scripts/firebase-config.js"></script>
+<script>if(localStorage.getItem('r6_theme')==='light')document.documentElement.classList.add('light-mode');</script>
+<script src="../scripts/theme.js"></script>
+<script src="../scripts/admin-preview.js"></script>
+<style>
+body { background-color:var(--darker); min-height:100vh; padding-bottom:0; display:flex; flex-direction:column; }
+
+/* ── SHEET TABS BAR ─────────────────────────────────────────────── */
+.sheets-bar {
+    display:flex;
+    align-items:stretch;
+    gap:0;
+    background:rgba(10,14,24,0.95);
+    border-top:1px solid var(--card-border);
+    border-bottom:none;
+    overflow-x:auto;
+    flex-shrink:0;
+    position:fixed;
+    bottom:0; left:0; right:0;
+    z-index:200;
+    height:40px;
+    padding:0 8px;
+}
+.sheets-bar::-webkit-scrollbar { height:3px; }
+.sheets-bar::-webkit-scrollbar-track { background:transparent; }
+.sheets-bar::-webkit-scrollbar-thumb { background:rgba(124,58,237,0.3); border-radius:2px; }
+
+.sheet-tab {
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:0 14px;
+    font-size:12px;
+    font-weight:700;
+    color:var(--gray);
+    cursor:pointer;
+    border:none;
+    border-right:1px solid var(--card-border);
+    background:transparent;
+    font-family:inherit;
+    white-space:nowrap;
+    transition:all .15s;
+    position:relative;
+    flex-shrink:0;
+    height:100%;
+}
+.sheet-tab:hover { color:var(--light); background:rgba(124,58,237,0.06); }
+.sheet-tab.active {
+    color:#a78bfa;
+    background:rgba(124,58,237,0.1);
+    border-bottom:2px solid var(--primary);
+}
+.sheet-tab .tab-del {
+    width:14px; height:14px;
+    display:inline-flex; align-items:center; justify-content:center;
+    border-radius:3px;
+    font-size:10px;
+    color:rgba(248,113,113,0.4);
+    transition:all .12s;
+    margin-left:2px;
+    flex-shrink:0;
+}
+.sheet-tab:hover .tab-del { color:#f87171; }
+.sheet-tab .tab-del:hover { background:rgba(248,113,113,0.15); color:#f87171; }
+
+.tab-add-btn {
+    display:inline-flex;
+    align-items:center;
+    padding:0 14px;
+    font-size:18px;
+    color:var(--gray);
+    cursor:pointer;
+    border:none;
+    background:transparent;
+    font-family:inherit;
+    height:100%;
+    flex-shrink:0;
+    transition:all .15s;
+    line-height:1;
+}
+.tab-add-btn:hover { color:#a78bfa; }
+
+/* ── TOOLBAR ────────────────────────────────────────────────────── */
+.toolbar {
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:10px 20px;
+    background:rgba(15,23,42,0.6);
+    border-bottom:1px solid var(--card-border);
+    flex-wrap:wrap;
+    flex-shrink:0;
+}
+.toolbar-sep { width:1px; height:22px; background:var(--card-border); margin:0 2px; }
+.toolbar-label { font-size:10px; font-weight:700; color:var(--gray); text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; }
+.tbtn {
+    display:inline-flex; align-items:center; gap:5px;
+    padding:6px 11px;
+    border-radius:7px; border:1px solid var(--card-border);
+    background:rgba(15,23,42,0.5);
+    color:var(--gray); font-size:12px; font-weight:600;
+    cursor:pointer; font-family:inherit; transition:all .15s; white-space:nowrap;
+}
+.tbtn:hover { color:var(--light); border-color:rgba(124,58,237,0.4); background:rgba(124,58,237,0.07); }
+.tbtn.primary { background:linear-gradient(135deg,var(--primary),var(--secondary)); color:#fff; border:none; }
+.tbtn.primary:hover { opacity:.9; transform:translateY(-1px); }
+.tbtn.danger:hover { color:#f87171; border-color:rgba(248,113,113,0.4); background:rgba(248,113,113,0.07); }
+.tbtn.success { color:#34d399; border-color:rgba(52,211,153,0.3); }
+.tbtn.success:hover { background:rgba(52,211,153,0.08); border-color:rgba(52,211,153,0.5); }
+#saveStatus { font-size:11px; color:var(--gray); display:flex; align-items:center; gap:5px; }
+#saveStatus.saving { color:#fbbf24; }
+#saveStatus.saved  { color:#34d399; }
+
+/* ── SHEET HEADER ───────────────────────────────────────────────── */
+.sheet-header {
+    display:flex;
+    align-items:center;
+    gap:14px;
+    padding:14px 20px;
+    background:rgba(15,23,42,0.4);
+    border-bottom:1px solid var(--card-border);
+    flex-shrink:0;
+}
+.sheet-name-input {
+    font-size:20px;
+    font-weight:800;
+    color:var(--light);
+    background:transparent;
+    border:none;
+    border-bottom:2px solid transparent;
+    outline:none;
+    font-family:inherit;
+    padding:2px 4px;
+    transition:border-color .15s;
+    min-width:40px;
+    max-width:300px;
+}
+.sheet-name-input:focus { border-bottom-color:var(--primary); }
+.sheet-stats {
+    display:flex;
+    gap:16px;
+    margin-left:auto;
+    flex-wrap:wrap;
+}
+.sstat { font-size:12px; color:var(--gray); }
+.sstat strong { font-size:14px; }
+.sstat.win strong { color:#34d399; }
+.sstat.loss strong { color:#f87171; }
+
+/* ── TABLE ──────────────────────────────────────────────────────── */
+.table-wrap {
+    overflow:auto;
+    flex:1;
+    padding:12px 20px 52px;  /* bottom pad for tabs bar */
+}
+.veto-table {
+    border-collapse:collapse;
+    width:100%;
+    min-width:860px;
+    font-size:13px;
+}
+.veto-table thead tr { background:rgba(15,23,42,0.8); }
+.veto-table th {
+    padding:9px 10px;
+    font-size:10px; font-weight:800;
+    text-transform:uppercase; letter-spacing:.5px;
+    color:var(--gray);
+    border-bottom:2px solid var(--card-border);
+    white-space:nowrap;
+    text-align:center;
+    user-select:none;
+    position:sticky; top:0; z-index:10;
+    background:rgba(15,23,42,0.95);
+}
+.veto-table th.left { text-align:left; }
+.veto-table tbody tr { border-bottom:1px solid rgba(255,255,255,0.04); transition:background .1s; }
+.veto-table tbody tr:hover { background:rgba(124,58,237,0.04); }
+.veto-table tbody tr.row-new { animation:rowIn .25s ease; }
+@keyframes rowIn { from{opacity:0;transform:translateX(-6px)} to{opacity:1;transform:none} }
+.veto-table td { padding:4px 6px; text-align:center; vertical-align:middle; }
+.veto-table td.left { text-align:left; }
+.row-num { font-size:10px; color:var(--gray); width:26px; text-align:right; padding-right:8px; user-select:none; }
+
+/* ── EDITABLE CELLS ─────────────────────────────────────────────── */
+.cell-input {
+    width:100%; background:transparent; border:1px solid transparent;
+    border-radius:5px; color:var(--light); font-family:inherit;
+    font-size:12px; padding:5px 7px; outline:none;
+    transition:border-color .12s, background .12s;
+}
+.cell-input:focus { border-color:rgba(124,58,237,0.5); background:rgba(10,16,28,0.6); }
+.cell-input::placeholder { color:rgba(148,163,184,0.2); }
+
+.map-cell { display:flex; align-items:center; gap:4px; min-width:100px; }
+.map-input {
+    flex:1; background:transparent; border:1px solid transparent;
+    border-radius:5px; color:var(--light); font-family:inherit;
+    font-size:12px; padding:5px 6px; outline:none;
+    transition:border-color .12s, background .12s; min-width:0; text-align:center;
+}
+.map-input:focus { border-color:rgba(124,58,237,0.4); background:rgba(10,16,28,0.6); }
+.map-input::placeholder { color:rgba(148,163,184,0.2); }
+
+/* ── W/L PILLS ──────────────────────────────────────────────────── */
+.wl {
+    display:inline-flex; align-items:center; justify-content:center;
+    width:24px; height:20px; border-radius:4px;
+    font-size:11px; font-weight:800; cursor:pointer; flex-shrink:0;
+    border:1px solid transparent; transition:all .12s; user-select:none;
+}
+.wl.none { background:rgba(255,255,255,0.04); border-color:rgba(255,255,255,0.08); color:var(--gray); }
+.wl.W    { background:rgba(52,211,153,0.18);  border-color:rgba(52,211,153,0.4);   color:#34d399; }
+.wl.L    { background:rgba(248,113,113,0.18); border-color:rgba(248,113,113,0.35); color:#f87171; }
+.wl:hover { transform:scale(1.12); }
+
+.series-res {
+    display:inline-flex; align-items:center; justify-content:center;
+    padding:3px 10px; border-radius:6px;
+    font-size:12px; font-weight:800; cursor:pointer; user-select:none;
+    min-width:34px; transition:all .12s;
+}
+.series-res.none { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:var(--gray); }
+.series-res.W    { background:rgba(52,211,153,0.15);  border:1px solid rgba(52,211,153,0.35);  color:#34d399; }
+.series-res.L    { background:rgba(248,113,113,0.15); border:1px solid rgba(248,113,113,0.3);  color:#f87171; }
+.series-res:hover { transform:scale(1.06); }
+
+/* Ban label */
+.ban-wrap { display:flex; align-items:center; gap:3px; }
+.ban-lbl {
+    font-size:9px; font-weight:800; padding:1px 4px; border-radius:3px; flex-shrink:0;
+    letter-spacing:.2px;
+}
+.ban-lbl.us   { background:rgba(248,113,113,0.12); color:#f87171; border:1px solid rgba(248,113,113,0.2); }
+.ban-lbl.them { background:rgba(96,165,250,0.1); color:#60a5fa;  border:1px solid rgba(96,165,250,0.18); }
+
+/* Row del */
+.row-del {
+    width:22px; height:22px; background:transparent; border:none;
+    color:rgba(248,113,113,0.25); cursor:pointer; font-size:11px;
+    border-radius:4px; display:flex; align-items:center; justify-content:center;
+    transition:all .12s; padding:0;
+}
+.row-del:hover { color:#f87171; background:rgba(248,113,113,0.1); }
+
+/* Empty */
+.empty-sheet { text-align:center; padding:50px 20px; color:var(--gray); }
+.empty-sheet i { font-size:36px; opacity:.15; color:var(--primary); display:block; margin-bottom:12px; }
+.empty-sheet p { font-size:13px; line-height:1.8; }
+
+/* No sheets */
+#noSheets {
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:14px; color:var(--gray);
+}
+#noSheets i { font-size:44px; opacity:.12; color:var(--primary); }
+#noSheets p { font-size:14px; text-align:center; line-height:1.9; }
+
+/* ── MODAL ──────────────────────────────────────────────────────── */
+.modal-bg {
+    position:fixed; inset:0; background:rgba(0,0,0,0.65);
+    display:flex; align-items:center; justify-content:center;
+    z-index:9000; backdrop-filter:blur(4px);
+}
+.modal-bg.hidden { display:none; }
+.modal {
+    background:rgba(15,23,42,0.98);
+    border:1px solid var(--card-border);
+    border-radius:14px; padding:24px;
+    width:360px; box-shadow:0 12px 48px rgba(0,0,0,0.6);
+}
+.modal h3 { font-size:16px; font-weight:800; margin-bottom:16px; }
+.modal input {
+    width:100%; background:rgba(10,16,28,0.8); border:1px solid var(--card-border);
+    border-radius:8px; color:var(--light); font-family:inherit; font-size:14px;
+    padding:10px 13px; outline:none; transition:border-color .15s;
+    margin-bottom:16px;
+}
+.modal input:focus { border-color:var(--primary); }
+.modal-btns { display:flex; gap:8px; justify-content:flex-end; }
+
+/* ── TOAST ──────────────────────────────────────────────────────── */
+#toast {
+    position:fixed; bottom:52px; left:50%;
+    transform:translateX(-50%) translateY(10px);
+    background:rgba(124,58,237,0.92); color:#fff; border-radius:8px;
+    padding:10px 20px; font-size:13px; font-weight:700;
+    opacity:0; transition:all .22s; z-index:9999; pointer-events:none;
+}
+#toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+html.light-mode .veto-table th { background:rgba(241,245,249,0.97); }
+html.light-mode .cell-input,
+html.light-mode .map-input { color:#0F172A; }
+html.light-mode .cell-input:focus,
+html.light-mode .map-input:focus { background:rgba(255,255,255,0.9); }
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<div class="nav-header">
+    <a href="index_pro.html" class="logo" style="text-decoration:none;">
+        <img src="../styles/r6_insights.png" class="logo-img" alt="R6 Insights">
+        <div class="logo-text">R6 INSIGHTS</div>
+        <span class="nav-badge">Beta</span>
+    </a>
+    <div class="nav-right">
+        <a href="coach_suite.html" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Coach Suite</a>
+        <a href="profile.html" id="navAvatar" class="nav-avatar-btn" title="Profile">?</a>
+        <button class="btn-logout" onclick="firebase.auth().signOut().then(()=>window.location.href='index_pro.html')">
+            <i class="fas fa-right-from-bracket"></i> Logout
+        </button>
+    </div>
+</div>
+
+<!-- Page Title -->
+<div class="page-title">
+    <div class="page-title-icon" style="background:rgba(124,58,237,0.18);border:1px solid rgba(124,58,237,0.3);color:#a78bfa;">
+        <i class="fas fa-map"></i>
+    </div>
+    <div>
+        <h2>Map Veto Tracker</h2>
+        <p>One sheet per opponent — track pick/ban history, W/L results, and tendencies</p>
+    </div>
+</div>
+
+<!-- Toolbar (shown when a sheet is active) -->
+<div class="toolbar" id="toolbar" style="display:none;">
+    <div style="display:flex;align-items:center;gap:6px;">
+        <span class="toolbar-label">Rows</span>
+        <button class="tbtn primary" onclick="addRow('top')"><i class="fas fa-plus"></i> Add Top</button>
+        <button class="tbtn" onclick="addRow('bottom')"><i class="fas fa-plus"></i> Add Bottom</button>
+    </div>
+    <div class="toolbar-sep"></div>
+    <div style="display:flex;align-items:center;gap:6px;">
+        <span class="toolbar-label">Manage</span>
+        <button class="tbtn" onclick="shiftAllDown()" title="Insert blank row at top"><i class="fas fa-arrow-down"></i> Shift Down</button>
+        <button class="tbtn danger" onclick="removeEdge('first')"><i class="fas fa-arrow-up-to-line"></i> Remove First</button>
+        <button class="tbtn danger" onclick="removeEdge('last')"><i class="fas fa-arrow-down-to-line"></i> Remove Last</button>
+        <button class="tbtn danger" onclick="clearSheet()"><i class="fas fa-trash"></i> Clear Sheet</button>
+    </div>
+    <div class="toolbar-sep"></div>
+    <button class="tbtn success" onclick="importFromMatches()"><i class="fas fa-download"></i> Import vs This Opponent</button>
+    <div class="toolbar-sep"></div>
+    <button class="tbtn primary" onclick="saveAll(true)"><i class="fas fa-floppy-disk"></i> Save</button>
+    <span id="saveStatus">—</span>
+</div>
+
+<!-- Sheet content area -->
+<div id="sheetArea" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+
+    <!-- No sheets yet -->
+    <div id="noSheets">
+        <i class="fas fa-table-columns"></i>
+        <p>No opponent sheets yet.<br>Click <strong style="color:#a78bfa;">+ Add Sheet</strong> at the bottom to create your first one.</p>
+    </div>
+
+    <!-- Active sheet (injected by JS) -->
+    <div id="activeSheet" style="display:none;flex:1;display:none;flex-direction:column;overflow:hidden;">
+        <div class="sheet-header" id="sheetHeader"></div>
+        <div class="table-wrap" id="tableWrap">
+            <table class="veto-table">
+                <thead>
+                    <tr>
+                        <th style="width:26px;"></th>
+                        <th class="left" style="min-width:88px;">Date</th>
+                        <th class="left" style="min-width:100px;">Tournament</th>
+                        <th style="min-width:100px;">Our Ban</th>
+                        <th style="min-width:100px;">Their Ban</th>
+                        <th style="min-width:110px;">Map 1 <span style="color:var(--primary);font-size:9px;display:block;font-weight:400;">Our Pick</span></th>
+                        <th style="min-width:110px;">Map 2 <span style="color:#60a5fa;font-size:9px;display:block;font-weight:400;">Their Pick</span></th>
+                        <th style="min-width:110px;">Map 3 <span style="color:var(--gray);font-size:9px;display:block;font-weight:400;">Decider</span></th>
+                        <th style="min-width:58px;">Series</th>
+                        <th class="left" style="min-width:150px;">Notes</th>
+                        <th style="width:28px;"></th>
+                    </tr>
+                </thead>
+                <tbody id="vetoBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- Sheets tab bar -->
+<div class="sheets-bar" id="sheetsBar">
+    <button class="tab-add-btn" onclick="promptNewSheet()" title="Add sheet">+</button>
+</div>
+
+<!-- Add/Rename modal -->
+<div class="modal-bg hidden" id="modalBg">
+    <div class="modal">
+        <h3 id="modalTitle">New Opponent Sheet</h3>
+        <input type="text" id="modalInput" placeholder="e.g. Luminosity, C9 Blue…" maxlength="40"
+            onkeydown="if(event.key==='Enter')modalConfirm()">
+        <div class="modal-btns">
+            <button class="btn btn-secondary" onclick="modalClose()">Cancel</button>
+            <button class="btn btn-primary" onclick="modalConfirm()">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<datalist id="mapList">
+    <option value="Clubhouse"><option value="Bank"><option value="Border">
+    <option value="Chalet"><option value="Coastline"><option value="Consulate">
+    <option value="Emerald Plains"><option value="Kafe"><option value="Kanal">
+    <option value="Nighthaven Labs"><option value="Oregon"><option value="Outback">
+    <option value="Skyscraper"><option value="Stadium Bravo"><option value="Theme Park">
+    <option value="Villa"><option value="Yacht">
+</datalist>
+
+<script src="../scripts/profile-loader.js"></script>
+<script>
+(function(){
+'use strict';
+
+if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db   = firebase.database();
+
+// ── State ─────────────────────────────────────────────────────────
+let teamId       = null;
+let sheets       = [];   // [{ id, name, rows:[] }]
+let activeIdx    = 0;
+let saveTimer    = null;
+let matchData    = [];
+let modalMode    = null; // 'new' | 'rename'
+
+const esc = v => String(v||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+const WL_CYCLE = ['none','W','L'];
+
+// ── Auth ──────────────────────────────────────────────────────────
+auth.onAuthStateChanged(async user => {
+    if(!user||!user.emailVerified) return window.location.href='index_pro.html';
+    R6Theme.init(user.uid, db);
+    try {
+        teamId = await getPreviewTeamId(user, db);
+        if(!teamId) throw new Error('No team');
+
+        // Load saved sheets
+        const snap = await db.ref(`teams/${teamId}/veto_tracker`).once('value');
+        const saved = snap.val();
+        if(saved && Array.isArray(saved.sheets) && saved.sheets.length){
+            sheets = saved.sheets;
+            activeIdx = 0;
+            renderTabs();
+            openSheet(0);
+        }
+
+        // Load match data for import
+        const mSnap = await db.ref(`teams/${teamId}/matches_pro`).once('value');
+        const raw = mSnap.val()||{};
+        matchData = Object.entries(raw).map(([id,m])=>{
+            let maps = m.maps;
+            if(!maps) maps=[];
+            else if(!Array.isArray(maps)) maps=Object.values(maps);
+            return{id,...m,maps};
+        }).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    } catch(e){ console.error(e); toast('Load error: '+e.message); }
+});
+
+// ── New row template ──────────────────────────────────────────────
+function newRow(d){
+    return {
+        date:d?.date||'', tourn:d?.tourn||'',
+        ourBan:d?.ourBan||'', theirBan:d?.theirBan||'',
+        map1:d?.map1||'', map1r:d?.map1r||'none',
+        map2:d?.map2||'', map2r:d?.map2r||'none',
+        map3:d?.map3||'', map3r:d?.map3r||'none',
+        series:d?.series||'none', notes:d?.notes||''
+    };
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────
+function renderTabs(){
+    const bar = document.getElementById('sheetsBar');
+    bar.innerHTML = '';
+
+    // Add button first (leftmost)
+    const addBtn = document.createElement('button');
+    addBtn.className='tab-add-btn';
+    addBtn.title='Add sheet';
+    addBtn.textContent='+';
+    addBtn.onclick=promptNewSheet;
+    bar.appendChild(addBtn);
+
+    sheets.forEach((sheet, i) => {
+        const tab = document.createElement('button');
+        tab.className='sheet-tab'+(i===activeIdx?' active':'');
+        tab.innerHTML=`
+            <span>${esc(sheet.name)}</span>
+            <span class="tab-del" onclick="deleteSheet(event,${i})" title="Delete sheet">✕</span>`;
+        tab.addEventListener('click', e => {
+            if(e.target.closest('.tab-del')) return;
+            openSheet(i);
+        });
+        // Double-click to rename
+        tab.addEventListener('dblclick', e => {
+            if(e.target.closest('.tab-del')) return;
+            promptRename(i);
+        });
+        bar.appendChild(tab);
+    });
+}
+
+// ── Open sheet ────────────────────────────────────────────────────
+function openSheet(idx){
+    activeIdx = idx;
+    renderTabs();
+
+    const sheet = sheets[idx];
+    document.getElementById('noSheets').style.display='none';
+    const area = document.getElementById('activeSheet');
+    area.style.display='flex';
+    document.getElementById('toolbar').style.display='flex';
+
+    // Header
+    const header = document.getElementById('sheetHeader');
+    const wins  = sheet.rows.filter(r=>r.series==='W').length;
+    const losses= sheet.rows.filter(r=>r.series==='L').length;
+    const wr    = (wins+losses)>0?Math.round(wins/(wins+losses)*100)+'%':'—';
+    header.innerHTML=`
+        <input class="sheet-name-input" value="${esc(sheet.name)}"
+            title="Double-click or edit to rename"
+            oninput="sheets[${idx}].name=this.value;renderTabs();scheduleSave();"
+            onfocus="this.select()">
+        <div class="sheet-stats">
+            <div class="sstat"><span>${sheet.rows.length}</span> matches</div>
+            <div class="sstat win"><strong>${wins}</strong> W</div>
+            <div class="sstat loss"><strong>${losses}</strong> L</div>
+            <div class="sstat"><strong>${wr}</strong> win rate</div>
+        </div>`;
+
+    renderBody(idx);
+}
+
+// ── Render table body ─────────────────────────────────────────────
+function renderBody(idx){
+    const sheet = sheets[idx];
+    const tbody = document.getElementById('vetoBody');
+    tbody.innerHTML='';
+
+    if(!sheet.rows.length){
+        tbody.innerHTML=`<tr><td colspan="11">
+            <div class="empty-sheet">
+                <i class="fas fa-table"></i>
+                <p>No matches recorded yet for <strong>${esc(sheet.name)}</strong>.<br>
+                Click <strong>Add Top</strong> or <strong>Import vs This Opponent</strong>.</p>
+            </div>
+        </td></tr>`;
+        return;
+    }
+
+    sheet.rows.forEach((row, ri) => {
+        const tr = document.createElement('tr');
+        tr.dataset.ri=ri;
+        tr.innerHTML=`
+            <td class="row-num">${ri+1}</td>
+            <td class="left"><input class="cell-input" value="${esc(row.date)}" placeholder="MM/DD/YY" oninput="onCell(${idx},${ri},'date',this.value)"></td>
+            <td class="left"><input class="cell-input" value="${esc(row.tourn)}" placeholder="Scrim / Event…" oninput="onCell(${idx},${ri},'tourn',this.value)"></td>
+            <td><div class="ban-wrap"><span class="ban-lbl us">US</span><input class="map-input" value="${esc(row.ourBan)}" placeholder="Map" list="mapList" oninput="onCell(${idx},${ri},'ourBan',this.value)"></div></td>
+            <td><div class="ban-wrap"><span class="ban-lbl them">THM</span><input class="map-input" value="${esc(row.theirBan)}" placeholder="Map" list="mapList" oninput="onCell(${idx},${ri},'theirBan',this.value)"></div></td>
+            <td><div class="map-cell"><input class="map-input" value="${esc(row.map1)}" placeholder="Map" list="mapList" oninput="onCell(${idx},${ri},'map1',this.value)"><span class="wl ${row.map1r}" onclick="cycleWL(${idx},${ri},'map1r')">${row.map1r==='none'?'·':row.map1r}</span></div></td>
+            <td><div class="map-cell"><input class="map-input" value="${esc(row.map2)}" placeholder="Map" list="mapList" oninput="onCell(${idx},${ri},'map2',this.value)"><span class="wl ${row.map2r}" onclick="cycleWL(${idx},${ri},'map2r')">${row.map2r==='none'?'·':row.map2r}</span></div></td>
+            <td><div class="map-cell"><input class="map-input" value="${esc(row.map3)}" placeholder="Map" list="mapList" oninput="onCell(${idx},${ri},'map3',this.value)"><span class="wl ${row.map3r}" onclick="cycleWL(${idx},${ri},'map3r')">${row.map3r==='none'?'·':row.map3r}</span></div></td>
+            <td><span class="series-res ${row.series}" onclick="cycleSeries(${idx},${ri})">${row.series==='none'?'—':row.series}</span></td>
+            <td class="left"><input class="cell-input" value="${esc(row.notes)}" placeholder="Notes…" oninput="onCell(${idx},${ri},'notes',this.value)"></td>
+            <td><button class="row-del" onclick="deleteRow(${idx},${ri})"><i class="fas fa-xmark"></i></button></td>`;
+        tbody.appendChild(tr);
+    });
+}
+
+// ── Cell handlers ─────────────────────────────────────────────────
+window.onCell = function(si, ri, field, val){
+    sheets[si].rows[ri][field]=val;
+    scheduleSave();
+};
+
+window.cycleWL = function(si, ri, field){
+    const cur=sheets[si].rows[ri][field]||'none';
+    const next=WL_CYCLE[(WL_CYCLE.indexOf(cur)+1)%WL_CYCLE.length];
+    sheets[si].rows[ri][field]=next;
+    // Update just the pill without full re-render
+    const tr=document.querySelector(`tr[data-ri="${ri}"]`);
+    if(tr){
+        const mapNum=parseInt(field.replace('map','').replace('r',''));
+        const pills=tr.querySelectorAll('.wl');
+        const pill=pills[mapNum-1];
+        if(pill){ pill.className=`wl ${next}`; pill.textContent=next==='none'?'·':next; }
+    }
+    scheduleSave();
+    refreshHeader();
+};
+
+window.cycleSeries = function(si, ri){
+    const cur=sheets[si].rows[ri].series||'none';
+    const next=WL_CYCLE[(WL_CYCLE.indexOf(cur)+1)%WL_CYCLE.length];
+    sheets[si].rows[ri].series=next;
+    const tr=document.querySelector(`tr[data-ri="${ri}"]`);
+    if(tr){
+        const el=tr.querySelector('.series-res');
+        if(el){ el.className=`series-res ${next}`; el.textContent=next==='none'?'—':next; }
+    }
+    scheduleSave();
+    refreshHeader();
+};
+
+function refreshHeader(){
+    // Re-render stats in header without full re-render
+    const sheet=sheets[activeIdx];
+    const wins=sheet.rows.filter(r=>r.series==='W').length;
+    const losses=sheet.rows.filter(r=>r.series==='L').length;
+    const wr=(wins+losses)>0?Math.round(wins/(wins+losses)*100)+'%':'—';
+    const stats=document.getElementById('sheetHeader').querySelector('.sheet-stats');
+    if(stats) stats.innerHTML=`
+        <div class="sstat"><span>${sheet.rows.length}</span> matches</div>
+        <div class="sstat win"><strong>${wins}</strong> W</div>
+        <div class="sstat loss"><strong>${losses}</strong> L</div>
+        <div class="sstat"><strong>${wr}</strong> win rate</div>`;
+}
+
+// ── Row management ────────────────────────────────────────────────
+window.addRow = function(pos){
+    const s=sheets[activeIdx];
+    if(pos==='top') s.rows.unshift(newRow());
+    else s.rows.push(newRow());
+    renderBody(activeIdx);
+    refreshHeader();
+    scheduleSave();
+    // Flash new row
+    const trs=document.querySelectorAll('#vetoBody tr');
+    const target=pos==='top'?trs[0]:trs[trs.length-1];
+    if(target){target.classList.add('row-new');setTimeout(()=>target.classList.remove('row-new'),300);}
+};
+
+window.shiftAllDown = function(){
+    sheets[activeIdx].rows.unshift(newRow());
+    renderBody(activeIdx);
+    refreshHeader();
+    scheduleSave();
+    toast('Shifted all rows down — blank row added at top');
+};
+
+window.removeEdge = function(which){
+    const rows=sheets[activeIdx].rows;
+    if(!rows.length){toast('No rows to remove');return;}
+    const label=which==='first'?'top':'bottom';
+    if(!confirm(`Remove the ${label} row?`)) return;
+    if(which==='first') rows.shift(); else rows.pop();
+    renderBody(activeIdx);
+    refreshHeader();
+    scheduleSave();
+};
+
+window.deleteRow = function(si, ri){
+    sheets[si].rows.splice(ri,1);
+    renderBody(si);
+    refreshHeader();
+    scheduleSave();
+};
+
+window.clearSheet = function(){
+    if(!sheets[activeIdx].rows.length) return;
+    if(!confirm('Clear all rows in this sheet?')) return;
+    sheets[activeIdx].rows=[];
+    renderBody(activeIdx);
+    refreshHeader();
+    scheduleSave();
+    toast('Sheet cleared');
+};
+
+// ── Import from match history ─────────────────────────────────────
+window.importFromMatches = function(){
+    const sheet=sheets[activeIdx];
+    const oppName=sheet.name.toLowerCase().trim();
+    // Filter matches by opponent name (fuzzy)
+    const relevant=matchData.filter(m=>{
+        const opp=(m.opponent||'').toLowerCase().trim();
+        return opp===oppName||opp.includes(oppName)||oppName.includes(opp);
+    });
+    if(!relevant.length){
+        toast(`No matches found vs "${sheet.name}" in Match History`);
+        return;
+    }
+    const existing=new Set(sheet.rows.map(r=>r.date+'|'+r.tourn));
+    let added=0;
+    relevant.forEach(m=>{
+        const key=(m.date||'')+'|'+(m.matchType||'scrim');
+        if(existing.has(key)) return;
+        const maps=(m.maps||[]);
+        const mW=maps.filter(mp=>(mp.teamScore||0)>(mp.opponentScore||0)).length;
+        const mL=maps.filter(mp=>(mp.teamScore||0)<(mp.opponentScore||0)).length;
+        const g=mp=>{
+            if(!mp) return{name:'',r:'none'};
+            const w=(mp.teamScore||0)>(mp.opponentScore||0);
+            const l=(mp.teamScore||0)<(mp.opponentScore||0);
+            return{name:mp.mapName||'',r:w?'W':l?'L':'none'};
+        };
+        sheet.rows.push(newRow({
+            date:m.date||'',tourn:m.matchType||'scrim',
+            ourBan:'',theirBan:'',
+            map1:g(maps[0]).name,map1r:g(maps[0]).r,
+            map2:g(maps[1]).name,map2r:g(maps[1]).r,
+            map3:g(maps[2]).name,map3r:g(maps[2]).r,
+            series:mW>mL?'W':mL>mW?'L':'none',notes:''
+        }));
+        added++;
+        existing.add(key);
+    });
+    if(!added){toast('All matches already imported');return;}
+    sheet.rows.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    renderBody(activeIdx);
+    refreshHeader();
+    scheduleSave();
+    toast(`Imported ${added} match${added!==1?'es':''} vs ${sheet.name}`);
+};
+
+// ── Sheet CRUD ────────────────────────────────────────────────────
+window.promptNewSheet = function(){
+    modalMode='new';
+    document.getElementById('modalTitle').textContent='New Opponent Sheet';
+    document.getElementById('modalInput').value='';
+    document.getElementById('modalBg').classList.remove('hidden');
+    setTimeout(()=>document.getElementById('modalInput').focus(),80);
+};
+
+window.promptRename = function(idx){
+    modalMode={type:'rename',idx};
+    document.getElementById('modalTitle').textContent='Rename Sheet';
+    document.getElementById('modalInput').value=sheets[idx].name;
+    document.getElementById('modalBg').classList.remove('hidden');
+    setTimeout(()=>{const inp=document.getElementById('modalInput');inp.focus();inp.select();},80);
+};
+
+window.modalClose = function(){
+    document.getElementById('modalBg').classList.add('hidden');
+    modalMode=null;
+};
+
+window.modalConfirm = function(){
+    const name=document.getElementById('modalInput').value.trim();
+    if(!name){toast('Please enter a name');return;}
+    if(modalMode==='new'){
+        sheets.push({id:Date.now().toString(36),name,rows:[]});
+        renderTabs();
+        openSheet(sheets.length-1);
+        saveAll(false);
+    } else if(modalMode?.type==='rename'){
+        sheets[modalMode.idx].name=name;
+        renderTabs();
+        if(modalMode.idx===activeIdx) openSheet(activeIdx);
+        scheduleSave();
+    }
+    modalClose();
+};
+
+window.deleteSheet = function(e, idx){
+    e.stopPropagation();
+    if(!confirm(`Delete sheet "${sheets[idx].name}"? This cannot be undone.`)) return;
+    sheets.splice(idx,1);
+    if(!sheets.length){
+        activeIdx=0;
+        document.getElementById('noSheets').style.display='flex';
+        document.getElementById('activeSheet').style.display='none';
+        document.getElementById('toolbar').style.display='none';
+        renderTabs();
+        saveAll(false);
+        return;
+    }
+    activeIdx=Math.min(activeIdx,sheets.length-1);
+    renderTabs();
+    openSheet(activeIdx);
+    saveAll(false);
+};
+
+// ── Save ──────────────────────────────────────────────────────────
+function scheduleSave(){
+    setStatus('saving');
+    clearTimeout(saveTimer);
+    saveTimer=setTimeout(()=>saveAll(false),1800);
+}
+
+window.saveAll = async function(manual){
+    if(!teamId) return;
+    setStatus('saving');
+    try {
+        await db.ref(`teams/${teamId}/veto_tracker`).set({sheets,updatedAt:Date.now()});
+        setStatus('saved',`Saved ${new Date().toLocaleTimeString()}`);
+        if(manual) toast('Saved');
+    } catch(e){
+        setStatus('idle','Save failed');
+        toast('Save failed: '+e.message);
+    }
+};
+
+function setStatus(state,msg){
+    const el=document.getElementById('saveStatus');
+    if(!el) return;
+    if(state==='saving'){el.className='saving';el.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Saving…';}
+    else if(state==='saved'){el.className='saved';el.textContent='✓ '+(msg||'Saved');}
+    else{el.className='';el.textContent=msg||'';}
+}
+
+// ── Toast ─────────────────────────────────────────────────────────
+function toast(msg){
+    const t=document.getElementById('toast');
+    t.textContent=msg;t.classList.add('show');
+    clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// Close modal on backdrop click
+document.getElementById('modalBg').addEventListener('click',function(e){
+    if(e.target===this) modalClose();
+});
+
+})();
+</script>
+</body>
+</html>
