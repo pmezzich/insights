@@ -168,11 +168,24 @@
         .toast.info{background:rgba(245,158,11,0.95);color:#111;}
         @keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
-        @media(max-width:700px){
-            body{padding:10px;}.content{padding:12px;}.nav,.page-title{padding:14px 16px;}
-            .stats-strip{grid-template-columns:1fr 1fr;}
-            .form-row{grid-template-columns:1fr;}
-        }
+        /* ── SUBSCRIPTION CODES ── */
+        .code-form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px;}
+        .code-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:5px;font-size:11px;font-weight:700;letter-spacing:.3px;}
+        .code-badge.solo{background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.3);color:#a78bfa;}
+        .code-badge.team{background:rgba(96,165,250,.15);border:1px solid rgba(96,165,250,.3);color:#60a5fa;}
+        .code-badge.org{background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);color:#fbbf24;}
+        .code-badge.beta{background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.3);color:#34d399;}
+        .code-row{display:grid;grid-template-columns:130px 80px 70px 80px 80px 1fr auto;gap:10px;align-items:center;padding:10px 14px;border-radius:8px;border:1px solid var(--card-border);background:rgba(10,16,28,.5);margin-bottom:6px;font-size:12px;}
+        .code-val{font-family:monospace;font-size:14px;font-weight:800;color:#fbbf24;letter-spacing:1px;}
+        .code-copy{background:transparent;border:none;color:var(--gray);cursor:pointer;font-size:13px;padding:4px;border-radius:4px;transition:color .15s;}
+        .code-copy:hover{color:#fbbf24;}
+        .code-del{background:transparent;border:none;color:rgba(248,113,113,.4);cursor:pointer;font-size:13px;padding:4px;border-radius:4px;transition:color .15s;}
+        .code-del:hover{color:#f87171;}
+        .codes-hdr{display:grid;grid-template-columns:130px 80px 70px 80px 80px 1fr auto;gap:10px;padding:6px 14px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);}
+        .code-uses-bar{height:5px;border-radius:3px;background:rgba(255,255,255,.07);overflow:hidden;margin-top:3px;}
+        .code-uses-fill{height:100%;border-radius:3px;background:var(--primary);transition:width .3s;}
+        @media(max-width:700px){.code-row,.codes-hdr{grid-template-columns:1fr 1fr auto;}.code-row>*:nth-child(n+3):not(:last-child){display:none;}}
+
     </style>
 </head>
 <body>
@@ -395,7 +408,111 @@
             </div>
         </div>
 
-        <!-- Admin setup notes -->
+
+        <!-- ── Subscription Code Generator ─────────────────────────────── -->
+        <div class="panel">
+            <div class="ph"><i class="fas fa-key" style="color:#fbbf24;"></i> Subscription Code Generator</div>
+            <div class="pb">
+                <div class="code-form-grid">
+                    <div>
+                        <label class="form-label">Plan Type</label>
+                        <select class="fi" id="codePlan" style="width:100%;">
+                            <option value="beta">Beta (Full Access)</option>
+                            <option value="solo">Solo</option>
+                            <option value="team">Team (5 codes)</option>
+                            <option value="org">Org (25 codes)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">Duration</label>
+                        <select class="fi" id="codeDuration" style="width:100%;" onchange="toggleCustomDate(this.value)">
+                            <option value="7">7 days</option>
+                            <option value="30" selected>30 days</option>
+                            <option value="90">90 days</option>
+                            <option value="180">180 days</option>
+                            <option value="365">1 year</option>
+                            <option value="36500">Lifetime</option>
+                            <option value="custom">Custom end date…</option>
+                        </select>
+                        <input type="date" class="fi" id="codeEndDate" style="width:100%;margin-top:6px;display:none;"
+                            min="2026-01-01" value="2026-04-01">
+                    </div>
+                    <div>
+                        <label class="form-label">Max Uses</label>
+                        <select class="fi" id="codeMaxUses" style="width:100%;">
+                            <option value="1" selected>1 use</option>
+                            <option value="5">5 uses</option>
+                            <option value="10">10 uses</option>
+                            <option value="25">25 uses</option>
+                            <option value="100">100 uses</option>
+                            <option value="0">Unlimited</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">Quantity</label>
+                        <input type="number" class="fi" id="codeQty" value="1" min="1" max="50" style="width:100%;">
+                    </div>
+                    <div>
+                        <label class="form-label">Note (optional)</label>
+                        <input type="text" class="fi" id="codeNote" placeholder="e.g. Beta wave 1" style="width:100%;">
+                    </div>
+                    <div style="display:flex;align-items:flex-end;">
+                        <button class="btn btn-admin" onclick="generateCodes()" style="width:100%;justify-content:center;" id="genCodesBtn">
+                            <i class="fas fa-wand-magic-sparkles"></i> Generate Codes
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Generated codes preview -->
+                <div id="generatedCodesWrap" style="display:none;margin-top:4px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;flex-wrap:wrap;">
+                        <span style="font-size:12px;font-weight:700;color:var(--light);" id="genCodesTitle">Generated Codes</span>
+                        <div style="display:flex;gap:8px;">
+                            <button class="btn btn-ghost btn-sm" onclick="copyAllCodes()"><i class="fas fa-copy"></i> Copy All</button>
+                            <button class="btn btn-admin btn-sm" onclick="saveGeneratedCodes()" id="saveCodesBtn"><i class="fas fa-floppy-disk"></i> Save to Firebase</button>
+                        </div>
+                    </div>
+                    <div id="generatedCodesList" style="display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── All Subscription Codes ────────────────────────────────── -->
+        <div class="panel">
+            <div class="ph" style="justify-content:space-between;">
+                <span><i class="fas fa-list-check" style="color:#fbbf24;"></i> All Subscription Codes</span>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <select class="fi btn-sm" id="codesFilterPlan" onchange="renderCodesList()" style="padding:5px 8px;font-size:12px;">
+                        <option value="">All Plans</option>
+                        <option value="beta">Beta</option>
+                        <option value="solo">Solo</option>
+                        <option value="team">Team</option>
+                        <option value="org">Org</option>
+                    </select>
+                    <select class="fi btn-sm" id="codesFilterStatus" onchange="renderCodesList()" style="padding:5px 8px;font-size:12px;">
+                        <option value="">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="unused">Unused</option>
+                        <option value="expired">Expired</option>
+                        <option value="full">Fully Used</option>
+                    </select>
+                    <button class="btn btn-ghost btn-sm" onclick="loadAllCodes()"><i class="fas fa-rotate"></i> Refresh</button>
+                </div>
+            </div>
+            <div class="pb">
+                <div class="codes-hdr">
+                    <span>Code</span><span>Plan</span><span>Uses</span><span>Duration</span><span>Created</span><span>Note</span><span></span>
+                </div>
+                <div id="codesListWrap">
+                    <div style="text-align:center;padding:30px;color:var(--gray);font-size:13px;">
+                        <i class="fas fa-spinner fa-spin"></i> Loading codes…
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Setup notes -->
+
         <div class="panel">
             <div class="ph"><i class="fas fa-wrench" style="color:var(--gray);"></i> Admin Setup</div>
             <div class="pb">
@@ -463,6 +580,7 @@ auth.onAuthStateChanged(async user=>{
     $('adminUI').style.display='block';
     loadTeams();
     loadStats();
+    loadAllCodes();
 });
 
 /* ── Login ── */
@@ -802,6 +920,209 @@ function genCode(){
     const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let s=''; for(let i=0;i<6;i++) s+=c[Math.floor(Math.random()*c.length)]; return s;
 }
+
+// ── SUBSCRIPTION CODES ────────────────────────────────────────────────────────
+let _pendingCodes = [];   // codes generated but not yet saved
+let _allCodes     = [];   // loaded from Firebase
+
+function genSubCode() {
+    // 4 groups of 4: XXXX-XXXX-XXXX-XXXX  (more professional than 6-char team codes)
+    const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const seg = () => Array.from({length:4}, ()=>c[Math.floor(Math.random()*c.length)]).join('');
+    return `${seg()}-${seg()}-${seg()}-${seg()}`;
+}
+
+window.toggleCustomDate = function(val) {
+    document.getElementById('codeEndDate').style.display = val === 'custom' ? '' : 'none';
+};
+
+window.generateCodes = function() {
+    const plan      = $('codePlan').value;
+    const durSel    = $('codeDuration').value;
+    const maxUses   = parseInt($('codeMaxUses').value);
+    const qty       = Math.min(50, Math.max(1, parseInt($('codeQty').value)||1));
+    const note      = ($('codeNote').value||'').trim();
+
+    // Calculate durationDays
+    let durationDays;
+    if (durSel === 'custom') {
+        const endDate = new Date($('codeEndDate').value);
+        const today   = new Date(); today.setHours(0,0,0,0);
+        durationDays  = Math.max(1, Math.ceil((endDate - today) / (1000*60*60*24)));
+    } else {
+        durationDays = parseInt(durSel);
+    }
+    _pendingCodes = [];
+    for(let i=0; i<qty; i++){
+        _pendingCodes.push({
+            code:        genSubCode(),
+            plan,
+            durationDays,
+            maxUses:     maxUses === 0 ? 'unlimited' : maxUses,
+            usedCount:   0,
+            note:        note || '',
+            createdAt:   Date.now(),
+            createdBy:   auth.currentUser?.uid || 'admin',
+            ownedByTeam: plan === 'team' || plan === 'org',
+        });
+    }
+
+    // Render preview
+    const list = $('generatedCodesList');
+    list.innerHTML = '';
+    _pendingCodes.forEach(c => {
+        const div = document.createElement('div');
+        div.style.cssText = 'display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.15);';
+        div.innerHTML = `
+            <span style="font-family:monospace;font-size:15px;font-weight:800;color:#fbbf24;letter-spacing:2px;flex:1;">${c.code}</span>
+            <span class="code-badge ${c.plan}">${c.plan.toUpperCase()}</span>
+            <span style="font-size:11px;color:var(--gray);">${c.durationDays === 36500 ? 'Lifetime' : c.durationDays+'d'}</span>
+            <span style="font-size:11px;color:var(--gray);">${c.maxUses === 'unlimited' ? '∞ uses' : c.maxUses+' use'+( c.maxUses!==1?'s':'')}</span>
+            <button class="code-copy" onclick="navigator.clipboard.writeText('${c.code}').then(()=>toast('Copied!','success'))" title="Copy"><i class="fas fa-copy"></i></button>`;
+        list.appendChild(div);
+    });
+
+    const planLabel = {beta:'Beta',solo:'Solo',team:'Team',org:'Org'}[plan]||plan;
+    $('genCodesTitle').textContent = `${qty} ${planLabel} code${qty!==1?'s':''} ready — not saved yet`;
+    $('generatedCodesWrap').style.display = '';
+};
+
+window.copyAllCodes = function() {
+    const text = _pendingCodes.map(c=>c.code).join('\n');
+    navigator.clipboard.writeText(text).then(()=>toast(`${_pendingCodes.length} codes copied!`,'success'));
+};
+
+window.saveGeneratedCodes = async function() {
+    if(!_pendingCodes.length){ toast('No codes to save','info'); return; }
+    setBtn('saveCodesBtn', true, '<i class="fas fa-spinner fa-spin"></i> Saving…');
+    try {
+        const updates = {};
+        _pendingCodes.forEach(c => {
+            updates[`subscription_codes/${c.code}`] = c;
+        });
+        await db.ref().update(updates);
+        toast(`${_pendingCodes.length} code${_pendingCodes.length!==1?'s':''} saved to Firebase!`, 'success');
+        $('genCodesTitle').textContent = `✓ ${_pendingCodes.length} codes saved`;
+        setBtn('saveCodesBtn', false, '<i class="fas fa-check"></i> Saved!');
+        setTimeout(()=>{ setBtn('saveCodesBtn',false,'<i class="fas fa-floppy-disk"></i> Save to Firebase'); }, 3000);
+        // Refresh the list
+        loadAllCodes();
+    } catch(e) {
+        toast('Save failed: '+e.message, 'error');
+        setBtn('saveCodesBtn', false, '<i class="fas fa-floppy-disk"></i> Save to Firebase');
+    }
+};
+
+// Load all codes from Firebase
+window.loadAllCodes = async function() {
+    const wrap = $('codesListWrap');
+    wrap.innerHTML = '<div style="text-align:center;padding:20px;color:var(--gray);font-size:13px;"><i class="fas fa-spinner fa-spin"></i> Loading…</div>';
+    try {
+        const snap = await db.ref('subscription_codes').once('value');
+        _allCodes = [];
+        snap.forEach(c => {
+            _allCodes.push({ id: c.key, ...c.val() });
+        });
+        _allCodes.sort((a,b) => (b.createdAt||0)-(a.createdAt||0));
+        renderCodesList();
+    } catch(e) {
+        wrap.innerHTML = `<div style="color:#f87171;padding:16px;font-size:13px;">Error: ${e.message}</div>`;
+    }
+};
+
+window.renderCodesList = function() {
+    const planF   = $('codesFilterPlan')?.value   || '';
+    const statusF = $('codesFilterStatus')?.value || '';
+    const now = Date.now();
+
+    let codes = _allCodes.filter(c => {
+        if(planF   && c.plan !== planF) return false;
+        if(statusF) {
+            const uses    = c.usedCount || 0;
+            const maxU    = c.maxUses === 'unlimited' ? Infinity : (c.maxUses||1);
+            const expired = c.expiresAt && c.expiresAt < now;
+            const full    = maxU !== Infinity && uses >= maxU;
+            if(statusF === 'unused'  && uses > 0)          return false;
+            if(statusF === 'active'  && (expired || full))  return false;
+            if(statusF === 'expired' && !expired)           return false;
+            if(statusF === 'full'    && !full)              return false;
+        }
+        return true;
+    });
+
+    const wrap = $('codesListWrap');
+    if(!codes.length) {
+        wrap.innerHTML = '<div style="text-align:center;padding:30px;color:var(--gray);font-size:13px;">No codes found.</div>';
+        return;
+    }
+
+    wrap.innerHTML = codes.map(c => {
+        const uses   = c.usedCount || 0;
+        const maxU   = c.maxUses === 'unlimited' ? '∞' : (c.maxUses||1);
+        const maxNum = c.maxUses === 'unlimited' ? Infinity : (c.maxUses||1);
+        const pct    = maxNum === Infinity ? 0 : Math.round(uses/maxNum*100);
+        const dur    = c.durationDays === 36500 ? 'Lifetime' : c.durationDays+'d';
+        const date   = c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'}) : '—';
+        const expired = c.expiresAt && c.expiresAt < Date.now();
+        const full    = maxNum !== Infinity && uses >= maxNum;
+        const statusDot = expired ? '🔴' : full ? '🟡' : uses > 0 ? '🟢' : '⚪';
+
+        return `<div class="code-row">
+            <span class="code-val" id="cv_${c.id}">${c.id}</span>
+            <span class="code-badge ${c.plan}">${c.plan.toUpperCase()}</span>
+            <span style="font-size:12px;">
+                ${statusDot} ${uses}/${maxU}
+                ${maxNum !== Infinity ? `<div class="code-uses-bar"><div class="code-uses-fill" style="width:${pct}%;"></div></div>` : ''}
+            </span>
+            <span style="font-size:12px;color:var(--gray);">${dur}</span>
+            <span style="font-size:11px;color:var(--gray);">${date}</span>
+            <span style="font-size:11px;color:var(--gray);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${c.note||''}">${c.note||'—'}</span>
+            <span style="display:flex;gap:4px;">
+                <button class="code-copy" onclick="navigator.clipboard.writeText('${c.id}').then(()=>toast('Copied!','success'))" title="Copy code"><i class="fas fa-copy"></i></button>
+                <button class="code-copy" onclick="viewCodeDetails('${c.id}')" title="Details"><i class="fas fa-eye"></i></button>
+                <button class="code-del" onclick="deleteCode('${c.id}')" title="Delete"><i class="fas fa-trash"></i></button>
+            </span>
+        </div>`;
+    }).join('');
+};
+
+window.viewCodeDetails = function(codeId) {
+    const c = _allCodes.find(x=>x.id===codeId);
+    if(!c) return;
+    const uses   = c.usedCount||0;
+    const maxU   = c.maxUses==='unlimited'?'Unlimited':c.maxUses;
+    const dur    = c.durationDays===36500?'Lifetime':c.durationDays+' days';
+    const date   = c.createdAt?new Date(c.createdAt).toLocaleString():'-';
+    const usedBy = c.usedBy ? Object.values(c.usedBy).map(u=>`<li style="font-family:monospace;font-size:11px;color:#fbbf24;">${u}</li>`).join('') : '<li style="color:var(--gray);">None yet</li>';
+    $('codeViewBody').innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:12px;">
+            <div style="font-family:monospace;font-size:22px;font-weight:900;color:#fbbf24;letter-spacing:3px;text-align:center;padding:16px;background:rgba(245,158,11,.06);border-radius:8px;">${c.id}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <div style="font-size:12px;color:var(--gray);">Plan</div><div class="code-badge ${c.plan}">${c.plan.toUpperCase()}</div>
+                <div style="font-size:12px;color:var(--gray);">Duration</div><div style="font-size:13px;font-weight:700;">${dur}</div>
+                <div style="font-size:12px;color:var(--gray);">Max Uses</div><div style="font-size:13px;font-weight:700;">${maxU}</div>
+                <div style="font-size:12px;color:var(--gray);">Times Used</div><div style="font-size:13px;font-weight:700;">${uses}</div>
+                <div style="font-size:12px;color:var(--gray);">Created</div><div style="font-size:12px;">${date}</div>
+                <div style="font-size:12px;color:var(--gray);">Note</div><div style="font-size:12px;">${c.note||'—'}</div>
+            </div>
+            <div>
+                <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);margin-bottom:6px;">Used By (UIDs)</div>
+                <ul style="list-style:none;display:flex;flex-direction:column;gap:4px;">${usedBy}</ul>
+            </div>
+        </div>`;
+    openModal('codeViewModal');
+};
+
+window.deleteCode = async function(codeId) {
+    if(!confirm(`Delete code ${codeId}? This cannot be undone.`)) return;
+    try {
+        await db.ref(`subscription_codes/${codeId}`).remove();
+        _allCodes = _allCodes.filter(c=>c.id!==codeId);
+        renderCodesList();
+        toast('Code deleted','success');
+    } catch(e) { toast('Delete failed: '+e.message,'error'); }
+};
+
 function setBtn(id,dis,html){ const b=$(id); if(!b)return; b.disabled=dis; b.innerHTML=html; }
 function showCreateErr(m){ const e=$('createErr'); e.textContent=m; e.className='form-err show'; }
 function hideCreateErr(){ $('createErr').className='form-err'; }

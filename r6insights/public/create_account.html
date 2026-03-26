@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Create Account — R6 Insights</title>
+<link rel="stylesheet" href="../styles/pro-global.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+<script src="../scripts/firebase-config.js"></script>
+<script>if(localStorage.getItem('r6_theme')==='light')document.documentElement.classList.add('light-mode');</script>
+<script src="../scripts/theme.js"></script>
+<style>
+body {
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    padding:20px;
+    background-color:var(--darker);
+    background-image:url('https://images.contentstack.io/v3/assets/bltb6530b271fddd0b1/blt6577b1f58530e6b2/5eb7cdc165eec876c4b5d0d8/rainbow6siege_bloodmoon_splash.jpg');
+    background-size:cover; background-position:center; background-attachment:fixed;
+}
+body::before { content:''; position:fixed; inset:0; background:rgba(5,8,15,.72); pointer-events:none; }
+
+.card {
+    position:relative; z-index:1;
+    width:100%; max-width:460px;
+    background:rgba(13,18,32,.97);
+    border:1px solid var(--card-border);
+    border-radius:18px; overflow:hidden;
+    box-shadow:0 20px 60px rgba(0,0,0,.8);
+}
+.card-top {
+    padding:32px 32px 24px;
+    background:linear-gradient(135deg,rgba(124,58,237,.1),rgba(79,70,229,.05));
+    border-bottom:1px solid var(--card-border);
+    text-align:center;
+}
+.card-logo {
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    margin-bottom:18px;
+}
+.card-logo img {
+    height:34px;
+    filter:invert(1) sepia(1) saturate(4) hue-rotate(240deg) brightness(.95);
+}
+.card-logo-text {
+    font-size:18px; font-weight:900; letter-spacing:.5px;
+    background:linear-gradient(to right,#a78bfa,#818cf8);
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+}
+.card-title { font-size:22px; font-weight:800; color:var(--light); margin-bottom:6px; }
+.card-sub   { font-size:13px; color:var(--gray); line-height:1.6; }
+
+.card-body  { padding:28px 32px; display:flex; flex-direction:column; gap:16px; }
+
+/* Steps */
+.steps {
+    display:flex; align-items:center; justify-content:center; gap:0;
+    margin-bottom:8px;
+}
+.step {
+    display:flex; align-items:center; gap:6px;
+    font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px;
+}
+.step-num {
+    width:22px; height:22px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:11px; font-weight:800; flex-shrink:0;
+    transition:all .2s;
+}
+.step.done .step-num   { background:#34d399; color:#000; }
+.step.active .step-num { background:var(--primary); color:#fff; }
+.step.pending .step-num{ background:rgba(255,255,255,.08); color:var(--gray); }
+.step.done .step-label   { color:#34d399; }
+.step.active .step-label { color:var(--light); }
+.step.pending .step-label{ color:var(--gray); }
+.step-line { flex:1; height:2px; background:rgba(255,255,255,.08); margin:0 6px; min-width:20px; }
+.step-line.done { background:#34d399; }
+
+/* Form fields */
+.fg { display:flex; flex-direction:column; gap:5px; }
+.fg label { font-size:11px; font-weight:700; color:var(--gray); text-transform:uppercase; letter-spacing:.5px; }
+.fi {
+    padding:11px 13px; border-radius:9px;
+    border:1px solid var(--card-border);
+    background:rgba(10,16,28,.85);
+    color:var(--light); font-family:inherit; font-size:14px;
+    outline:none; transition:border-color .15s, box-shadow .15s;
+    width:100%;
+}
+.fi:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(124,58,237,.15); }
+.fi::placeholder { color:rgba(148,163,184,.25); }
+.fi.valid   { border-color:rgba(52,211,153,.5); }
+.fi.invalid { border-color:rgba(248,113,113,.5); }
+
+/* Code input special */
+.code-input {
+    font-family:monospace; font-size:16px; font-weight:800;
+    letter-spacing:2px; text-transform:uppercase; text-align:center;
+}
+
+/* Code validation banner */
+.code-valid-banner {
+    display:none; padding:10px 14px; border-radius:8px;
+    font-size:13px; font-weight:700;
+    align-items:center; gap:8px;
+}
+.code-valid-banner.show { display:flex; }
+.code-valid-banner.ok  { background:rgba(52,211,153,.1); border:1px solid rgba(52,211,153,.25); color:#34d399; }
+.code-valid-banner.err { background:rgba(248,113,113,.1); border:1px solid rgba(248,113,113,.25); color:#f87171; }
+.code-valid-banner.checking { background:rgba(251,191,36,.08); border:1px solid rgba(251,191,36,.2); color:#fbbf24; }
+
+/* Error */
+.form-err { font-size:12px; color:#f87171; margin-top:2px; display:none; }
+.form-err.show { display:block; }
+
+/* Btn */
+.btn-submit {
+    width:100%; padding:13px; border-radius:10px;
+    background:linear-gradient(135deg,var(--primary),var(--secondary));
+    color:#fff; border:none; font-family:inherit;
+    font-size:15px; font-weight:800; cursor:pointer;
+    transition:all .18s; display:flex; align-items:center; justify-content:center; gap:8px;
+}
+.btn-submit:hover:not(:disabled) { opacity:.9; transform:translateY(-1px); box-shadow:0 6px 20px rgba(124,58,237,.4); }
+.btn-submit:disabled { opacity:.4; cursor:not-allowed; transform:none; }
+
+.divider { height:1px; background:var(--card-border); }
+
+.signin-link { text-align:center; font-size:13px; color:var(--gray); }
+.signin-link a { color:#a78bfa; text-decoration:none; font-weight:700; }
+.signin-link a:hover { text-decoration:underline; }
+
+/* Plan badge */
+.plan-badge {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:5px 12px; border-radius:7px; font-size:13px; font-weight:700;
+}
+.plan-badge.solo  { background:rgba(167,139,250,.15); border:1px solid rgba(167,139,250,.3); color:#a78bfa; }
+.plan-badge.team  { background:rgba(96,165,250,.15);  border:1px solid rgba(96,165,250,.3);  color:#60a5fa; }
+.plan-badge.org   { background:rgba(251,191,36,.12);  border:1px solid rgba(251,191,36,.3);  color:#fbbf24; }
+.plan-badge.beta  { background:rgba(52,211,153,.12);  border:1px solid rgba(52,211,153,.3);  color:#34d399; }
+
+/* Success screen */
+#successScreen { display:none; text-align:center; padding:40px 32px; }
+.success-icon { font-size:52px; color:#34d399; margin-bottom:16px; }
+.success-title { font-size:22px; font-weight:800; color:var(--light); margin-bottom:8px; }
+.success-sub { font-size:14px; color:var(--gray); margin-bottom:28px; line-height:1.7; }
+</style>
+</head>
+<body>
+
+<div class="card">
+    <div class="card-top">
+        <div class="card-logo">
+            <img src="../styles/r6_insights.png" alt="R6 Insights" onerror="this.style.display='none'">
+            <span class="card-logo-text">R6 INSIGHTS</span>
+        </div>
+        <div class="card-title">Create Account</div>
+        <div class="card-sub">Enter your subscription code to get started.</div>
+    </div>
+
+    <div class="card-body">
+        <!-- Steps indicator -->
+        <div class="steps">
+            <div class="step active" id="step1">
+                <div class="step-num">1</div>
+                <div class="step-label">Code</div>
+            </div>
+            <div class="step-line" id="line1"></div>
+            <div class="step pending" id="step2">
+                <div class="step-num">2</div>
+                <div class="step-label">Account</div>
+            </div>
+            <div class="step-line" id="line2"></div>
+            <div class="step pending" id="step3">
+                <div class="step-num">3</div>
+                <div class="step-label">Done</div>
+            </div>
+        </div>
+
+        <!-- Step 1: Code -->
+        <div id="pane1">
+            <div class="fg" style="margin-bottom:12px;">
+                <label>Subscription Code</label>
+                <input class="fi code-input" type="text" id="subCode"
+                    placeholder="XXXX-XXXX-XXXX-XXXX"
+                    maxlength="19"
+                    oninput="formatCode(this); validateCode(this.value);">
+            </div>
+            <div class="code-valid-banner" id="codeValidBanner"></div>
+            <button class="btn-submit" id="nextBtn" onclick="goToStep2()" disabled>
+                <i class="fas fa-arrow-right"></i> Continue
+            </button>
+        </div>
+
+        <!-- Step 2: Account details -->
+        <div id="pane2" style="display:none;display:flex;flex-direction:column;gap:14px;">
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(15,23,42,.5);border:1px solid var(--card-border);border-radius:8px;">
+                <span id="planBadgeDisplay" class="plan-badge"></span>
+                <span style="font-size:13px;color:var(--gray);" id="planDurDisplay"></span>
+                <button onclick="goToStep1()" style="margin-left:auto;background:transparent;border:none;color:var(--gray);cursor:pointer;font-size:12px;font-family:inherit;">
+                    <i class="fas fa-pencil"></i> Change
+                </button>
+            </div>
+            <div class="fg">
+                <label>Display Name</label>
+                <input class="fi" type="text" id="displayName" placeholder="YourGamertag" maxlength="30">
+            </div>
+            <div class="fg">
+                <label>Email</label>
+                <input class="fi" type="email" id="email" placeholder="you@example.com" autocomplete="email">
+            </div>
+            <div class="fg">
+                <label>Password</label>
+                <input class="fi" type="password" id="password" placeholder="Min. 8 characters" autocomplete="new-password">
+            </div>
+            <div class="fg">
+                <label>Confirm Password</label>
+                <input class="fi" type="password" id="confirmPassword" placeholder="Repeat password" autocomplete="new-password">
+            </div>
+            <div class="form-err" id="createErr"></div>
+            <button class="btn-submit" id="createBtn" onclick="createAccount()">
+                <i class="fas fa-user-plus"></i> Create Account
+            </button>
+        </div>
+
+        <!-- Success -->
+        <div id="successScreen">
+            <div class="success-icon"><i class="fas fa-circle-check"></i></div>
+            <div class="success-title">Account Created!</div>
+            <div class="success-sub" id="successMsg">
+                Check your email for a verification link, then sign in.
+            </div>
+            <button class="btn-submit" onclick="window.location.href='index_pro.html'" style="margin-bottom:10px;">
+                <i class="fas fa-arrow-right-to-bracket"></i> Go to Sign In
+            </button>
+        </div>
+
+        <div class="divider"></div>
+        <div class="signin-link">Already have an account? <a href="index_pro.html">Sign in</a></div>
+    </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db   = firebase.database();
+
+let validatedCode = null;   // the code object from Firebase once validated
+let validateTimer = null;
+
+// ── Format code input XXXX-XXXX-XXXX-XXXX ────────────────────────
+window.formatCode = function(inp) {
+    let v = inp.value.replace(/[^A-Z0-9]/gi,'').toUpperCase().slice(0,16);
+    let out = '';
+    for(let i=0;i<v.length;i++) { if(i>0&&i%4===0) out+='-'; out+=v[i]; }
+    inp.value = out;
+};
+
+// ── Validate code against Firebase ───────────────────────────────
+window.validateCode = function(raw) {
+    const banner  = document.getElementById('codeValidBanner');
+    const nextBtn = document.getElementById('nextBtn');
+    const code    = raw.replace(/-/g,'').toUpperCase();
+    validatedCode = null;
+    nextBtn.disabled = true;
+
+    if(code.length < 16) {
+        banner.className = 'code-valid-banner';
+        return;
+    }
+
+    // Show checking
+    banner.className = 'code-valid-banner checking show';
+    banner.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking code…';
+
+    clearTimeout(validateTimer);
+    validateTimer = setTimeout(async () => {
+        try {
+            const formattedKey = `${code.slice(0,4)}-${code.slice(4,8)}-${code.slice(8,12)}-${code.slice(12,16)}`;
+            const snap = await db.ref(`subscription_codes/${formattedKey}`).once('value');
+            const data = snap.val();
+
+            if(!data) {
+                banner.className = 'code-valid-banner err show';
+                banner.innerHTML = '<i class="fas fa-circle-xmark"></i> Code not found. Check for typos.';
+                return;
+            }
+
+            const maxU    = data.maxUses === 'unlimited' ? Infinity : (data.maxUses || 1);
+            const usedCnt = data.usedCount || 0;
+            if(maxU !== Infinity && usedCnt >= maxU) {
+                banner.className = 'code-valid-banner err show';
+                banner.innerHTML = '<i class="fas fa-circle-xmark"></i> This code has already been fully used.';
+                return;
+            }
+
+            // Valid!
+            validatedCode = { key: formattedKey, ...data };
+            const planLabel = { beta:'Beta Access', solo:'Solo Plan', team:'Team Plan', org:'Org Plan' }[data.plan] || data.plan;
+            const durLabel  = data.durationDays === 36500 ? 'Lifetime' : data.durationDays + ' days';
+            banner.className = 'code-valid-banner ok show';
+            banner.innerHTML = `<i class="fas fa-circle-check"></i> Valid — <strong>${planLabel}</strong> · ${durLabel}`;
+            nextBtn.disabled = false;
+        } catch(e) {
+            banner.className = 'code-valid-banner err show';
+            banner.innerHTML = `<i class="fas fa-circle-xmark"></i> Error: ${e.message}`;
+        }
+    }, 600);
+};
+
+// ── Step navigation ───────────────────────────────────────────────
+window.goToStep2 = function() {
+    if(!validatedCode) return;
+    // Update plan badge
+    const labels = { beta:'Beta Access', solo:'Solo Plan', team:'Team Plan', org:'Org Plan' };
+    const durLbl = validatedCode.durationDays === 36500 ? 'Lifetime' : validatedCode.durationDays + ' days';
+    const badge  = document.getElementById('planBadgeDisplay');
+    badge.className = `plan-badge ${validatedCode.plan}`;
+    badge.innerHTML = `<i class="fas fa-star"></i> ${labels[validatedCode.plan]||validatedCode.plan}`;
+    document.getElementById('planDurDisplay').textContent = durLbl;
+
+    document.getElementById('pane1').style.display = 'none';
+    document.getElementById('pane2').style.display = 'flex';
+    stepUI(2);
+};
+
+window.goToStep1 = function() {
+    document.getElementById('pane2').style.display = 'none';
+    document.getElementById('pane1').style.display = '';
+    stepUI(1);
+};
+
+function stepUI(n) {
+    for(let i=1;i<=3;i++){
+        const s = document.getElementById('step'+i);
+        s.className = 'step ' + (i<n?'done': i===n?'active':'pending');
+        const l = document.getElementById('line'+i);
+        if(l) l.className = 'step-line' + (i<n?' done':'');
+    }
+}
+
+// ── Create account ────────────────────────────────────────────────
+window.createAccount = async function() {
+    const displayName = document.getElementById('displayName').value.trim();
+    const email       = document.getElementById('email').value.trim();
+    const password    = document.getElementById('password').value;
+    const confirm     = document.getElementById('confirmPassword').value;
+    const errEl       = document.getElementById('createErr');
+    const btn         = document.getElementById('createBtn');
+
+    // Validate
+    if(!displayName) return showErr('Please enter a display name.');
+    if(!email)       return showErr('Please enter your email.');
+    if(password.length < 8) return showErr('Password must be at least 8 characters.');
+    if(password !== confirm)return showErr('Passwords do not match.');
+    if(!validatedCode)      return showErr('No valid code — go back to step 1.');
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating account…';
+    errEl.className = 'form-err';
+
+    try {
+        // 1. Create Firebase Auth account
+        const cred = await auth.createUserWithEmailAndPassword(email, password);
+        const uid  = cred.user.uid;
+
+        // 2. Send verification email
+        await cred.user.sendEmailVerification();
+
+        // 3. Calculate subscription expiry
+        const now      = Date.now();
+        const expiresAt = validatedCode.durationDays === 36500
+            ? now + (36500 * 24 * 60 * 60 * 1000)  // ~100 years = lifetime
+            : now + (validatedCode.durationDays * 24 * 60 * 60 * 1000);
+
+        // 4. Write user record
+        await db.ref(`users/${uid}`).set({
+            displayName,
+            email,
+            createdAt:   now,
+            joinedAt:    now,
+            subscription: {
+                plan:         validatedCode.plan,
+                expiresAt,
+                activatedAt:  now,
+                codeUsed:     validatedCode.key,
+                ownedByTeam:  validatedCode.ownedByTeam || false,
+            },
+            teamId: null,
+        });
+
+        // 5. Increment code usage + record uid
+        const codeRef = db.ref(`subscription_codes/${validatedCode.key}`);
+        await codeRef.transaction(current => {
+            if(!current) return current;
+            current.usedCount = (current.usedCount || 0) + 1;
+            if(!current.usedBy) current.usedBy = {};
+            current.usedBy[uid] = uid;
+            return current;
+        });
+
+        // 6. Show success
+        document.getElementById('pane2').style.display = 'none';
+        document.getElementById('successScreen').style.display = 'block';
+        document.getElementById('successMsg').innerHTML =
+            `A verification email has been sent to <strong>${email}</strong>.<br>
+             Verify your email then sign in to access R6 Insights.`;
+        stepUI(3);
+
+    } catch(e) {
+        const msg = e.code === 'auth/email-already-in-use'
+            ? 'That email is already registered. <a href="index_pro.html" style="color:#a78bfa;">Sign in instead</a>'
+            : e.code === 'auth/invalid-email'
+            ? 'Please enter a valid email address.'
+            : e.message;
+        showErr(msg, true);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-user-plus"></i> Create Account';
+    }
+};
+
+function showErr(msg, html=false) {
+    const el = document.getElementById('createErr');
+    if(html) el.innerHTML = msg; else el.textContent = msg;
+    el.className = 'form-err show';
+}
+
+})();
+</script>
+</body>
+</html>

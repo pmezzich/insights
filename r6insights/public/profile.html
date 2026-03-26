@@ -13,6 +13,8 @@
 <script src="../scripts/firebase-config.js"></script>
 <script>if(localStorage.getItem('r6_theme')==='light')document.documentElement.classList.add('light-mode');</script>
 <script src="../scripts/theme.js"></script>
+<script>if(localStorage.getItem('r6_theme')==='light')document.documentElement.classList.add('light-mode');</script>
+<script src="../scripts/theme.js"></script>
 <style>
 :root {
     --primary:#7C3AED;--secondary:#4F46E5;
@@ -116,6 +118,43 @@ body{color:var(--light);min-height:100vh;padding:20px;}
 .lft-slider::before{content:'';position:absolute;width:20px;height:20px;left:3px;bottom:3px;background:#94a3b8;border-radius:50%;transition:.3s;}
 input:checked + .lft-slider{background:rgba(52,211,153,0.3);border-color:rgba(52,211,153,0.5);}
 input:checked + .lft-slider::before{transform:translateX(24px);background:#34d399;}
+
+/* ── SUBSCRIPTION & REDEEM ──────────────────────────────────────── */
+.sub-status-row{display:flex;align-items:center;gap:14px;padding:14px 16px;background:rgba(15,23,42,.4);border-radius:10px;border:1px solid var(--card-border);margin-bottom:14px;flex-wrap:wrap;}
+.sub-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:6px;font-size:12px;font-weight:800;letter-spacing:.3px;flex-shrink:0;}
+.sub-badge.active {background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.3);color:#34d399;}
+.sub-badge.expired{background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.3);color:#f87171;}
+.sub-badge.none   {background:rgba(148,163,184,.1);border:1px solid rgba(148,163,184,.2);color:var(--gray);}
+.sub-plan  {font-size:14px;font-weight:700;color:var(--light);}
+.sub-expires{font-size:12px;color:var(--gray);margin-top:2px;}
+.countdown-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.countdown-tile{background:rgba(15,23,42,.5);border:1px solid var(--card-border);border-radius:10px;padding:14px;text-align:center;}
+.countdown-val{font-size:26px;font-weight:900;color:var(--light);line-height:1;font-variant-numeric:tabular-nums;}
+.countdown-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);margin-top:5px;}
+/* Referral */
+.referral-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.referral-title{font-size:13px;font-weight:700;color:var(--light);display:flex;align-items:center;gap:7px;}
+.referral-reward{font-size:11px;font-weight:700;color:#fbbf24;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.2);padding:3px 9px;border-radius:5px;}
+.referral-code-row{display:flex;gap:8px;align-items:center;margin-bottom:14px;}
+.referral-code-box{flex:1;background:rgba(10,16,28,.8);border:1px solid rgba(124,58,237,.35);border-radius:8px;padding:10px 14px;font-size:14px;font-weight:800;font-family:monospace;letter-spacing:2px;color:#a78bfa;}
+.referral-copy-btn{padding:10px 14px;border-radius:8px;background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.3);color:#a78bfa;cursor:pointer;font-size:13px;transition:all .15s;font-family:inherit;font-weight:600;}
+.referral-copy-btn:hover{background:rgba(124,58,237,.25);}
+.referral-track{height:8px;border-radius:4px;background:rgba(255,255,255,.07);overflow:hidden;margin:8px 0;}
+.referral-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--primary),#a78bfa);transition:width .4s;}
+.referral-friends{display:flex;gap:8px;}
+.referral-friend{flex:1;padding:10px 8px;border-radius:8px;border:1px solid var(--card-border);text-align:center;font-size:11px;transition:all .2s;}
+.referral-friend.joined{background:rgba(52,211,153,.08);border-color:rgba(52,211,153,.3);color:#34d399;font-weight:700;}
+.referral-friend.empty{background:rgba(255,255,255,.03);color:var(--gray);}
+.referral-friend i{display:block;font-size:16px;margin-bottom:5px;}
+/* Redeem */
+.redeem-row{display:flex;gap:8px;align-items:flex-end;}
+.redeem-input{flex:1;padding:10px 13px;border-radius:8px;border:1px solid var(--card-border);background:rgba(10,16,28,.85);color:var(--light);font-family:monospace;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;outline:none;transition:border-color .15s;}
+.redeem-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(124,58,237,.12);}
+.redeem-input::placeholder{color:rgba(148,163,184,.2);font-size:12px;letter-spacing:.5px;}
+.redeem-status{font-size:12px;margin-top:8px;display:none;}
+.redeem-status.show{display:block;}
+.redeem-status.ok {color:#34d399;}
+.redeem-status.err{color:#f87171;}
 </style>
 </head>
 <body>
@@ -306,6 +345,70 @@ input:checked + .lft-slider::before{transform:translateX(24px);background:#34d39
             </div>
         </div>
 
+        <!-- ── Subscription ──────────────────────────────────────────────── -->
+        <div class="panel">
+            <div class="panel-hdr"><i class="fas fa-credit-card" style="color:#fbbf24;"></i> Subscription</div>
+            <div class="panel-body">
+                <div class="sub-status-row">
+                    <span class="sub-badge none" id="subBadge"><i class="fas fa-circle-dot"></i> No Plan</span>
+                    <div>
+                        <div class="sub-plan" id="subPlan">No active subscription</div>
+                        <div class="sub-expires" id="subExpires">Visit Overview to get started</div>
+                    </div>
+                    <a href="overview.html" class="btn btn-secondary" style="margin-left:auto;font-size:12px;padding:7px 14px;text-decoration:none;">
+                        <i class="fas fa-arrow-up-right-from-square"></i> Plans
+                    </a>
+                </div>
+                <div class="countdown-row" id="subCountdown" style="display:none;">
+                    <div class="countdown-tile"><div class="countdown-val" id="cdDays">—</div><div class="countdown-lbl">Days</div></div>
+                    <div class="countdown-tile"><div class="countdown-val" id="cdHours">—</div><div class="countdown-lbl">Hours</div></div>
+                    <div class="countdown-tile"><div class="countdown-val" id="cdMins">—</div><div class="countdown-lbl">Mins</div></div>
+                    <div class="countdown-tile"><div class="countdown-val" id="cdSecs">—</div><div class="countdown-lbl">Secs</div></div>
+                </div>
+                <!-- Referral -->
+                <div id="referralSection" style="display:none;">
+                    <div class="referral-hdr">
+                        <div class="referral-title"><i class="fas fa-gift" style="color:#a78bfa;"></i> Refer Friends</div>
+                        <span class="referral-reward"><i class="fas fa-star"></i> 3 paid friends = 1 free month</span>
+                    </div>
+                    <div class="referral-code-row">
+                        <div class="referral-code-box" id="referralCode">—</div>
+                        <button class="referral-copy-btn" onclick="copyReferralCode()"><i class="fas fa-copy"></i> Copy</button>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--gray);">
+                        <span>Friends with active subscriptions</span>
+                        <span><span id="referralCount">0</span>/3</span>
+                    </div>
+                    <div class="referral-track"><div class="referral-fill" id="referralBar" style="width:0%"></div></div>
+                    <div class="referral-friends" id="referralFriends">
+                        <div class="referral-friend empty"><i class="fas fa-user-plus"></i>Slot 1</div>
+                        <div class="referral-friend empty"><i class="fas fa-user-plus"></i>Slot 2</div>
+                        <div class="referral-friend empty"><i class="fas fa-user-plus"></i>Slot 3</div>
+                    </div>
+                    <div id="referralBonus" style="display:none;margin-top:12px;padding:10px 14px;background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.25);border-radius:8px;font-size:12px;color:#34d399;font-weight:700;">
+                        <i class="fas fa-gift"></i> You've earned a free month! Contact us on <a href="https://discord.gg/Gyng9tT76y" target="_blank" style="color:#34d399;">Discord</a> to claim it.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Redeem Code ────────────────────────────────────────────────── -->
+        <div class="panel">
+            <div class="panel-hdr"><i class="fas fa-key" style="color:#a78bfa;"></i> Redeem Subscription Code</div>
+            <div class="panel-body">
+                <p style="font-size:13px;color:var(--gray);margin-bottom:14px;">Have a new code? Enter it below to activate or extend your subscription.</p>
+                <div class="redeem-row">
+                    <input class="redeem-input" type="text" id="redeemCodeInput"
+                        placeholder="XXXX-XXXX-XXXX-XXXX" maxlength="19"
+                        oninput="formatRedeemCode(this)">
+                    <button class="btn btn-primary" onclick="redeemCode()" id="redeemBtn">
+                        <i class="fas fa-check"></i> Redeem
+                    </button>
+                </div>
+                <div class="redeem-status" id="redeemStatus"></div>
+            </div>
+        </div>
+
     </div>
 </div>
 
@@ -339,6 +442,7 @@ auth.onAuthStateChanged(async user => {
     $('detailUid').textContent = user.uid;
     await loadProfile();
     await loadLftStatus();
+    await loadSubscription(user.uid);
     $('loadingOverlay').classList.add('hidden');
 });
 
@@ -583,6 +687,160 @@ function showLftStatus(enabled) {
     el.innerHTML = enabled
         ? '<i class="fas fa-circle-check" style="color:#34d399;"></i> <strong style="color:#34d399;">Active</strong> — You appear on the LFT board.'
         : '<i class="fas fa-circle-xmark" style="color:var(--gray);"></i> <strong style="color:var(--gray);">Inactive</strong> — You are hidden from the LFT board.';
+}
+
+// ── SUBSCRIPTION ──────────────────────────────────────────────────
+let _countdownInterval = null;
+
+async function loadSubscription(uid) {
+    try {
+        const snap = await db.ref(`users/${uid}/subscription`).once('value');
+        const sub  = snap.val() || {};
+        const now  = Date.now();
+        const expAt = sub.expiresAt || 0;
+        const isActive = expAt > now;
+        const plans = { beta:'Beta Access', solo:'Solo Plan', team:'Team Plan', org:'Org Plan' };
+        const badge = $('subBadge'), planEl = $('subPlan'), expEl = $('subExpires');
+
+        if (!sub.plan) {
+            badge.className = 'sub-badge none';
+            badge.innerHTML = '<i class="fas fa-circle-dot"></i> No Plan';
+            planEl.textContent = 'No active subscription';
+            expEl.textContent  = 'Visit Overview to get a plan';
+        } else if (isActive) {
+            badge.className = 'sub-badge active';
+            badge.innerHTML = '<i class="fas fa-circle-check"></i> Active';
+            planEl.textContent = plans[sub.plan] || sub.plan;
+            expEl.textContent  = sub.expiresAt > now + 36400*24*60*60*1000
+                ? 'Lifetime Access'
+                : `Expires ${new Date(expAt).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}`;
+            $('subCountdown').style.display = 'grid';
+            startCountdown(expAt);
+            $('referralSection').style.display = '';
+        } else {
+            badge.className = 'sub-badge expired';
+            badge.innerHTML = '<i class="fas fa-circle-xmark"></i> Expired';
+            planEl.textContent = (plans[sub.plan]||sub.plan) + ' (expired)';
+            expEl.textContent  = `Expired ${new Date(expAt).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}`;
+        }
+
+        // Referral code
+        let code = sub.referralCode;
+        if (!code && sub.plan) {
+            code = uid.slice(0,8).toUpperCase();
+            await db.ref(`users/${uid}/subscription/referralCode`).set(code);
+        }
+        if (code) {
+            $('referralCode').textContent = code;
+            loadReferrals(uid, code);
+        }
+    } catch(e) { console.warn('Sub load:', e); }
+}
+
+function startCountdown(expAt) {
+    clearInterval(_countdownInterval);
+    const tick = () => {
+        const diff = expAt - Date.now();
+        if (diff <= 0) { clearInterval(_countdownInterval); return; }
+        $('cdDays').textContent  = String(Math.floor(diff/86400000));
+        $('cdHours').textContent = String(Math.floor(diff%86400000/3600000)).padStart(2,'0');
+        $('cdMins').textContent  = String(Math.floor(diff%3600000/60000)).padStart(2,'0');
+        $('cdSecs').textContent  = String(Math.floor(diff%60000/1000)).padStart(2,'0');
+    };
+    tick();
+    _countdownInterval = setInterval(tick, 1000);
+}
+
+async function loadReferrals(uid, code) {
+    try {
+        const snap = await db.ref('users').orderByChild('subscription/referredBy').equalTo(code).once('value');
+        const joined = [];
+        const now = Date.now();
+        snap.forEach(c => {
+            const u = c.val();
+            if (u.subscription?.expiresAt > now) joined.push(u.displayName || u.email || 'Friend');
+        });
+        const count = Math.min(joined.length, 3);
+        $('referralCount').textContent = count;
+        $('referralBar').style.width   = (count/3*100)+'%';
+        const slots = $('referralFriends');
+        slots.innerHTML = '';
+        for(let i=0;i<3;i++){
+            const d = document.createElement('div');
+            if(i<count){ d.className='referral-friend joined'; d.innerHTML=`<i class="fas fa-user-check"></i>${(joined[i]||'').slice(0,12)}`; }
+            else        { d.className='referral-friend empty';  d.innerHTML=`<i class="fas fa-user-plus"></i>Slot ${i+1}`; }
+            slots.appendChild(d);
+        }
+        if(count>=3) $('referralBonus').style.display='';
+    } catch(e) { console.warn('Referral load:', e); }
+}
+
+window.copyReferralCode = function() {
+    const code = $('referralCode').textContent;
+    if(!code||code==='—') return;
+    navigator.clipboard.writeText(code).then(()=>{
+        const btn = document.querySelector('.referral-copy-btn');
+        const orig = btn.innerHTML;
+        btn.innerHTML='<i class="fas fa-check"></i> Copied!'; btn.style.color='#34d399';
+        setTimeout(()=>{ btn.innerHTML=orig; btn.style.color=''; },2000);
+    });
+};
+
+// ── REDEEM CODE ───────────────────────────────────────────────────
+window.formatRedeemCode = function(inp) {
+    let v = inp.value.replace(/[^A-Z0-9]/gi,'').toUpperCase().slice(0,16);
+    let out=''; for(let i=0;i<v.length;i++){if(i>0&&i%4===0)out+='-';out+=v[i];}
+    inp.value=out;
+};
+
+window.redeemCode = async function() {
+    const raw   = $('redeemCodeInput').value.trim();
+    const code  = raw.replace(/-/g,'').toUpperCase();
+    const status= $('redeemStatus');
+    const btn   = $('redeemBtn');
+
+    if(code.length < 16) { showRedeemStatus('Please enter a full 16-character code.','err'); return; }
+
+    const key = `${code.slice(0,4)}-${code.slice(4,8)}-${code.slice(8,12)}-${code.slice(12,16)}`;
+    btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i>';
+
+    try {
+        const snap = await db.ref(`subscription_codes/${key}`).once('value');
+        const data = snap.val();
+        if(!data){ showRedeemStatus('Code not found — check for typos.','err'); btn.disabled=false;btn.innerHTML='<i class="fas fa-check"></i> Redeem'; return; }
+
+        const maxU = data.maxUses==='unlimited'?Infinity:(data.maxUses||1);
+        const used = data.usedCount||0;
+        if(maxU!==Infinity&&used>=maxU){ showRedeemStatus('This code has already been fully used.','err'); btn.disabled=false;btn.innerHTML='<i class="fas fa-check"></i> Redeem'; return; }
+
+        const now = Date.now();
+        const expiresAt = data.durationDays===36500 ? now+(36500*24*60*60*1000) : now+(data.durationDays*24*60*60*1000);
+
+        // Write subscription
+        await db.ref(`users/${currentUid}/subscription`).update({
+            plan: data.plan, expiresAt, activatedAt: now, codeUsed: key, ownedByTeam: data.ownedByTeam||false
+        });
+
+        // Increment usage
+        await db.ref(`subscription_codes/${key}`).transaction(cur=>{
+            if(!cur) return cur;
+            cur.usedCount=(cur.usedCount||0)+1;
+            if(!cur.usedBy)cur.usedBy={};
+            cur.usedBy[currentUid]=currentUid;
+            return cur;
+        });
+
+        showRedeemStatus(`✓ ${({beta:'Beta Access',solo:'Solo Plan',team:'Team Plan',org:'Org Plan'}[data.plan]||data.plan)} activated! Reloading…`,'ok');
+        setTimeout(()=>location.reload(), 1800);
+    } catch(e) {
+        showRedeemStatus('Error: '+e.message,'err');
+        btn.disabled=false; btn.innerHTML='<i class="fas fa-check"></i> Redeem';
+    }
+};
+
+function showRedeemStatus(msg, type) {
+    const el=$('redeemStatus');
+    el.textContent=msg; el.className=`redeem-status show ${type}`;
 }
 
 })();

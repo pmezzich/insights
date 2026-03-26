@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Org Admin — R6 Insights</title>
+<link rel="stylesheet" href="../styles/pro-global.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+<script src="../scripts/firebase-config.js"></script>
+<script>if(localStorage.getItem('r6_theme')==='light')document.documentElement.classList.add('light-mode');</script>
+<script src="../scripts/theme.js"></script>
+<script src="../scripts/subscription-gate.js"></script>
+<style>
+body { background-color:var(--darker); min-height:100vh; padding-bottom:40px; }
+
+/* ── TABS ── */
+.tab-bar{display:flex;gap:0;border-bottom:1px solid var(--card-border);padding:0 24px;background:rgba(15,23,42,0.4);}
+.tab-btn{padding:14px 20px;font-size:13px;font-weight:700;color:var(--gray);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;transition:all .18s;white-space:nowrap;}
+.tab-btn:hover{color:var(--light);}
+.tab-btn.active{color:var(--primary);border-bottom-color:var(--primary);}
+.tab-pane{display:none;padding:20px 24px;flex-direction:column;gap:16px;}
+.tab-pane.active{display:flex;}
+
+/* ── KPI STRIP ── */
+.kpi-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;}
+.kpi-card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:12px;padding:18px;text-align:center;}
+.kpi-val{font-size:28px;font-weight:900;color:var(--light);}
+.kpi-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);margin-top:5px;}
+
+/* ── PANEL ── */
+.panel{background:var(--card-bg);border:1px solid var(--card-border);border-radius:12px;overflow:hidden;}
+.panel-hdr{padding:13px 18px;border-bottom:1px solid var(--card-border);font-size:12px;font-weight:700;display:flex;align-items:center;gap:8px;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;}
+.panel-body{padding:16px 18px;}
+
+/* ── TEAM CARD ── */
+.team-card{background:rgba(15,23,42,0.5);border:1px solid var(--card-border);border-radius:10px;padding:16px;margin-bottom:10px;transition:border-color .15s;}
+.team-card:hover{border-color:rgba(124,58,237,0.3);}
+.team-card-top{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+.team-av{width:40px;height:40px;border-radius:10px;background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.3);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#a78bfa;flex-shrink:0;}
+.team-name{font-size:15px;font-weight:800;color:var(--light);}
+.team-meta{font-size:12px;color:var(--gray);margin-top:2px;}
+.team-stats{display:flex;gap:16px;flex-wrap:wrap;}
+.team-stat{font-size:12px;color:var(--gray);}
+.team-stat strong{color:var(--light);font-size:13px;}
+
+/* ── CODE ROW ── */
+.code-row{display:grid;grid-template-columns:180px 80px 80px 80px 1fr auto;gap:10px;align-items:center;padding:10px 14px;border-radius:8px;border:1px solid var(--card-border);background:rgba(10,16,28,.5);margin-bottom:6px;font-size:12px;}
+.code-val{font-family:monospace;font-size:13px;font-weight:800;color:#fbbf24;letter-spacing:1px;}
+.code-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;}
+.code-badge.active{background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.3);color:#34d399;}
+.code-badge.used{background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.25);color:#fbbf24;}
+.code-badge.revoked{background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.25);color:#f87171;}
+.code-badge.unused{background:rgba(148,163,184,.1);border:1px solid rgba(148,163,184,.2);color:var(--gray);}
+.code-hdr{display:grid;grid-template-columns:180px 80px 80px 80px 1fr auto;gap:10px;padding:6px 14px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);}
+
+/* ── REVOCATION BADGE ── */
+.revoc-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:5px;font-size:11px;font-weight:700;}
+.revoc-ok  {background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.2);color:#34d399;}
+.revoc-warn{background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.2);color:#fbbf24;}
+.revoc-full{background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.25);color:#f87171;}
+
+/* ── EMPTY ── */
+.empty-state{text-align:center;padding:50px 20px;color:var(--gray);}
+.empty-state i{font-size:36px;opacity:.15;display:block;margin-bottom:12px;}
+.empty-state p{font-size:13px;}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(10px);background:rgba(124,58,237,.92);color:#fff;border-radius:8px;padding:10px 20px;font-size:13px;font-weight:700;opacity:0;transition:all .22s;z-index:9999;pointer-events:none;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<div class="nav-header">
+    <a href="index_pro.html" class="logo" style="text-decoration:none;">
+        <img src="../styles/r6_insights.png" class="logo-img" alt="R6 Insights">
+        <div class="logo-text">R6 INSIGHTS</div>
+        <span class="nav-badge">Beta</span>
+    </a>
+    <div class="nav-right">
+        <a href="index_pro.html" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Hub</a>
+        <a href="profile.html" id="navAvatar" class="nav-avatar-btn" title="Profile">?</a>
+        <button class="btn-logout" onclick="firebase.auth().signOut().then(()=>window.location.href='index_pro.html')">
+            <i class="fas fa-right-from-bracket"></i> Logout
+        </button>
+    </div>
+</div>
+
+<!-- Page Title -->
+<div class="page-title">
+    <div class="page-title-icon" style="background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.3);color:#fbbf24;">
+        <i class="fas fa-building"></i>
+    </div>
+    <div>
+        <h2>Org Admin Panel</h2>
+        <p id="orgSubtitle">Loading organisation…</p>
+    </div>
+</div>
+
+<!-- Tab bar -->
+<div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('overview')" id="tab-overview"><i class="fas fa-gauge"></i> Overview</button>
+    <button class="tab-btn" onclick="switchTab('teams')"    id="tab-teams"><i class="fas fa-shield-halved"></i> Teams</button>
+    <button class="tab-btn" onclick="switchTab('codes')"    id="tab-codes"><i class="fas fa-key"></i> Codes</button>
+</div>
+
+<!-- ══ OVERVIEW ══ -->
+<div class="tab-pane active" id="pane-overview">
+    <div class="kpi-strip" id="kpiStrip">
+        <div class="kpi-card"><div class="kpi-val" id="kpiTeams">—</div><div class="kpi-lbl">Teams</div></div>
+        <div class="kpi-card"><div class="kpi-val" id="kpiPlayers">—</div><div class="kpi-lbl">Active Players</div></div>
+        <div class="kpi-card"><div class="kpi-val" id="kpiCodes">—</div><div class="kpi-lbl">Codes Used</div></div>
+        <div class="kpi-card"><div class="kpi-val" id="kpiCodesLeft">—</div><div class="kpi-lbl">Codes Available</div></div>
+        <div class="kpi-card"><div class="kpi-val" id="kpiRevocs">—</div><div class="kpi-lbl">Revocations This Month</div></div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-hdr"><i class="fas fa-circle-info"></i> Organisation Info</div>
+        <div class="panel-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px;">
+                <div><span style="color:var(--gray);">Org Name</span><br><strong id="orgName">—</strong></div>
+                <div><span style="color:var(--gray);">Plan</span><br><strong id="orgPlan">—</strong></div>
+                <div><span style="color:var(--gray);">Subscription Expires</span><br><strong id="orgExpiry">—</strong></div>
+                <div><span style="color:var(--gray);">Monthly Revocation Limit</span><br>
+                    <span id="orgRevocBadge" class="revoc-badge revoc-ok">0 / 4 used</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ TEAMS ══ -->
+<div class="tab-pane" id="pane-teams">
+    <div class="panel">
+        <div class="panel-hdr"><i class="fas fa-shield-halved"></i> Teams Under This Org</div>
+        <div class="panel-body" id="teamsBody">
+            <div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading teams…</p></div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ CODES ══ -->
+<div class="tab-pane" id="pane-codes">
+    <div class="panel">
+        <div class="panel-hdr">
+            <i class="fas fa-key"></i> Subscription Codes
+            <span style="margin-left:auto;font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0;">
+                Only team-owned codes can be revoked
+            </span>
+        </div>
+        <div class="panel-body">
+            <div class="code-hdr"><span>Code</span><span>Status</span><span>Used By</span><span>Expires</span><span>Team</span><span></span></div>
+            <div id="codesBody">
+                <div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading codes…</p></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="../scripts/profile-loader.js"></script>
+<script>
+(function(){
+'use strict';
+
+if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db   = firebase.database();
+
+const x = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+let ORG_DATA   = {};
+let ORG_ID     = null;
+let ALL_CODES  = [];
+let ALL_TEAMS  = {};
+
+// ── Auth + gate ───────────────────────────────────────────────────
+auth.onAuthStateChanged(async user => {
+    if(!user||!user.emailVerified) return window.location.href='index_pro.html';
+    R6Theme.init(user.uid, db);
+
+    const access = await R6Gate.check(user, db);
+    if(!R6Gate.require('org', access)) return;
+
+    // Get org data
+    try {
+        const userSnap = await db.ref(`users/${user.uid}`).once('value');
+        const userData = userSnap.val()||{};
+        ORG_ID = userData.orgId;
+
+        if(!ORG_ID) {
+            document.getElementById('orgSubtitle').textContent = 'No organisation linked to your account.';
+            return;
+        }
+
+        const orgSnap = await db.ref(`orgs/${ORG_ID}`).once('value');
+        ORG_DATA = orgSnap.val()||{};
+        document.getElementById('orgSubtitle').textContent = ORG_DATA.name || ORG_ID;
+
+        await Promise.all([loadOverview(user, userData), loadTeams(), loadCodes()]);
+    } catch(e) {
+        console.error(e);
+        toast('Load error: '+e.message);
+    }
+});
+
+// ── Tab switching ─────────────────────────────────────────────────
+window.switchTab = function(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+    document.getElementById('tab-'+tab).classList.add('active');
+    document.getElementById('pane-'+tab).classList.add('active');
+};
+
+// ── Overview ──────────────────────────────────────────────────────
+async function loadOverview(user, userData) {
+    const sub    = userData.subscription||{};
+    const now    = Date.now();
+    const month  = new Date().toISOString().slice(0,7);
+
+    document.getElementById('orgName').textContent  = ORG_DATA.name || ORG_ID;
+    document.getElementById('orgPlan').textContent  = 'Org Plan';
+    document.getElementById('orgExpiry').textContent = sub.expiresAt
+        ? (sub.expiresAt > now + 36400*24*60*60*1000 ? 'Lifetime' : new Date(sub.expiresAt).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}))
+        : '—';
+
+    // Revocation count this month across all org teams
+    let totalRevocs = 0;
+    const teamIds = Object.keys(ORG_DATA.teams||{});
+    for(const tid of teamIds) {
+        const rSnap = await db.ref(`teams/${tid}/revocationLog/${month}`).once('value');
+        totalRevocs += (rSnap.val()||0);
+    }
+
+    const revocEl = document.getElementById('orgRevocBadge');
+    revocEl.textContent = `${totalRevocs} / ${4*teamIds.length} used`;
+    revocEl.className = 'revoc-badge ' + (totalRevocs === 0 ? 'revoc-ok' : totalRevocs < 4*teamIds.length ? 'revoc-warn' : 'revoc-full');
+    document.getElementById('orgRevocBadge').textContent = `${totalRevocs} / ${4*Math.max(1,teamIds.length)} this month`;
+
+    document.getElementById('kpiTeams').textContent = teamIds.length;
+    document.getElementById('kpiRevocs').textContent = totalRevocs;
+}
+
+// ── Teams ─────────────────────────────────────────────────────────
+async function loadTeams() {
+    const teamIds = Object.keys(ORG_DATA.teams||{});
+    if(!teamIds.length) {
+        document.getElementById('teamsBody').innerHTML = '<div class="empty-state"><i class="fas fa-users-slash"></i><p>No teams in this org yet.</p></div>';
+        document.getElementById('kpiPlayers').textContent = '0';
+        return;
+    }
+    let totalPlayers = 0;
+    let html = '';
+    for(const tid of teamIds) {
+        const [infoSnap, playersSnap] = await Promise.all([
+            db.ref(`teams/${tid}/info`).once('value'),
+            db.ref(`teams/${tid}/players`).once('value'),
+        ]);
+        const info    = infoSnap.val()||{};
+        const players = playersSnap.val()||{};
+        const pCount  = Object.keys(players).length;
+        totalPlayers += pCount;
+        const initials = (info.teamName||'??').slice(0,2).toUpperCase();
+        html += `
+        <div class="team-card">
+            <div class="team-card-top">
+                <div class="team-av">${initials}</div>
+                <div>
+                    <div class="team-name">${x(info.teamName||tid)}</div>
+                    <div class="team-meta">${pCount} member${pCount!==1?'s':''} · Created ${info.created?new Date(info.created).toLocaleDateString():'—'}</div>
+                </div>
+                <a href="team_managment_pro.html" class="btn btn-secondary" style="margin-left:auto;font-size:12px;padding:6px 12px;">
+                    <i class="fas fa-arrow-right"></i> Manage
+                </a>
+            </div>
+        </div>`;
+    }
+    document.getElementById('teamsBody').innerHTML = html || '<div class="empty-state"><i class="fas fa-users-slash"></i><p>No teams.</p></div>';
+    document.getElementById('kpiPlayers').textContent = totalPlayers;
+    document.getElementById('kpiTeams').textContent = teamIds.length;
+}
+
+// ── Codes ─────────────────────────────────────────────────────────
+async function loadCodes() {
+    // Load all codes that belong to this org
+    const snap = await db.ref('subscription_codes').orderByChild('orgId').equalTo(ORG_ID).once('value');
+    ALL_CODES = [];
+    snap.forEach(c => ALL_CODES.push({ id:c.key, ...c.val() }));
+
+    // Also load by plan=org/team if orgId not set (legacy)
+    if(!ALL_CODES.length) {
+        const snap2 = await db.ref('subscription_codes').orderByChild('plan').equalTo('org').once('value');
+        snap2.forEach(c => ALL_CODES.push({ id:c.key, ...c.val() }));
+    }
+
+    const used = ALL_CODES.filter(c=>(c.usedCount||0)>0).length;
+    document.getElementById('kpiCodes').textContent    = used;
+    document.getElementById('kpiCodesLeft').textContent = ALL_CODES.filter(c=>{
+        const maxU = c.maxUses==='unlimited'?Infinity:(c.maxUses||1);
+        return (c.usedCount||0) < maxU;
+    }).length;
+
+    renderCodes();
+}
+
+function renderCodes() {
+    const body = document.getElementById('codesBody');
+    if(!ALL_CODES.length) {
+        body.innerHTML = '<div class="empty-state"><i class="fas fa-key"></i><p>No codes found for this org.</p></div>';
+        return;
+    }
+    const now = Date.now();
+    body.innerHTML = ALL_CODES.map(c => {
+        const used   = c.usedCount||0;
+        const maxU   = c.maxUses==='unlimited'?Infinity:(c.maxUses||1);
+        const isFull = maxU!==Infinity&&used>=maxU;
+        const status = isFull?'used':used>0?'active':'unused';
+        const expiry = c.expiresAt ? new Date(c.expiresAt).toLocaleDateString() : '—';
+        const usedByList = c.usedBy ? Object.values(c.usedBy) : [];
+        const canRevoke  = c.ownedByTeam && used > 0;
+
+        return `<div class="code-row">
+            <span class="code-val">${x(c.id)}</span>
+            <span class="code-badge ${status}">${status.toUpperCase()}</span>
+            <span style="font-size:11px;color:var(--gray);">${usedByList.length} user${usedByList.length!==1?'s':''}</span>
+            <span style="font-size:11px;color:var(--gray);">${expiry}</span>
+            <span style="font-size:11px;color:var(--gray);">${x(c.teamId||'Unassigned')}</span>
+            <span style="display:flex;gap:4px;">
+                <button onclick="navigator.clipboard.writeText('${c.id}').then(()=>toast('Copied!'))"
+                    style="background:transparent;border:none;color:var(--gray);cursor:pointer;font-size:13px;padding:4px;" title="Copy">
+                    <i class="fas fa-copy"></i>
+                </button>
+                ${canRevoke?`<button onclick="revokeCode('${c.id}')"
+                    style="background:transparent;border:none;color:rgba(248,113,113,.5);cursor:pointer;font-size:13px;padding:4px;" title="Revoke">
+                    <i class="fas fa-ban"></i>
+                </button>`:''}
+            </span>
+        </div>`;
+    }).join('');
+}
+
+// ── Revoke code (org owner level) ─────────────────────────────────
+window.revokeCode = async function(codeId) {
+    if(!confirm(`Revoke code ${codeId}? The current user will lose access and the code will be reset with remaining time.`)) return;
+    try {
+        const snap = await db.ref(`subscription_codes/${codeId}`).once('value');
+        const code = snap.val();
+        if(!code) { toast('Code not found'); return; }
+
+        // Check monthly revocation limit
+        const month = new Date().toISOString().slice(0,7);
+        const teamId = code.teamId;
+        const revSnap = teamId ? await db.ref(`teams/${teamId}/revocationLog/${month}`).once('value') : null;
+        const revCount = revSnap?.val()||0;
+        if(revCount>=4) { toast('Monthly revocation limit (4) reached for this team'); return; }
+
+        // Find user holding this code
+        const uids = Object.values(code.usedBy||{});
+        const updates = {};
+
+        for(const uid of uids) {
+            const userSnap = await db.ref(`users/${uid}/subscription`).once('value');
+            const sub = userSnap.val()||{};
+            if(sub.codeUsed === codeId) {
+                // Calculate remaining time
+                const remaining = Math.max(0, (sub.expiresAt||0) - Date.now());
+                const remainingDays = Math.ceil(remaining/(1000*60*60*24));
+                updates[`subscription_codes/${codeId}/durationDays`] = remainingDays;
+                updates[`subscription_codes/${codeId}/usedCount`] = Math.max(0,(code.usedCount||1)-1);
+                updates[`subscription_codes/${codeId}/usedBy/${uid}`] = null;
+                updates[`users/${uid}/subscription`] = null;
+                updates[`users/${uid}/teamId`] = null;
+                if(teamId) {
+                    updates[`teams/${teamId}/players/${uid}`] = null;
+                    updates[`teams/${teamId}/revocationLog/${month}`] = revCount+1;
+                }
+            }
+        }
+
+        await db.ref().update(updates);
+        toast('Code revoked — user removed and remaining time restored to code');
+        loadCodes();
+    } catch(e) { toast('Revoke failed: '+e.message); }
+};
+
+// ── Toast ─────────────────────────────────────────────────────────
+function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent=msg; t.classList.add('show');
+    clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+})();
+</script>
+</body>
+</html>

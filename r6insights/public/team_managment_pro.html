@@ -714,6 +714,26 @@ function renderPlayerList(){
     }
 
     wrap.innerHTML=`<div class="players-list">${html}</div>`;
+
+    // Async load subscription badges for all players
+    Object.keys(allPlayers).forEach(uid => loadSubBadge(uid));
+}
+
+// Async: load subscription badge per player card
+async function loadSubBadge(uid) {
+    try {
+        const snap = await db.ref(`users/${uid}/subscription`).once('value');
+        const sub  = snap.val() || {};
+        const el   = document.getElementById(`subbadge_${uid}`);
+        if (!el) return;
+        const now  = Date.now();
+        if (!sub.plan || !sub.expiresAt || sub.expiresAt <= now) return;
+        if (sub.ownedByTeam) {
+            el.innerHTML = '<span style="background:rgba(96,165,250,.12);border:1px solid rgba(96,165,250,.25);color:#60a5fa;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;"><i class="fas fa-users" style="font-size:9px;"></i> Team Sub</span>';
+        } else {
+            el.innerHTML = '<span style="background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.2);color:#a78bfa;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;"><i class="fas fa-user" style="font-size:9px;"></i> Solo Sub</span>';
+        }
+    } catch(e) {}
 }
 
 /* Returns an <img> tag if the player has an avatar, else a styled initial */
@@ -741,6 +761,9 @@ function buildPlayerCard(uid, p){
         ? `<span class="badge badge-roster"><i class="fas fa-check" style="font-size:9px;"></i> In Stats</span>`
         : `<span class="badge badge-no-stats">Not in Stats</span>`;
     const meBadge    = isMe ? `<span class="badge badge-me">You</span>` : '';
+    // Sub badge — will be populated async after render
+    const subBadgeId = `subbadge_${uid}`;
+    const subBadge   = `<span id="${subBadgeId}" style="font-size:10px;color:var(--gray);"></span>`;
 
     let actions='';
     if(isCaptain && !isMe){
@@ -764,7 +787,7 @@ function buildPlayerCard(uid, p){
         <div class="pc-info">
             <div class="pc-name">${x(p.displayName||p.username||'Unknown')}${meBadge}</div>
             <div class="pc-username">@${x(p.username||uid.slice(0,8))}</div>
-            <div class="pc-roles">${staffBadge}${playBadge}${rosterBadge}</div>
+            <div class="pc-roles">${staffBadge}${playBadge}${rosterBadge}${subBadge}</div>
         </div>
         <div class="pc-actions">${actions}</div>
     </div>`;
@@ -929,12 +952,48 @@ window.confirmRemove = function(uid, name){
 
 async function removePlayer(uid){
     try{
-        const updates={};
-        updates[`teams/${teamId}/players/${uid}`]=null;
-        updates[`users/${uid}/teamId`]=null;
+        // Check if their subscription is team-owned (captain can revoke) or solo (untouchable)
+        const subSnap = await db.ref(`users/${uid}/subscription`).once('value');
+        const sub = subSnap.val() || {};
+
+        const updates = {};
+        updates[`teams/${teamId}/players/${uid}`] = null;
+        updates[`users/${uid}/teamId`] = null;
+
+        // If team-owned code — revoke it (restore remaining time to code pool)
+        if (sub.ownedByTeam && sub.codeUsed) {
+            const codeRef = db.ref(`subscription_codes/${sub.codeUsed}`);
+            const codeSnap = await codeRef.once('value');
+            const codeData = codeSnap.val();
+            if (codeData) {
+                // Check monthly revocation limit (4 per team per month)
+                const monthKey = new Date().toISOString().slice(0,7); // "2026-03"
+                const revSnap = await db.ref(`teams/${teamId}/revocationLog/${monthKey}`).once('value');
+                const revCount = revSnap.val() || 0;
+                if (revCount >= 4) {
+                    toast('Monthly revocation limit reached (4/month). Cannot revoke this code until next month.','error');
+                    closeModal('confirmModal');
+                    return;
+                }
+                // Calculate remaining time and restore to code
+                const remaining = Math.max(0, (sub.expiresAt || 0) - Date.now());
+                const remainingDays = Math.ceil(remaining / (1000*60*60*24));
+                updates[`subscription_codes/${sub.codeUsed}/durationDays`] = remainingDays;
+                updates[`subscription_codes/${sub.codeUsed}/usedCount`] = Math.max(0, (codeData.usedCount||1) - 1);
+                // Remove from usedBy
+                updates[`subscription_codes/${sub.codeUsed}/usedBy/${uid}`] = null;
+                // Clear subscription from user
+                updates[`users/${uid}/subscription`] = null;
+                // Increment revocation counter
+                updates[`teams/${teamId}/revocationLog/${monthKey}`] = revCount + 1;
+            }
+        }
+        // Solo sub users: just remove from team, keep their subscription intact
+        
         await db.ref().update(updates);
         closeModal('confirmModal');
-        toast('Player removed.','success');
+        toast('Player removed from team.','success');
+        loadTeam();
     }catch(e){ toast('Remove failed: '+e.message,'error'); }
 }
 
