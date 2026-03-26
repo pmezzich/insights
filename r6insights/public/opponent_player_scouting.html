@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Opponent Player Scouting — R6 Insights</title>
+<link rel="stylesheet" href="../styles/pro-global.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+<script src="../scripts/firebase-config.js"></script>
+<script>if(localStorage.getItem('r6_theme')==='light')document.documentElement.classList.add('light-mode');</script>
+<script src="../scripts/theme.js"></script>
+<script src="../scripts/admin-preview.js"></script>
+<style>
+body { background-color:var(--darker); min-height:100vh; padding-bottom:40px; }
+
+/* ── SELECTOR PANEL ─────────────────────────────────────────────── */
+.selector-panel {
+    display:flex;
+    gap:12px;
+    align-items:flex-end;
+    flex-wrap:wrap;
+    padding:16px 24px;
+    background:rgba(15,23,42,0.5);
+    border-bottom:1px solid var(--card-border);
+}
+.sel-group { display:flex; flex-direction:column; gap:5px; }
+.sel-label { font-size:10px; font-weight:700; color:var(--gray); text-transform:uppercase; letter-spacing:.5px; }
+.sel-select {
+    background:rgba(10,16,28,0.9);
+    border:1px solid var(--card-border);
+    border-radius:8px;
+    color:var(--light);
+    font-family:inherit;
+    font-size:13px;
+    padding:9px 13px;
+    outline:none;
+    min-width:160px;
+    cursor:pointer;
+    transition:border-color .15s;
+}
+.sel-select:focus { border-color:var(--primary); }
+.sel-select:disabled { opacity:.4; cursor:not-allowed; }
+
+/* ── CONTENT ────────────────────────────────────────────────────── */
+.content { padding:20px 24px; display:flex; flex-direction:column; gap:18px; }
+
+/* ── EMPTY / LOADING ────────────────────────────────────────────── */
+.empty-state { text-align:center; padding:60px 20px; color:var(--gray); }
+.empty-state i { font-size:40px; opacity:.15; color:var(--primary); display:block; margin-bottom:14px; }
+.empty-state p { font-size:14px; line-height:1.9; }
+
+/* ── PLAYER HERO ────────────────────────────────────────────────── */
+.player-hero {
+    background:var(--card-bg);
+    border:1px solid var(--card-border);
+    border-radius:14px;
+    overflow:hidden;
+}
+.hero-top {
+    display:flex;
+    align-items:center;
+    gap:20px;
+    padding:22px 24px;
+    background:linear-gradient(135deg,rgba(124,58,237,0.1),rgba(79,70,229,0.05));
+    border-bottom:1px solid var(--card-border);
+    flex-wrap:wrap;
+}
+.hero-av {
+    width:56px; height:56px;
+    border-radius:13px;
+    background:rgba(124,58,237,0.18);
+    border:2px solid rgba(124,58,237,0.35);
+    display:flex; align-items:center; justify-content:center;
+    font-size:20px; font-weight:900; color:#a78bfa;
+    flex-shrink:0;
+}
+.hero-name { font-size:22px; font-weight:900; color:var(--light); }
+.hero-sub  { font-size:12px; color:var(--gray); margin-top:4px; display:flex; gap:14px; flex-wrap:wrap; }
+.hero-sub span { display:flex; align-items:center; gap:5px; }
+.hero-kpis {
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+    gap:0;
+}
+.kpi {
+    padding:16px 18px;
+    border-right:1px solid var(--card-border);
+    text-align:center;
+    background:rgba(15,23,42,0.3);
+}
+.kpi:last-child { border-right:none; }
+.kpi-val { font-size:24px; font-weight:900; }
+.kpi-lbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--gray); margin-top:4px; }
+.kpi-sub { font-size:11px; color:var(--gray); margin-top:3px; }
+
+/* ── PANELS ─────────────────────────────────────────────────────── */
+.panel { background:var(--card-bg); border:1px solid var(--card-border); border-radius:12px; overflow:hidden; }
+.panel-hdr {
+    padding:13px 18px;
+    border-bottom:1px solid var(--card-border);
+    font-size:11px; font-weight:800;
+    text-transform:uppercase; letter-spacing:.5px;
+    color:var(--gray);
+    display:flex; align-items:center; gap:8px;
+    background:rgba(15,23,42,0.3);
+}
+.panel-body { padding:16px 18px; }
+
+/* ── TWO COL ────────────────────────────────────────────────────── */
+.two-col { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+@media(max-width:700px){ .two-col { grid-template-columns:1fr; } }
+
+/* ── SIDE SPLIT ─────────────────────────────────────────────────── */
+.side-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.side-tile {
+    background:rgba(15,23,42,0.5);
+    border:1px solid var(--card-border);
+    border-radius:10px;
+    padding:16px; text-align:center;
+}
+.side-tile-icon { font-size:18px; margin-bottom:8px; }
+.side-tile-val  { font-size:22px; font-weight:800; }
+.side-tile-lbl  { font-size:11px; color:var(--gray); margin-top:4px; }
+.side-tile-detail { font-size:11px; color:var(--gray); margin-top:6px; padding-top:6px; border-top:1px solid var(--card-border); }
+
+/* ── MAP TABLE ──────────────────────────────────────────────────── */
+.stat-table { width:100%; border-collapse:collapse; }
+.stat-table th {
+    font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.5px;
+    color:var(--gray); padding:8px 10px; text-align:left;
+    border-bottom:1px solid var(--card-border);
+}
+.stat-table th.r { text-align:right; }
+.stat-table td { font-size:13px; padding:9px 10px; border-bottom:1px solid rgba(255,255,255,0.04); }
+.stat-table td.r { text-align:right; font-weight:700; }
+.stat-table tr:last-child td { border-bottom:none; }
+.stat-table tr:hover td { background:rgba(124,58,237,0.04); }
+
+/* ── OPERATOR GRID ──────────────────────────────────────────────── */
+.op-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:8px; }
+.op-card {
+    background:rgba(15,23,42,0.5);
+    border:1px solid var(--card-border);
+    border-radius:9px;
+    padding:13px;
+    transition:border-color .15s;
+}
+.op-card:hover { border-color:rgba(124,58,237,0.3); }
+.op-card-top { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.op-av {
+    width:34px; height:34px; border-radius:8px;
+    background:rgba(124,58,237,0.15); border:1px solid rgba(124,58,237,0.25);
+    display:flex; align-items:center; justify-content:center;
+    font-size:11px; font-weight:800; color:#a78bfa; flex-shrink:0;
+}
+.op-name { font-size:13px; font-weight:800; }
+.op-rounds { font-size:11px; color:var(--gray); }
+.op-stats { display:grid; grid-template-columns:1fr 1fr 1fr; gap:4px; }
+.op-stat { text-align:center; }
+.op-stat-val { font-size:13px; font-weight:700; }
+.op-stat-lbl { font-size:9px; color:var(--gray); text-transform:uppercase; letter-spacing:.3px; }
+
+/* ── BAR ────────────────────────────────────────────────────────── */
+.bar-wrap { flex:1; height:6px; background:rgba(255,255,255,0.07); border-radius:3px; overflow:hidden; margin:0 8px; }
+.bar-fill { height:100%; border-radius:3px; transition:width .4s cubic-bezier(.34,1.2,.64,1); }
+
+/* color helpers */
+.c-green { color:#34d399; }
+.c-red   { color:#f87171; }
+.c-yellow{ color:#fbbf24; }
+.c-blue  { color:#60a5fa; }
+.c-purple{ color:#a78bfa; }
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<div class="nav-header">
+    <a href="index_pro.html" class="logo" style="text-decoration:none;">
+        <img src="../styles/r6_insights.png" class="logo-img" alt="R6 Insights">
+        <div class="logo-text">R6 INSIGHTS</div>
+        <span class="nav-badge">Beta</span>
+    </a>
+    <div class="nav-right">
+        <a href="coach_suite.html" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Coach Suite</a>
+        <a href="profile.html" id="navAvatar" class="nav-avatar-btn" title="Profile">?</a>
+        <button class="btn-logout" onclick="firebase.auth().signOut().then(()=>window.location.href='index_pro.html')">
+            <i class="fas fa-right-from-bracket"></i> Logout
+        </button>
+    </div>
+</div>
+
+<!-- Page Title -->
+<div class="page-title">
+    <div class="page-title-icon" style="background:rgba(124,58,237,0.18);border:1px solid rgba(124,58,237,0.3);color:#a78bfa;">
+        <i class="fas fa-user-secret"></i>
+    </div>
+    <div>
+        <h2>Opponent Player Scouting</h2>
+        <p>Analyse individual opponent player performance from your match history</p>
+    </div>
+</div>
+
+<!-- Selector bar -->
+<div class="selector-panel">
+    <div class="sel-group">
+        <span class="sel-label">Opponent Team</span>
+        <select class="sel-select" id="selTeam" onchange="onTeamChange()">
+            <option value="">— Select team</option>
+        </select>
+    </div>
+    <div class="sel-group">
+        <span class="sel-label">Player</span>
+        <select class="sel-select" id="selPlayer" onchange="onPlayerChange()" disabled>
+            <option value="">— Select player</option>
+        </select>
+    </div>
+    <div class="sel-group">
+        <span class="sel-label">Map</span>
+        <select class="sel-select" id="selMap" onchange="runReport()">
+            <option value="">All Maps</option>
+        </select>
+    </div>
+    <div class="sel-group">
+        <span class="sel-label">Site</span>
+        <select class="sel-select" id="selSite" onchange="runReport()">
+            <option value="">All Sites</option>
+        </select>
+    </div>
+    <div class="sel-group">
+        <span class="sel-label">Match Type</span>
+        <select class="sel-select" id="selType" onchange="runReport()">
+            <option value="">All</option>
+            <option value="scrim">Scrim</option>
+            <option value="gameday">Game Day</option>
+        </select>
+    </div>
+</div>
+
+<!-- Report area -->
+<div class="content" id="reportArea">
+    <div class="empty-state">
+        <i class="fas fa-user-secret"></i>
+        <p>Select an opponent team and player above<br>to view their scouting report</p>
+    </div>
+</div>
+
+<script src="../scripts/profile-loader.js"></script>
+<script>
+(function(){
+'use strict';
+
+if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db   = firebase.database();
+
+// ── Helpers ───────────────────────────────────────────────────────
+const x    = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const safe = v => String(v||'').trim();
+const norm = v => safe(v).toLowerCase().replace(/\s+/g,'');
+const col  = v => v>=60?'#34d399':v>=45?'#fbbf24':'#f87171';
+const pct  = v => (typeof v==='number'&&isFinite(v))?v.toFixed(1)+'%':'—';
+const f2   = v => (typeof v==='number'&&isFinite(v))?v.toFixed(2):'—';
+
+function normRounds(map){
+    if(!map.rounds) return [];
+    const arr=Array.isArray(map.rounds)?map.rounds:Object.values(map.rounds);
+    return arr.filter(Boolean).sort((a,b)=>parseInt(a.roundNumber||a.round||0)-parseInt(b.roundNumber||b.round||0));
+}
+function isWin(r){ const o=(r.outcome||'').toLowerCase(); return o==='win'||o==='won'||o.startsWith('won'); }
+function getSide(r,map){
+    const rl=(r.yourRole||'').toLowerCase();
+    if(rl.includes('attack')||rl==='atk') return'atk';
+    if(rl.includes('defen')||rl==='def')  return'def';
+    if(Array.isArray(r.teams)){
+        const t=r.teams[r.yourTeamIndex??0];
+        const tr=(t?.role||t?.name||'').toLowerCase();
+        if(tr.includes('attack')) return'atk';
+        if(tr.includes('defen'))  return'def';
+    }
+    const rn=parseInt(r.roundNumber||r.round||0);
+    const sd=(map.startingSide||'').toLowerCase();
+    if(rn<=6)  return sd==='attack'?'atk':'def';
+    if(rn<=12) return sd==='attack'?'def':'atk';
+    return((rn-12)%2===1)?'atk':'def';
+}
+function initials(n){ return safe(n).slice(0,2).toUpperCase()||'??'; }
+
+// ── State ─────────────────────────────────────────────────────────
+let ALL_MATCHES = [];
+// oppPlayers[team][playerName] = array of rounds data
+let OPP_PLAYERS  = {}; // { team: { player: [{round,map,match},...] } }
+let MAPS_BY_TEAM = {}; // { team: Set(mapNames) }
+let SITES_BY_TEAM_MAP = {}; // { team: { map: Set(sites) } }
+
+// ── Auth ──────────────────────────────────────────────────────────
+auth.onAuthStateChanged(async user=>{
+    if(!user||!user.emailVerified) return window.location.href='index_pro.html';
+    R6Theme.init(user.uid, db);
+    try{
+        const teamId = await getPreviewTeamId(user, db);
+        if(!teamId) throw new Error('No team');
+        const snap = await db.ref(`teams/${teamId}/matches_pro`).once('value');
+        const raw  = snap.val()||{};
+        ALL_MATCHES = Object.entries(raw).map(([id,m])=>{
+            let maps=m.maps;
+            if(!maps) maps=[];
+            else if(!Array.isArray(maps)) maps=Object.values(maps);
+            return{id,...m,maps};
+        }).filter(m=>m.maps.length);
+        indexOpponentPlayers();
+        buildTeamSelect();
+    }catch(e){ console.error(e); }
+});
+
+// ── Index all opponent players from round data ────────────────────
+function indexOpponentPlayers(){
+    OPP_PLAYERS={};
+    MAPS_BY_TEAM={};
+    SITES_BY_TEAM_MAP={};
+
+    ALL_MATCHES.forEach(match=>{
+        const opp = match.opponent||'Unknown';
+        if(!OPP_PLAYERS[opp]) OPP_PLAYERS[opp]={};
+        if(!MAPS_BY_TEAM[opp]) MAPS_BY_TEAM[opp]=new Set();
+        if(!SITES_BY_TEAM_MAP[opp]) SITES_BY_TEAM_MAP[opp]={};
+
+        (match.maps||[]).forEach(map=>{
+            const mapName=map.mapName||'Unknown';
+            MAPS_BY_TEAM[opp].add(mapName);
+            if(!SITES_BY_TEAM_MAP[opp][mapName]) SITES_BY_TEAM_MAP[opp][mapName]=new Set();
+
+            const rounds=normRounds(map);
+            rounds.forEach(r=>{
+                const players=Array.isArray(r.players)?r.players:[];
+                const site=safe(r.site||r.siteRaw||'');
+                if(site) SITES_BY_TEAM_MAP[opp][mapName].add(site);
+
+                // Our team is teamIndex 0 — opponent is everything else
+                players.forEach(p=>{
+                    if(Number(p.teamIndex||0)===0) return; // skip our players
+                    const name=safe(p.name||p.username);
+                    if(!name) return;
+                    if(!OPP_PLAYERS[opp][name]) OPP_PLAYERS[opp][name]=[];
+                    OPP_PLAYERS[opp][name].push({
+                        round:r, map, match,
+                        operator: typeof(p.operator||'')==='object'?(p.operator?.name||''):(p.operator||''),
+                        playerName:name
+                    });
+                });
+            });
+        });
+    });
+}
+
+// ── Build team dropdown ───────────────────────────────────────────
+function buildTeamSelect(){
+    const sel=document.getElementById('selTeam');
+    sel.innerHTML='<option value="">— Select team</option>';
+    Object.keys(OPP_PLAYERS)
+        .filter(t=>Object.keys(OPP_PLAYERS[t]).length>0)
+        .sort()
+        .forEach(t=>{
+            const o=document.createElement('option');
+            o.value=t; o.textContent=`${t} (${Object.keys(OPP_PLAYERS[t]).length} players)`;
+            sel.appendChild(o);
+        });
+}
+
+// ── Team selected ─────────────────────────────────────────────────
+window.onTeamChange=function(){
+    const team=document.getElementById('selTeam').value;
+    const pSel=document.getElementById('selPlayer');
+    const mSel=document.getElementById('selMap');
+    const sSel=document.getElementById('selSite');
+
+    pSel.innerHTML='<option value="">— Select player</option>';
+    mSel.innerHTML='<option value="">All Maps</option>';
+    sSel.innerHTML='<option value="">All Sites</option>';
+    pSel.disabled=!team;
+
+    document.getElementById('reportArea').innerHTML=`
+        <div class="empty-state">
+            <i class="fas fa-user-secret"></i>
+            <p>Select a player to view their scouting report</p>
+        </div>`;
+
+    if(!team) return;
+
+    // Populate players sorted by most rounds seen
+    const players=OPP_PLAYERS[team];
+    Object.entries(players)
+        .sort((a,b)=>b[1].length-a[1].length)
+        .forEach(([name,rounds])=>{
+            const o=document.createElement('option');
+            o.value=name; o.textContent=`${name} (${rounds.length} rounds)`;
+            pSel.appendChild(o);
+        });
+
+    // Populate maps
+    (MAPS_BY_TEAM[team]?[...MAPS_BY_TEAM[team]].sort():[]).forEach(m=>{
+        const o=document.createElement('option');
+        o.value=m; o.textContent=m;
+        mSel.appendChild(o);
+    });
+};
+
+// ── Player selected ───────────────────────────────────────────────
+window.onPlayerChange=function(){
+    // Refresh site options based on selected map
+    updateSiteOptions();
+    runReport();
+};
+
+function updateSiteOptions(){
+    const team=document.getElementById('selTeam').value;
+    const map =document.getElementById('selMap').value;
+    const sSel=document.getElementById('selSite');
+    sSel.innerHTML='<option value="">All Sites</option>';
+    if(!team) return;
+    const siteMap=SITES_BY_TEAM_MAP[team]||{};
+    const sites=new Set();
+    if(map){ (siteMap[map]||new Set()).forEach(s=>sites.add(s)); }
+    else { Object.values(siteMap).forEach(s=>s.forEach(v=>sites.add(v))); }
+    [...sites].sort().forEach(s=>{
+        const o=document.createElement('option');
+        o.value=s; o.textContent=s;
+        sSel.appendChild(o);
+    });
+}
+
+// ── Run report ────────────────────────────────────────────────────
+window.runReport=function(){
+    const team   =document.getElementById('selTeam').value;
+    const player =document.getElementById('selPlayer').value;
+    const mapF   =document.getElementById('selMap').value;
+    const siteF  =document.getElementById('selSite').value;
+    const typeF  =document.getElementById('selType').value;
+
+    if(!team||!player){
+        document.getElementById('reportArea').innerHTML=`
+            <div class="empty-state">
+                <i class="fas fa-user-secret"></i>
+                <p>Select a player to view their scouting report</p>
+            </div>`;
+        return;
+    }
+
+    // Update sites when map changes
+    updateSiteOptions();
+    if(siteF) document.getElementById('selSite').value=siteF;
+
+    // Filter rounds
+    let rounds=(OPP_PLAYERS[team]||{})[player]||[];
+    if(mapF)  rounds=rounds.filter(d=>d.map.mapName===mapF);
+    if(siteF) rounds=rounds.filter(d=>safe(d.round.site||d.round.siteRaw||'').toLowerCase()===siteF.toLowerCase());
+    if(typeF) rounds=rounds.filter(d=>(d.match.matchType||'scrim').toLowerCase()===typeF.toLowerCase());
+
+    if(!rounds.length){
+        document.getElementById('reportArea').innerHTML=`
+            <div class="empty-state">
+                <i class="fas fa-magnifying-glass"></i>
+                <p>No data found with current filters.<br>Try removing some filters.</p>
+            </div>`;
+        return;
+    }
+
+    computeAndRender(team, player, rounds);
+};
+
+// ── Compute stats from filtered rounds ────────────────────────────
+function computeAndRender(team, player, roundData){
+    const normP=norm(player);
+
+    let rounds=0,wins=0,kills=0,deaths=0,hs=0,plants=0,defuses=0;
+    let atkR=0,atkW=0,atkK=0,atkD=0;
+    let defR=0,defW=0,defK=0,defD=0;
+    let survived=0, kostRounds=0;
+    const opStats={};  // operator -> stats
+    const mapStats={}; // mapName -> stats
+    const siteStats={};
+
+    // For entry duel: first kill of round
+    let entryKills=0, entryDeaths=0, entryConvWins=0;
+
+    roundData.forEach(d=>{
+        const r=d.round, map=d.map;
+        const evs=Array.isArray(r.events)?r.events:[];
+        const won=isWin(r);
+        const sd=getSide(r,map); // from OUR perspective
+        const oppSd=sd==='atk'?'def':'atk'; // opponent's side
+        const mapName=map.mapName||'Unknown';
+        const site=safe(r.site||r.siteRaw||'');
+
+        // Events sorted by time
+        const sorted=evs.slice().sort((a,b)=>(a.timestamp||0)-(b.timestamp||0));
+        const firstKill=sorted.find(e=>safe(e.type).toLowerCase()==='kill');
+        const fkActor=firstKill?safe(firstKill.username||firstKill.user||firstKill.actor):'';
+        const fkVictim=firstKill?safe(firstKill.target||firstKill.victim):'';
+
+        let mk=0,md=0,mh=0,mp=0,mdf=0;
+        let playerSurvived=true;
+
+        sorted.forEach(ev=>{
+            const t=safe(ev.type).toLowerCase();
+            const a=safe(ev.username||ev.user||ev.actor);
+            const v=safe(ev.target||ev.victim);
+            if(t==='kill'){
+                if(norm(a)===normP||a.toLowerCase().includes(norm(player))||norm(player).includes(norm(a))){
+                    mk++;
+                    if(ev.headshot||ev.isHeadshot||(ev.hitArea==='Head')) mh++;
+                }
+                if(norm(v)===normP||v.toLowerCase().includes(norm(player))||norm(player).includes(norm(v))){
+                    md++; playerSurvived=false;
+                }
+            }
+            if((t==='plant'||t==='defuserplantcomplete')&&(norm(a)===normP)) mp++;
+            if((t==='defuse'||t==='disable'||t==='defuserdisablecomplete')&&(norm(a)===normP)) mdf++;
+        });
+
+        // Entry
+        if(fkActor&&(norm(fkActor)===normP||norm(player).includes(norm(fkActor)))){
+            entryKills++;
+            if(!won) entryConvWins++; // for opponent: conv win = round loss for us
+        }
+        if(fkVictim&&(norm(fkVictim)===normP||norm(player).includes(norm(fkVictim)))){
+            entryDeaths++;
+        }
+
+        // KOST (opponent perspective — they "win" round when we lose)
+        const oppWon=!won;
+        if(mk>0||mp>0||mdf>0||playerSurvived) kostRounds++;
+
+        // Totals
+        rounds++;
+        if(oppWon) wins++; // from opponent's perspective
+        kills+=mk; deaths+=md; hs+=mh; plants+=mp; defuses+=mdf;
+        if(playerSurvived) survived++;
+
+        // ATK/DEF from opponent's side
+        if(oppSd==='atk'){ atkR++;if(oppWon)atkW++;atkK+=mk;atkD+=md; }
+        else              { defR++;if(oppWon)defW++;defK+=mk;defD+=md; }
+
+        // Operator
+        const op=d.operator.trim()||'Unknown';
+        if(!opStats[op]) opStats[op]={rounds:0,wins:0,kills:0,deaths:0,hs:0,plants:0,defuses:0};
+        const os=opStats[op];
+        os.rounds++;if(oppWon)os.wins++;os.kills+=mk;os.deaths+=md;os.hs+=mh;os.plants+=mp;os.defuses+=mdf;
+
+        // Map
+        if(!mapStats[mapName]) mapStats[mapName]={rounds:0,wins:0,kills:0,deaths:0};
+        const ms=mapStats[mapName];
+        ms.rounds++;if(oppWon)ms.wins++;ms.kills+=mk;ms.deaths+=md;
+
+        // Site
+        if(site){
+            if(!siteStats[site]) siteStats[site]={rounds:0,wins:0,kills:0,deaths:0};
+            const ss=siteStats[site];
+            ss.rounds++;if(oppWon)ss.wins++;ss.kills+=mk;ss.deaths+=md;
+        }
+    });
+
+    const R=rounds||1;
+    const kd=deaths>0?(kills/deaths):kills;
+    const kpr=kills/R;
+    const wr=wins/R*100;
+    const hsp=kills>0?hs/kills*100:0;
+    const kost=kostRounds/R*100;
+    const atkWR=atkR>0?atkW/atkR*100:0;
+    const defWR=defR>0?defW/defR*100:0;
+    const entryKillPct=entryKills/R*100;
+    const entryDeathPct=entryDeaths/R*100;
+
+    renderReport(team,player,rounds,{
+        rounds,wins,kills,deaths,hs,plants,defuses,survived,kostRounds,
+        kd,kpr,wr,hsp,kost,
+        atkR,atkW,atkK,atkD,atkWR,
+        defR,defW,defK,defD,defWR,
+        entryKills,entryDeaths,entryConvWins,entryKillPct,entryDeathPct,
+        opStats,mapStats,siteStats
+    });
+}
+
+// ── Render report ─────────────────────────────────────────────────
+function renderReport(team,player,rounds,s){
+    const wlCol=col(s.wr);
+
+    // ── Operator rows ──────────────────────────────────────────────
+    const opRows=Object.entries(s.opStats)
+        .filter(([,o])=>o.rounds>0)
+        .sort((a,b)=>b[1].rounds-a[1].rounds)
+        .map(([name,o])=>{
+            const kd=o.deaths>0?(o.kills/o.deaths):o.kills;
+            const wr=o.rounds>0?o.wins/o.rounds*100:0;
+            const hsp=o.kills>0?o.hs/o.kills*100:0;
+            return `<div class="op-card">
+                <div class="op-card-top">
+                    <div class="op-av">${initials(name)}</div>
+                    <div>
+                        <div class="op-name">${x(name)}</div>
+                        <div class="op-rounds">${o.rounds} round${o.rounds!==1?'s':''} · <span style="color:${col(wr)};font-weight:700;">${wr.toFixed(0)}% WR</span></div>
+                    </div>
+                </div>
+                <div class="op-stats">
+                    <div class="op-stat"><div class="op-stat-val" style="color:${col(wr)};">${wr.toFixed(0)}%</div><div class="op-stat-lbl">Win%</div></div>
+                    <div class="op-stat"><div class="op-stat-val">${kd.toFixed(2)}</div><div class="op-stat-lbl">K/D</div></div>
+                    <div class="op-stat"><div class="op-stat-val">${hsp.toFixed(0)}%</div><div class="op-stat-lbl">HS%</div></div>
+                </div>
+            </div>`;
+        }).join('');
+
+    // ── Map rows ───────────────────────────────────────────────────
+    const mapRows=Object.entries(s.mapStats)
+        .sort((a,b)=>b[1].rounds-a[1].rounds)
+        .map(([name,ms])=>{
+            const wr=ms.rounds>0?ms.wins/ms.rounds*100:0;
+            const kd=ms.deaths>0?(ms.kills/ms.deaths):ms.kills;
+            const c=col(wr);
+            return `<tr>
+                <td>${x(name)}</td>
+                <td class="r">${ms.rounds}</td>
+                <td class="r" style="color:${c};">${wr.toFixed(0)}%</td>
+                <td class="r">${kd.toFixed(2)}</td>
+                <td class="r">${(ms.kills/ms.rounds).toFixed(2)}</td>
+                <td class="r">
+                    <div style="display:flex;align-items:center;">
+                        <div class="bar-wrap"><div class="bar-fill" style="width:${wr.toFixed(0)}%;background:${c};"></div></div>
+                    </div>
+                </td>
+            </tr>`;
+        }).join('');
+
+    // ── Site rows ──────────────────────────────────────────────────
+    const siteRows=Object.entries(s.siteStats)
+        .sort((a,b)=>b[1].rounds-a[1].rounds)
+        .slice(0,12)
+        .map(([site,ss])=>{
+            const wr=ss.rounds>0?ss.wins/ss.rounds*100:0;
+            const kpr=ss.kills/ss.rounds;
+            const c=col(wr);
+            return `<tr>
+                <td>${x(site)}</td>
+                <td class="r">${ss.rounds}</td>
+                <td class="r" style="color:${c};">${wr.toFixed(0)}%</td>
+                <td class="r">${kpr.toFixed(2)}</td>
+                <td class="r"><div style="display:flex;align-items:center;"><div class="bar-wrap"><div class="bar-fill" style="width:${wr.toFixed(0)}%;background:${c};"></div></div></div></td>
+            </tr>`;
+        }).join('');
+
+    document.getElementById('reportArea').innerHTML=`
+
+    <!-- Hero -->
+    <div class="player-hero">
+        <div class="hero-top">
+            <div class="hero-av">${initials(player)}</div>
+            <div>
+                <div class="hero-name">${x(player)}</div>
+                <div class="hero-sub">
+                    <span><i class="fas fa-shield-halved"></i> ${x(team)}</span>
+                    <span><i class="fas fa-circle-nodes"></i> ${rounds} rounds analysed</span>
+                    <span style="color:${wlCol};font-weight:700;"><i class="fas fa-trophy"></i> ${s.wins}W – ${rounds-s.wins}L vs us</span>
+                </div>
+            </div>
+        </div>
+        <div class="hero-kpis">
+            <div class="kpi">
+                <div class="kpi-val" style="color:${wlCol};">${s.wr.toFixed(0)}%</div>
+                <div class="kpi-lbl">Win Rate vs Us</div>
+                <div class="kpi-sub">${s.wins}W – ${rounds-s.wins}L</div>
+            </div>
+            <div class="kpi">
+                <div class="kpi-val" style="color:${col(s.kd>=1?60:30)};">${s.kd.toFixed(2)}</div>
+                <div class="kpi-lbl">K/D Ratio</div>
+                <div class="kpi-sub">${s.kills}K / ${s.deaths}D</div>
+            </div>
+            <div class="kpi">
+                <div class="kpi-val">${s.kpr.toFixed(2)}</div>
+                <div class="kpi-lbl">Kills / Round</div>
+                <div class="kpi-sub">${s.kills} total kills</div>
+            </div>
+            <div class="kpi">
+                <div class="kpi-val">${s.hsp.toFixed(0)}%</div>
+                <div class="kpi-lbl">Headshot %</div>
+                <div class="kpi-sub">${s.hs} headshots</div>
+            </div>
+            <div class="kpi">
+                <div class="kpi-val" style="color:${col(s.kost)};">${s.kost.toFixed(0)}%</div>
+                <div class="kpi-lbl">KOST</div>
+                <div class="kpi-sub">${s.kostRounds} / ${rounds} rounds</div>
+            </div>
+            <div class="kpi">
+                <div class="kpi-val">${((s.survived/rounds)*100).toFixed(0)}%</div>
+                <div class="kpi-lbl">Survival Rate</div>
+                <div class="kpi-sub">${s.survived} survived</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ATK / DEF split -->
+    <div class="panel">
+        <div class="panel-hdr"><i class="fas fa-shuffle"></i> Side Tendencies</div>
+        <div class="panel-body">
+            <div class="side-grid">
+                <div class="side-tile">
+                    <div class="side-tile-icon">⚔️</div>
+                    <div class="side-tile-val" style="color:${col(s.atkWR)};">${s.atkWR.toFixed(0)}%</div>
+                    <div class="side-tile-lbl">Attack Win Rate vs Us</div>
+                    <div class="side-tile-detail">${s.atkW}W · ${s.atkR-s.atkW}L · ${s.atkR} rounds · ${s.atkR>0?(s.atkK/s.atkR).toFixed(2):'—'} K/R</div>
+                </div>
+                <div class="side-tile">
+                    <div class="side-tile-icon">🛡️</div>
+                    <div class="side-tile-val" style="color:${col(s.defWR)};">${s.defWR.toFixed(0)}%</div>
+                    <div class="side-tile-lbl">Defence Win Rate vs Us</div>
+                    <div class="side-tile-detail">${s.defW}W · ${s.defR-s.defW}L · ${s.defR} rounds · ${s.defR>0?(s.defK/s.defR).toFixed(2):'—'} K/R</div>
+                </div>
+            </div>
+            ${s.atkR>0&&s.defR>0?`<p style="font-size:12px;color:var(--gray);margin-top:12px;">
+                <i class="fas fa-lightbulb" style="color:#fbbf24;"></i>
+                ${s.atkWR>s.defWR
+                    ?`This player is <strong style="color:#f87171;">${(s.atkWR-s.defWR).toFixed(0)}% more dangerous on Attack</strong> — prioritise shutting them down early in round.`
+                    :s.defWR>s.atkWR
+                    ?`This player is <strong style="color:#f87171;">${(s.defWR-s.atkWR).toFixed(0)}% more dangerous on Defence</strong> — trade aggression carefully when they hold.`
+                    :`Balanced performance on both sides.`}
+            </p>`:''}
+        </div>
+    </div>
+
+    <!-- Entry duels + Objective -->
+    <div class="two-col">
+        <div class="panel">
+            <div class="panel-hdr"><i class="fas fa-person-rifle"></i> Entry Duels</div>
+            <div class="panel-body">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <div class="side-tile">
+                        <div class="side-tile-val c-red">${s.entryKillPct.toFixed(0)}%</div>
+                        <div class="side-tile-lbl">First Kill Rate</div>
+                        <div class="side-tile-detail">${s.entryKills} first kills in ${rounds} rounds</div>
+                    </div>
+                    <div class="side-tile">
+                        <div class="side-tile-val c-green">${s.entryDeathPct.toFixed(0)}%</div>
+                        <div class="side-tile-lbl">First Death Rate</div>
+                        <div class="side-tile-detail">${s.entryDeaths} first deaths in ${rounds} rounds</div>
+                    </div>
+                </div>
+                ${s.entryKills>0?`<p style="font-size:12px;color:var(--gray);margin-top:12px;">
+                    <i class="fas fa-lightbulb" style="color:#fbbf24;"></i>
+                    ${s.entryKillPct>25
+                        ?`<strong style="color:#f87171;">High entry fragger</strong> — opens rounds frequently. Expect aggressive plays.`
+                        :s.entryKillPct>12
+                        ?`Moderate entry threat. Watch for early aggression on certain maps.`
+                        :`Low entry tendency — likely plays a supportive or anchor role.`}
+                </p>`:''}
+            </div>
+        </div>
+        <div class="panel">
+            <div class="panel-hdr"><i class="fas fa-bomb"></i> Objective</div>
+            <div class="panel-body">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <div class="side-tile">
+                        <div class="side-tile-val c-yellow">${(s.plants/rounds).toFixed(3)}</div>
+                        <div class="side-tile-lbl">Plants / Round</div>
+                        <div class="side-tile-detail">${s.plants} total plants</div>
+                    </div>
+                    <div class="side-tile">
+                        <div class="side-tile-val c-blue">${(s.defuses/rounds).toFixed(3)}</div>
+                        <div class="side-tile-lbl">Defuses / Round</div>
+                        <div class="side-tile-detail">${s.defuses} total defuses</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Operator pool -->
+    <div class="panel">
+        <div class="panel-hdr"><i class="fas fa-user-shield"></i> Operator Pool</div>
+        <div class="panel-body">
+            ${opRows?`<div class="op-grid">${opRows}</div>`:'<p style="color:var(--gray);font-size:13px;">No operator data found in this filter.</p>'}
+        </div>
+    </div>
+
+    <!-- Map breakdown -->
+    ${mapRows?`<div class="panel">
+        <div class="panel-hdr"><i class="fas fa-map"></i> Map Breakdown</div>
+        <div class="panel-body" style="overflow-x:auto;">
+            <table class="stat-table">
+                <thead><tr>
+                    <th>Map</th><th class="r">Rounds</th><th class="r">Win % vs Us</th>
+                    <th class="r">K/D</th><th class="r">K/R</th><th class="r" style="min-width:100px;">Bar</th>
+                </tr></thead>
+                <tbody>${mapRows}</tbody>
+            </table>
+        </div>
+    </div>`:''}
+
+    <!-- Site breakdown -->
+    ${siteRows?`<div class="panel">
+        <div class="panel-hdr"><i class="fas fa-location-dot"></i> Site Breakdown</div>
+        <div class="panel-body" style="overflow-x:auto;">
+            <table class="stat-table">
+                <thead><tr>
+                    <th>Site</th><th class="r">Rounds</th><th class="r">Win % vs Us</th>
+                    <th class="r">K/R</th><th class="r" style="min-width:100px;">Bar</th>
+                </tr></thead>
+                <tbody>${siteRows}</tbody>
+            </table>
+        </div>
+    </div>`:''}
+
+    `;
+}
+
+})();
+</script>
+</body>
+</html>
