@@ -175,7 +175,7 @@ input:checked + .lft-slider::before{transform:translateX(24px);background:#34d39
         </a>
         <div class="nav-right">
             <a href="index_pro.html" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Hub</a>
-            <button class="btn-logout" onclick="auth.signOut().then(()=>location.href='index_pro.html')">
+            <button class="btn-logout" onclick="firebase.auth().signOut().then(()=>location.href='index_pro.html')">
                 <i class="fas fa-right-from-bracket"></i> Logout
             </button>
         </div>
