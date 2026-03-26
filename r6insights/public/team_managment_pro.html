@@ -424,6 +424,35 @@
             </div>
         </div>
 
+        <!-- Danger Zone -->
+        <div class="panel" id="dangerZonePanel" style="display:none;border-color:rgba(248,113,113,0.2);">
+            <div class="panel-hdr" style="color:#f87171;border-bottom-color:rgba(248,113,113,0.2);">
+                <i class="fas fa-triangle-exclamation" style="color:#f87171;"></i> Danger Zone
+            </div>
+            <div class="panel-body" style="display:flex;flex-direction:column;gap:12px;">
+                <!-- Leave team (non-captain players) -->
+                <div id="leaveTeamRow" style="display:none;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px;background:rgba(248,113,113,0.05);border:1px solid rgba(248,113,113,0.15);border-radius:8px;">
+                    <div>
+                        <div style="font-size:14px;font-weight:700;color:var(--light);">Leave Team</div>
+                        <div style="font-size:12px;color:var(--gray);margin-top:3px;">Remove yourself from this team. Your subscription stays active.</div>
+                    </div>
+                    <button class="btn btn-danger" onclick="confirmLeaveTeam()" style="flex-shrink:0;white-space:nowrap;">
+                        <i class="fas fa-right-from-bracket"></i> Leave Team
+                    </button>
+                </div>
+                <!-- Disband team (captain only) -->
+                <div id="disbandTeamRow" style="display:none;align-items:center;justify-content:space-between;gap:16px;padding:14px;background:rgba(248,113,113,0.05);border:1px solid rgba(248,113,113,0.15);border-radius:8px;">
+                    <div>
+                        <div style="font-size:14px;font-weight:700;color:var(--light);">Disband Team</div>
+                        <div style="font-size:12px;color:var(--gray);margin-top:3px;">Permanently delete this team and remove all players. This cannot be undone. Team-owned subscriptions are revoked.</div>
+                    </div>
+                    <button class="btn btn-danger" onclick="confirmDisbandTeam()" style="flex-shrink:0;white-space:nowrap;">
+                        <i class="fas fa-skull"></i> Disband Team
+                    </button>
+                </div>
+            </div>
+        </div>
+
     </div>
 </div>
 
@@ -629,6 +658,17 @@ window.copyCode = function(){
 function setupCaptainUI(){
     if(myRole==='captain'){
         $('addPlayerBtnWrap').style.display='flex';
+    }
+    // Danger zone — always show panel
+    $('dangerZonePanel').style.display='';
+    if(myRole==='captain'){
+        // Captain sees disband
+        const row = $('disbandTeamRow');
+        if(row) { row.style.display='flex'; }
+    } else {
+        // Everyone else sees leave
+        const row = $('leaveTeamRow');
+        if(row) { row.style.display='flex'; }
     }
 }
 
@@ -1176,6 +1216,85 @@ function showLfpStatus(active){
     el.innerHTML = active
         ? '<i class="fas fa-circle-check" style="color:#f87171;"></i> <strong style="color:#f87171;">Active</strong> — Your team is listed on the LFP board.'
         : '<i class="fas fa-circle-xmark" style="color:var(--gray);"></i> <strong style="color:var(--gray);">Inactive</strong> — Hidden from the LFP board.';
+}
+
+// ── LEAVE TEAM ────────────────────────────────────────────────────
+window.confirmLeaveTeam = function(){
+    if(!confirm('Leave this team? Your subscription stays active. You can join another team anytime.')) return;
+    leaveTeam();
+};
+
+async function leaveTeam(){
+    try {
+        const updates = {};
+        updates[`teams/${teamId}/players/${currentUid}`] = null;
+        updates[`users/${currentUid}/teamId`] = null;
+        await db.ref().update(updates);
+        toast('You have left the team.', 'success');
+        setTimeout(() => window.location.href = 'team_setup.html', 1200);
+    } catch(e) {
+        toast('Failed to leave: ' + e.message, 'error');
+    }
+}
+
+// ── DISBAND TEAM ──────────────────────────────────────────────────
+window.confirmDisbandTeam = function(){
+    const confirmation = prompt(`Type the team name "${teamName}" to confirm disbanding:`);
+    if(confirmation !== teamName){
+        toast('Team name did not match — disband cancelled.', 'error');
+        return;
+    }
+    disbandTeam();
+};
+
+async function disbandTeam(){
+    try {
+        // Load all players to clear their teamId and handle team-owned subs
+        const playersSnap = await db.ref(`teams/${teamId}/players`).once('value');
+        const players = playersSnap.val() || {};
+        const inviteSnap = await db.ref(`teams/${teamId}/info/inviteCode`).once('value');
+        const inviteCode = inviteSnap.val();
+
+        const updates = {};
+
+        // For each player: clear teamId, and revoke team-owned subs
+        const now = Date.now();
+        const monthKey = new Date().toISOString().slice(0,7);
+
+        for(const [uid, p] of Object.entries(players)){
+            updates[`teams/${teamId}/players/${uid}`] = null;
+            updates[`users/${uid}/teamId`] = null;
+
+            // Check if they have a team-owned subscription — revoke it
+            const subSnap = await db.ref(`users/${uid}/subscription`).once('value');
+            const sub = subSnap.val() || {};
+            if(sub.ownedByTeam && sub.codeUsed){
+                const codeSnap = await db.ref(`subscription_codes/${sub.codeUsed}`).once('value');
+                const code = codeSnap.val();
+                if(code){
+                    const remaining = Math.max(0, (sub.expiresAt||0) - now);
+                    const remainingDays = Math.ceil(remaining/(1000*60*60*24));
+                    updates[`subscription_codes/${sub.codeUsed}/durationDays`] = remainingDays;
+                    updates[`subscription_codes/${sub.codeUsed}/usedCount`] = Math.max(0,(code.usedCount||1)-1);
+                    updates[`subscription_codes/${sub.codeUsed}/usedBy/${uid}`] = null;
+                }
+                updates[`users/${uid}/subscription`] = null;
+            }
+        }
+
+        // Delete the team itself
+        updates[`teams/${teamId}`] = null;
+        updates[`team_registry/${teamId}`] = null;
+        if(inviteCode) updates[`invite_codes/${inviteCode}`] = null;
+        // Clear captain's own teamId
+        updates[`users/${currentUid}/teamId`] = null;
+
+        await db.ref().update(updates);
+        toast('Team disbanded.', 'success');
+        setTimeout(() => window.location.href = 'team_setup.html', 1400);
+    } catch(e){
+        toast('Disband failed: ' + e.message, 'error');
+    }
 }
 
 })();
