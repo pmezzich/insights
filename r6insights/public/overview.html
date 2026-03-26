@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>R6 Insights — The Analytics Platform for Competitive Siege</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+:root {
+    --ink:    #05080f;
+    --deep:   #0a0f1e;
+    --card:   rgba(10,15,30,0.8);
+    --border: rgba(124,58,237,0.18);
+    --glow:   #7C3AED;
+    --soft:   #a78bfa;
+    --cyan:   #22d3ee;
+    --green:  #34d399;
+    --red:    #f87171;
+    --gold:   #fbbf24;
+    --text:   #e2e8f0;
+    --muted:  #64748b;
+    --white:  #ffffff;
+}
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+html { scroll-behavior:smooth; }
+
+body {
+    background:var(--ink);
+    color:var(--text);
+    font-family:'Barlow', sans-serif;
+    overflow-x:hidden;
+    line-height:1.6;
+}
+
+/* ── NOISE TEXTURE ──────────────────────────────────────────────── */
+body::before {
+    content:'';
+    position:fixed; inset:0;
+    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events:none; z-index:9999; opacity:.4;
+}
+
+/* ── TYPOGRAPHY ─────────────────────────────────────────────────── */
+h1,h2,h3,.display { font-family:'Barlow Condensed', sans-serif; letter-spacing:-0.5px; }
+
+/* ── SCROLL REVEAL ──────────────────────────────────────────────── */
+.reveal {
+    opacity:0;
+    transform:translateY(32px);
+    transition:opacity .7s cubic-bezier(.16,1,.3,1), transform .7s cubic-bezier(.16,1,.3,1);
+}
+.reveal.visible { opacity:1; transform:none; }
+.reveal-delay-1 { transition-delay:.1s; }
+.reveal-delay-2 { transition-delay:.2s; }
+.reveal-delay-3 { transition-delay:.3s; }
+.reveal-delay-4 { transition-delay:.4s; }
+
+/* ══════════════════════════════════════════════════════════════════
+   NAV
+══════════════════════════════════════════════════════════════════ */
+nav {
+    position:fixed; top:0; left:0; right:0; z-index:1000;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 40px;
+    background:rgba(5,8,15,0.85);
+    backdrop-filter:blur(16px);
+    border-bottom:1px solid rgba(124,58,237,0.12);
+    transition:background .3s;
+}
+.nav-logo {
+    display:flex; align-items:center; gap:10px;
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:20px; font-weight:900;
+    letter-spacing:.5px;
+    text-decoration:none;
+    color:var(--white);
+}
+.nav-logo img { height:32px; filter:invert(1) sepia(1) saturate(4) hue-rotate(240deg) brightness(.95); }
+.nav-logo-badge {
+    font-size:10px; font-weight:700;
+    background:rgba(124,58,237,0.2);
+    border:1px solid rgba(124,58,237,0.35);
+    color:var(--soft);
+    padding:2px 7px; border-radius:20px;
+    letter-spacing:.8px; text-transform:uppercase;
+}
+.nav-links { display:flex; align-items:center; gap:32px; }
+.nav-links a {
+    font-size:13px; font-weight:600;
+    letter-spacing:.3px; text-transform:uppercase;
+    color:var(--muted); text-decoration:none;
+    transition:color .15s;
+}
+.nav-links a:hover { color:var(--white); }
+.nav-cta {
+    display:inline-flex; align-items:center; gap:7px;
+    padding:9px 22px; border-radius:8px;
+    background:var(--glow); color:#fff;
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:14px; font-weight:800;
+    letter-spacing:.3px; text-transform:uppercase;
+    text-decoration:none;
+    transition:all .18s;
+    box-shadow:0 0 0 0 rgba(124,58,237,.4);
+}
+.nav-cta:hover { background:#6D28D9; box-shadow:0 0 20px rgba(124,58,237,.5); transform:translateY(-1px); }
+
+/* ══════════════════════════════════════════════════════════════════
+   HERO
+══════════════════════════════════════════════════════════════════ */
+#hero {
+    min-height:100vh;
+    display:flex; align-items:center; justify-content:center;
+    text-align:center;
+    position:relative;
+    overflow:hidden;
+    padding:120px 40px 80px;
+}
+
+/* Bloodmoon background */
+#hero::before {
+    content:'';
+    position:absolute; inset:0;
+    background-image:url('https://images.contentstack.io/v3/assets/bltb6530b271fddd0b1/blt6577b1f58530e6b2/5eb7cdc165eec876c4b5d0d8/rainbow6siege_bloodmoon_splash.jpg');
+    background-size:cover; background-position:center;
+    opacity:.22; z-index:0;
+}
+/* Radial vignette */
+#hero::after {
+    content:'';
+    position:absolute; inset:0;
+    background:radial-gradient(ellipse 80% 60% at 50% 40%, transparent 0%, var(--ink) 75%);
+    z-index:1;
+}
+
+/* Purple glow orb */
+.hero-orb {
+    position:absolute; width:600px; height:600px;
+    border-radius:50%;
+    background:radial-gradient(circle, rgba(124,58,237,.25) 0%, transparent 70%);
+    top:50%; left:50%;
+    transform:translate(-50%,-50%);
+    z-index:1;
+    animation:orbPulse 4s ease-in-out infinite;
+}
+@keyframes orbPulse { 0%,100%{transform:translate(-50%,-50%) scale(1);opacity:.6;} 50%{transform:translate(-50%,-50%) scale(1.1);opacity:1;} }
+
+.hero-content { position:relative; z-index:2; max-width:860px; }
+
+.hero-tag {
+    display:inline-flex; align-items:center; gap:8px;
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:11px; font-weight:700;
+    letter-spacing:2px; text-transform:uppercase;
+    color:var(--soft);
+    border:1px solid rgba(167,139,250,.3);
+    padding:6px 16px; border-radius:20px;
+    background:rgba(124,58,237,.1);
+    margin-bottom:24px;
+    animation:fadeDown .8s cubic-bezier(.16,1,.3,1) both;
+}
+@keyframes fadeDown { from{opacity:0;transform:translateY(-16px)} to{opacity:1;transform:none} }
+
+.hero-title {
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:clamp(52px, 8vw, 96px);
+    font-weight:900;
+    line-height:.95;
+    letter-spacing:-2px;
+    color:var(--white);
+    margin-bottom:20px;
+    animation:fadeUp .9s .1s cubic-bezier(.16,1,.3,1) both;
+}
+@keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:none} }
+
+.hero-title .accent {
+    background:linear-gradient(135deg,var(--soft),var(--cyan));
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    background-clip:text;
+}
+
+.hero-sub {
+    font-size:18px; font-weight:400;
+    color:var(--muted); max-width:560px; margin:0 auto 40px;
+    line-height:1.7;
+    animation:fadeUp .9s .2s cubic-bezier(.16,1,.3,1) both;
+}
+
+.hero-actions {
+    display:flex; align-items:center; justify-content:center;
+    gap:14px; flex-wrap:wrap;
+    animation:fadeUp .9s .3s cubic-bezier(.16,1,.3,1) both;
+}
+.btn-hero-primary {
+    display:inline-flex; align-items:center; gap:8px;
+    padding:14px 32px; border-radius:10px;
+    background:var(--glow); color:#fff;
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:16px; font-weight:800;
+    letter-spacing:.3px; text-transform:uppercase;
+    text-decoration:none;
+    transition:all .18s;
+    box-shadow:0 4px 24px rgba(124,58,237,.4);
+}
+.btn-hero-primary:hover { background:#6D28D9; transform:translateY(-2px); box-shadow:0 8px 32px rgba(124,58,237,.5); }
+.btn-hero-secondary {
+    display:inline-flex; align-items:center; gap:8px;
+    padding:14px 32px; border-radius:10px;
+    background:transparent; color:var(--text);
+    border:1px solid rgba(255,255,255,.15);
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:16px; font-weight:700;
+    letter-spacing:.3px; text-transform:uppercase;
+    text-decoration:none;
+    transition:all .18s;
+}
+.btn-hero-secondary:hover { border-color:rgba(167,139,250,.5); color:var(--soft); }
+
+.hero-stats {
+    display:flex; justify-content:center; gap:48px;
+    margin-top:64px; flex-wrap:wrap;
+    animation:fadeUp .9s .4s cubic-bezier(.16,1,.3,1) both;
+}
+.hstat { text-align:center; }
+.hstat-val {
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:36px; font-weight:900;
+    color:var(--white);
+    line-height:1;
+}
+.hstat-lbl { font-size:12px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; margin-top:4px; }
+
+/* ══════════════════════════════════════════════════════════════════
+   FEATURES GRID
+══════════════════════════════════════════════════════════════════ */
+.section { padding:100px 40px; max-width:1200px; margin:0 auto; }
+.section-eyebrow {
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:11px; font-weight:800;
+    letter-spacing:2.5px; text-transform:uppercase;
+    color:var(--soft);
+    margin-bottom:12px;
+}
+.section-title {
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:clamp(36px,5vw,56px);
+    font-weight:900; line-height:1.05;
+    color:var(--white);
+    margin-bottom:16px;
+}
+.section-sub { font-size:16px; color:var(--muted); max-width:520px; line-height:1.7; }
+
+/* Feature cards */
+.features-grid {
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+    gap:16px;
+    margin-top:56px;
+}
+.feat-card {
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:28px;
+    transition:all .2s;
+    position:relative;
+    overflow:hidden;
+}
+.feat-card::before {
+    content:'';
+    position:absolute; top:0; left:0; right:0; height:2px;
+    background:linear-gradient(90deg,transparent,var(--accent,var(--glow)),transparent);
+    opacity:0; transition:opacity .2s;
+}
+.feat-card:hover { border-color:rgba(124,58,237,.4); transform:translateY(-3px); box-shadow:0 12px 40px rgba(0,0,0,.4); }
+.feat-card:hover::before { opacity:1; }
+.feat-icon {
+    width:52px; height:52px; border-radius:13px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:22px; margin-bottom:20px;
+    box-shadow:0 4px 16px rgba(0,0,0,.3);
+}
+.feat-preview {
+    width:100%; border-radius:10px; overflow:hidden;
+    border:1px solid rgba(255,255,255,.06);
+    margin-bottom:18px;
+    background:rgba(5,8,15,.7);
+    padding:10px;
+    display:flex; flex-direction:column; gap:5px;
+}
+.fp-row { height:6px; border-radius:3px; background:currentColor; opacity:.12; }
+.fp-row.h  { height:10px; width:50%; opacity:.18; }
+.fp-row.s  { width:70%; }
+.fp-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:4px; margin-bottom:2px; }
+.fp-cell { height:22px; border-radius:4px; background:currentColor; opacity:.1; }
+.fp-cell.hi { opacity:.2; }
+.fp-bar-row { display:flex; align-items:center; gap:4px; }
+.fp-label { width:30%; height:5px; border-radius:2px; background:currentColor; opacity:.12; }
+.fp-bar { flex:1; height:5px; border-radius:2px; background:currentColor; opacity:.22; }
+.feat-title { font-family:'Barlow Condensed',sans-serif; font-size:18px; font-weight:800; color:var(--white); margin-bottom:8px; }
+.feat-desc { font-size:13px; color:var(--muted); line-height:1.65; }
+.feat-tag {
+    display:inline-block; margin-top:14px;
+    font-size:10px; font-weight:700; letter-spacing:.5px; text-transform:uppercase;
+    padding:3px 9px; border-radius:4px;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   FEATURE SPOTLIGHT (big alternating sections)
+══════════════════════════════════════════════════════════════════ */
+.spotlight { padding:80px 0; border-top:1px solid rgba(124,58,237,.08); }
+.spotlight-inner {
+    max-width:1200px; margin:0 auto; padding:0 40px;
+    display:grid; grid-template-columns:1fr 1fr;
+    gap:80px; align-items:center;
+}
+.spotlight-inner.flip { direction:rtl; }
+.spotlight-inner.flip > * { direction:ltr; }
+.spot-visual {
+    background:rgba(10,15,30,.9);
+    border:1px solid var(--border);
+    border-radius:20px;
+    overflow:hidden;
+    aspect-ratio:16/10;
+    display:flex; align-items:center; justify-content:center;
+    position:relative;
+}
+.spot-visual-mock {
+    width:100%; height:100%;
+    display:flex; flex-direction:column;
+    gap:0; overflow:hidden;
+}
+.mock-bar {
+    height:36px;
+    background:rgba(30,41,59,.9);
+    border-bottom:1px solid rgba(124,58,237,.15);
+    display:flex; align-items:center; padding:0 16px; gap:8px; flex-shrink:0;
+}
+.mock-dot { width:8px; height:8px; border-radius:50%; }
+.mock-body { flex:1; padding:14px; display:flex; flex-direction:column; gap:8px; }
+.mock-row { height:28px; border-radius:6px; background:rgba(124,58,237,.08); border:1px solid rgba(124,58,237,.1); }
+.mock-row.tall { height:48px; }
+.mock-row.short { width:60%; }
+.mock-stat-row { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+.mock-stat { height:56px; border-radius:8px; background:rgba(124,58,237,.1); border:1px solid rgba(124,58,237,.15); }
+.mock-table { display:flex; flex-direction:column; gap:4px; }
+.mock-thead { height:24px; border-radius:4px; background:rgba(255,255,255,.05); }
+.mock-trow { height:20px; border-radius:4px; background:rgba(124,58,237,.06); }
+.mock-trow:nth-child(2n) { background:rgba(52,211,153,.05); }
+.spot-label {
+    position:absolute; bottom:12px; right:12px;
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:10px; font-weight:700; letter-spacing:1px;
+    text-transform:uppercase; color:var(--soft);
+    background:rgba(10,15,30,.8);
+    border:1px solid rgba(124,58,237,.2);
+    padding:3px 8px; border-radius:4px;
+}
+.spot-text .section-eyebrow { margin-bottom:8px; }
+.spot-features { margin-top:28px; display:flex; flex-direction:column; gap:12px; }
+.spot-feat {
+    display:flex; align-items:flex-start; gap:12px;
+    font-size:14px; color:var(--muted); line-height:1.5;
+}
+.spot-feat-icon { width:22px; height:22px; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:11px; flex-shrink:0; margin-top:1px; }
+
+/* ══════════════════════════════════════════════════════════════════
+   PRICING
+══════════════════════════════════════════════════════════════════ */
+#pricing {
+    padding:100px 40px;
+    background:linear-gradient(180deg, var(--ink) 0%, #0d0618 50%, var(--ink) 100%);
+    position:relative; overflow:hidden;
+}
+#pricing::before {
+    content:'';
+    position:absolute; width:800px; height:800px; border-radius:50%;
+    background:radial-gradient(circle, rgba(124,58,237,.08) 0%, transparent 70%);
+    top:50%; left:50%; transform:translate(-50%,-50%);
+    pointer-events:none;
+}
+.pricing-inner { max-width:1100px; margin:0 auto; position:relative; z-index:1; }
+.pricing-header { text-align:center; margin-bottom:60px; }
+.pricing-toggle {
+    display:inline-flex; align-items:center; gap:0;
+    background:rgba(10,15,30,.8);
+    border:1px solid var(--border);
+    border-radius:10px; padding:4px;
+    margin-top:28px;
+}
+.ptoggle {
+    padding:8px 22px; border-radius:7px;
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:13px; font-weight:700; letter-spacing:.3px;
+    text-transform:uppercase; cursor:pointer;
+    border:none; background:transparent; color:var(--muted);
+    transition:all .2s;
+}
+.ptoggle.active { background:var(--glow); color:#fff; box-shadow:0 2px 12px rgba(124,58,237,.4); }
+
+.pricing-grid {
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:20px;
+    align-items:stretch;
+}
+
+.price-card {
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:20px;
+    padding:32px;
+    display:flex; flex-direction:column;
+    position:relative; overflow:hidden;
+    transition:all .2s;
+}
+.price-card:hover { transform:translateY(-4px); box-shadow:0 16px 48px rgba(0,0,0,.5); }
+
+.price-card.featured {
+    border-color:rgba(124,58,237,.5);
+    background:linear-gradient(180deg,rgba(124,58,237,.12) 0%,rgba(10,15,30,.9) 100%);
+    box-shadow:0 0 0 1px rgba(124,58,237,.25), 0 8px 40px rgba(124,58,237,.15);
+}
+.price-card.featured::before {
+    content:'';
+    position:absolute; top:0; left:0; right:0; height:2px;
+    background:linear-gradient(90deg,transparent,var(--glow),var(--cyan),var(--glow),transparent);
+}
+
+.price-popular {
+    position:absolute; top:20px; right:20px;
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:10px; font-weight:800; letter-spacing:1px;
+    text-transform:uppercase;
+    background:linear-gradient(135deg,var(--glow),#4F46E5);
+    color:#fff; padding:3px 10px; border-radius:4px;
+}
+
+.price-tier {
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:12px; font-weight:800; letter-spacing:2px;
+    text-transform:uppercase; color:var(--soft);
+    margin-bottom:6px;
+}
+.price-name {
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:28px; font-weight:900;
+    color:var(--white); margin-bottom:4px;
+}
+.price-desc { font-size:13px; color:var(--muted); margin-bottom:28px; padding-bottom:28px; border-bottom:1px solid var(--border); }
+
+.price-amount {
+    display:flex; align-items:baseline; gap:4px;
+    margin-bottom:6px;
+}
+.price-currency { font-size:20px; font-weight:700; color:var(--muted); margin-top:4px; }
+.price-number {
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:52px; font-weight:900;
+    color:var(--white); line-height:1;
+}
+.price-period { font-size:14px; color:var(--muted); }
+.price-saving {
+    display:inline-flex; align-items:center; gap:5px;
+    font-size:12px; font-weight:700; color:var(--green);
+    background:rgba(52,211,153,.1); border:1px solid rgba(52,211,153,.2);
+    padding:3px 10px; border-radius:4px; margin-bottom:24px;
+}
+
+.price-features { flex:1; display:flex; flex-direction:column; gap:10px; margin-bottom:28px; }
+.pf {
+    display:flex; align-items:center; gap:10px;
+    font-size:13px; color:var(--text);
+}
+.pf i { font-size:12px; color:var(--green); flex-shrink:0; }
+.pf.muted { color:var(--muted); }
+.pf.muted i { color:var(--muted); }
+.pf .pf-bold { font-weight:700; color:var(--soft); }
+
+.price-codes {
+    display:inline-flex; align-items:center; gap:6px;
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:13px; font-weight:700;
+    color:var(--soft);
+    background:rgba(124,58,237,.1);
+    border:1px solid rgba(124,58,237,.2);
+    padding:5px 12px; border-radius:6px;
+    margin-bottom:20px;
+}
+
+.price-btn {
+    display:block; text-align:center;
+    padding:13px; border-radius:10px;
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:15px; font-weight:800;
+    letter-spacing:.3px; text-transform:uppercase;
+    text-decoration:none; transition:all .18s;
+}
+.price-btn-primary {
+    background:var(--glow); color:#fff;
+    box-shadow:0 4px 20px rgba(124,58,237,.35);
+}
+.price-btn-primary:hover { background:#6D28D9; box-shadow:0 6px 28px rgba(124,58,237,.5); transform:translateY(-1px); }
+.price-btn-outline {
+    background:transparent; color:var(--text);
+    border:1px solid rgba(255,255,255,.12);
+}
+.price-btn-outline:hover { border-color:rgba(167,139,250,.4); color:var(--soft); }
+
+/* Billing toggle visibility */
+.monthly-price { display:flex; }
+.yearly-price  { display:none; }
+.show-yearly .monthly-price { display:none; }
+.show-yearly .yearly-price  { display:flex; }
+.monthly-saving { display:none; }
+.yearly-saving  { display:none; }
+.show-yearly .yearly-saving { display:inline-flex; }
+
+/* ══════════════════════════════════════════════════════════════════
+   COACH SUITE HIGHLIGHT
+══════════════════════════════════════════════════════════════════ */
+.coach-banner {
+    max-width:1200px; margin:0 auto 100px;
+    padding:0 40px;
+}
+.coach-banner-inner {
+    background:linear-gradient(135deg,rgba(124,58,237,.12),rgba(34,211,238,.06));
+    border:1px solid rgba(124,58,237,.25);
+    border-radius:24px;
+    padding:52px 60px;
+    display:grid; grid-template-columns:1fr auto;
+    gap:40px; align-items:center;
+    position:relative; overflow:hidden;
+}
+.coach-banner-inner::before {
+    content:'';
+    position:absolute; right:-100px; top:-100px;
+    width:400px; height:400px; border-radius:50%;
+    background:radial-gradient(circle,rgba(124,58,237,.12) 0%,transparent 70%);
+    pointer-events:none;
+}
+.coach-banner-title {
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:40px; font-weight:900; color:var(--white);
+    margin-bottom:12px; line-height:1.05;
+}
+.coach-banner-sub { font-size:15px; color:var(--muted); max-width:480px; line-height:1.7; }
+.coach-tools {
+    display:flex; flex-wrap:wrap; gap:8px; margin-top:20px;
+}
+.coach-tool-pill {
+    font-size:11px; font-weight:700;
+    padding:4px 12px; border-radius:5px;
+    background:rgba(124,58,237,.12);
+    border:1px solid rgba(124,58,237,.2);
+    color:var(--soft);
+    letter-spacing:.3px;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   FAQ
+══════════════════════════════════════════════════════════════════ */
+.faq-section { padding:80px 40px; max-width:800px; margin:0 auto; }
+.faq-item {
+    border-bottom:1px solid rgba(124,58,237,.12);
+    padding:20px 0;
+    cursor:pointer;
+}
+.faq-q {
+    display:flex; align-items:center; justify-content:space-between;
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:18px; font-weight:700; color:var(--white);
+    gap:16px;
+}
+.faq-q i { color:var(--soft); transition:transform .2s; flex-shrink:0; }
+.faq-item.open .faq-q i { transform:rotate(45deg); }
+.faq-a { font-size:14px; color:var(--muted); line-height:1.7; max-height:0; overflow:hidden; transition:max-height .3s ease, padding .3s; }
+.faq-item.open .faq-a { max-height:200px; padding-top:12px; }
+
+/* ══════════════════════════════════════════════════════════════════
+   FOOTER
+══════════════════════════════════════════════════════════════════ */
+footer {
+    border-top:1px solid rgba(124,58,237,.1);
+    padding:48px 40px;
+    text-align:center;
+}
+.footer-logo {
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:22px; font-weight:900;
+    background:linear-gradient(135deg,var(--soft),var(--cyan));
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+    margin-bottom:12px;
+}
+.footer-sub { font-size:13px; color:var(--muted); }
+
+/* ══════════════════════════════════════════════════════════════════
+   RESPONSIVE
+══════════════════════════════════════════════════════════════════ */
+@media(max-width:900px){
+    nav { padding:14px 20px; }
+    .nav-links { display:none; }
+    .spotlight-inner { grid-template-columns:1fr; gap:40px; }
+    .spotlight-inner.flip { direction:ltr; }
+    .pricing-grid { grid-template-columns:1fr; max-width:440px; margin:0 auto; }
+    .coach-banner-inner { grid-template-columns:1fr; padding:36px 28px; }
+    .section { padding:60px 20px; }
+    #pricing { padding:60px 20px; }
+    .faq-section { padding:60px 20px; }
+}
+@media(max-width:600px){
+    .hero-stats { gap:28px; }
+    .hstat-val { font-size:28px; }
+    .features-grid { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── NAV ──────────────────────────────────────────────────────── -->
+<nav>
+    <a href="#" class="nav-logo">
+        <img src="styles/r6_insights.png" alt="R6 Insights" onerror="this.style.display='none'">
+        R6 INSIGHTS
+    </a>
+    <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#coach">Coach Suite</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#faq">FAQ</a>
+    </div>
+    <a href="r6insights/public/index_pro.html" class="nav-cta">
+        <i class="fas fa-arrow-right-to-bracket"></i> Sign In
+    </a>
+    <img src="styles/r6_insights.png" alt="R6 Insights"
+         style="height:38px;width:auto;filter:invert(1) sepia(1) saturate(4) hue-rotate(240deg) brightness(.95);margin-left:10px;opacity:.85;"
+         onerror="this.style.display='none'">
+</nav>
+
+<!-- ── BANNER ───────────────────────────────────────────────────── -->
+<div id="site-banner" style="width:100%;overflow:hidden;line-height:0;margin-top:64px;">
+    <img src="styles/banner.png" alt="R6 Insights Banner"
+         style="width:100%;max-height:420px;object-fit:cover;object-position:center;display:block;"
+         onerror="document.getElementById('site-banner').style.display='none'">
+</div>
+
+<!-- ── HERO ─────────────────────────────────────────────────────── -->
+<section id="hero">
+    <div class="hero-orb"></div>
+    <div class="hero-content">
+        <div class="hero-tag">
+            <i class="fas fa-crosshairs"></i>
+            Built for Competitive Rainbow Six Siege
+        </div>
+        <h1 class="hero-title">
+            STOP GUESSING.<br>
+            <span class="accent">START WINNING.</span>
+        </h1>
+        <p class="hero-sub">
+            R6 Insights gives competitive teams the analytics, scouting tools, and coaching infrastructure to make data-driven decisions — from replay upload to match prep.
+        </p>
+        <div class="hero-actions">
+            <a href="#pricing" class="btn-hero-primary">
+                <i class="fas fa-bolt"></i> Get Started
+            </a>
+            <a href="#features" class="btn-hero-secondary">
+                <i class="fas fa-play-circle"></i> See What's Inside
+            </a>
+        </div>
+        <div class="hero-stats">
+            <div class="hstat">
+                <div class="hstat-val">10+</div>
+                <div class="hstat-lbl">Analytics Pages</div>
+            </div>
+            <div class="hstat">
+                <div class="hstat-val">100%</div>
+                <div class="hstat-lbl">From Your Own Data</div>
+            </div>
+            <div class="hstat">
+                <div class="hstat-val">AI</div>
+                <div class="hstat-lbl">Powered Reports</div>
+            </div>
+            <div class="hstat">
+                <div class="hstat-val">Live</div>
+                <div class="hstat-lbl">Updated Constantly</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ── FEATURES GRID ─────────────────────────────────────────────── -->
+<section class="section" id="features">
+    <div class="reveal">
+        <div class="section-eyebrow">Platform Features</div>
+        <h2 class="section-title">Everything Your Team Needs to Compete</h2>
+        <p class="section-sub">Upload your replay files and every page auto-populates with your real match data — zero manual entry.</p>
+    </div>
+    <div class="features-grid">
+        <div class="feat-card reveal reveal-delay-1" style="--accent:#a78bfa;color:#a78bfa;">
+            <div class="feat-preview">
+                <div class="fp-row h"></div>
+                <div class="fp-grid"><div class="fp-cell hi"></div><div class="fp-cell"></div><div class="fp-cell hi"></div><div class="fp-cell"></div></div>
+                <div class="fp-bar-row"><div class="fp-label"></div><div class="fp-bar" style="width:82%;opacity:.35;"></div></div>
+                <div class="fp-bar-row"><div class="fp-label"></div><div class="fp-bar" style="width:60%;"></div></div>
+                <div class="fp-bar-row"><div class="fp-label"></div><div class="fp-bar" style="width:71%;opacity:.28;"></div></div>
+            </div>
+            <div class="feat-icon" style="background:rgba(167,139,250,.15);color:#a78bfa;"><i class="fas fa-chart-bar"></i></div>
+            <div class="feat-title">Player Stats</div>
+            <div class="feat-desc">K/D, KOST, headshot rate, survival rate, entry duel stats, operator breakdown, and a 10-component player rating system.</div>
+            <span class="feat-tag" style="background:rgba(167,139,250,.1);color:#a78bfa;">Per Player</span>
+        </div>
+        <div class="feat-card reveal reveal-delay-2" style="--accent:#60a5fa;color:#60a5fa;">
+            <div class="feat-preview">
+                <div class="fp-row h"></div>
+                <div class="fp-grid"><div class="fp-cell hi"></div><div class="fp-cell hi"></div><div class="fp-cell"></div><div class="fp-cell hi"></div></div>
+                <div class="fp-row s"></div>
+                <div class="fp-row" style="width:85%;"></div>
+                <div class="fp-row" style="width:45%;"></div>
+            </div>
+            <div class="feat-icon" style="background:rgba(96,165,250,.15);color:#60a5fa;"><i class="fas fa-chart-column"></i></div>
+            <div class="feat-title">Team Stats</div>
+            <div class="feat-desc">Full team performance breakdown — round win rate, ATK/DEF split, map score vs Pro League averages, and a 9-component team rating.</div>
+            <span class="feat-tag" style="background:rgba(96,165,250,.1);color:#60a5fa;">Team View</span>
+        </div>
+        <div class="feat-card reveal reveal-delay-3" style="--accent:#f472b6;color:#f472b6;">
+            <div class="feat-preview" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                <div style="display:flex;flex-direction:column;gap:4px;"><div class="fp-row h"></div><div class="fp-row s"></div><div class="fp-row"></div><div class="fp-row s"></div></div>
+                <div style="display:flex;flex-direction:column;gap:4px;"><div class="fp-row h" style="opacity:.22;"></div><div class="fp-row" style="width:80%;opacity:.22;"></div><div class="fp-row" style="width:55%;"></div><div class="fp-row" style="opacity:.22;"></div></div>
+            </div>
+            <div class="feat-icon" style="background:rgba(244,114,182,.15);color:#f472b6;"><i class="fas fa-code-compare"></i></div>
+            <div class="feat-title">Compare</div>
+            <div class="feat-desc">Side-by-side comparison of up to 10 players, matches, or opponents simultaneously with AI-generated coaching reports.</div>
+            <span class="feat-tag" style="background:rgba(244,114,182,.1);color:#f472b6;">Multi-Select</span>
+        </div>
+        <div class="feat-card reveal reveal-delay-4" style="--accent:#fb923c;color:#fb923c;">
+            <div class="feat-preview">
+                <div class="fp-row h"></div>
+                <div class="fp-row s"></div>
+                <div class="fp-row"></div>
+                <div class="fp-row s" style="opacity:.2;"></div>
+                <div class="fp-row" style="width:90%;"></div>
+            </div>
+            <div class="feat-icon" style="background:rgba(251,146,60,.15);color:#fb923c;"><i class="fas fa-clock-rotate-left"></i></div>
+            <div class="feat-title">Match History</div>
+            <div class="feat-desc">Full per-map and per-round breakdowns, player stats from events, round timeline, and outcome tracking across all matches.</div>
+            <span class="feat-tag" style="background:rgba(251,146,60,.1);color:#fb923c;">Historical</span>
+        </div>
+        <div class="feat-card reveal reveal-delay-1" style="--accent:#34d399;color:#34d399;">
+            <div class="feat-preview">
+                <div class="fp-row h"></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+                    <div class="fp-cell hi" style="height:28px;"></div>
+                    <div class="fp-cell" style="height:28px;opacity:.15;"></div>
+                </div>
+                <div class="fp-bar-row"><div class="fp-label"></div><div class="fp-bar" style="width:75%;opacity:.35;"></div></div>
+                <div class="fp-bar-row"><div class="fp-label"></div><div class="fp-bar" style="width:40%;"></div></div>
+            </div>
+            <div class="feat-icon" style="background:rgba(52,211,153,.15);color:#34d399;"><i class="fas fa-crosshairs"></i></div>
+            <div class="feat-title">Opponent Scouting</div>
+            <div class="feat-desc">Track win rates, map pool, ATK/DEF tendencies, and improvement trends against every opponent from your match history.</div>
+            <span class="feat-tag" style="background:rgba(52,211,153,.1);color:#34d399;">Scouting</span>
+        </div>
+        <div class="feat-card reveal reveal-delay-2" style="--accent:#f97316;color:#f97316;">
+            <div class="feat-preview">
+                <div class="fp-row h"></div>
+                <div class="fp-grid"><div class="fp-cell hi"></div><div class="fp-cell"></div><div class="fp-cell hi"></div><div class="fp-cell"></div></div>
+                <div class="fp-bar-row"><div class="fp-label"></div><div class="fp-bar" style="width:60%;opacity:.32;"></div></div>
+                <div class="fp-bar-row"><div class="fp-label"></div><div class="fp-bar" style="width:45%;"></div></div>
+            </div>
+            <div class="feat-icon" style="background:rgba(249,115,22,.15);color:#f97316;"><i class="fas fa-user-secret"></i></div>
+            <div class="feat-title">Opponent Player Scouting</div>
+            <div class="feat-desc">Drill down to individual opponent players — K/D, KOST, operator pool, entry rate, and per-site breakdown filterable by map and match type.</div>
+            <span class="feat-tag" style="background:rgba(249,115,22,.1);color:#f97316;">Deep Scouting</span>
+        </div>
+        <div class="feat-card reveal reveal-delay-3" style="--accent:#22d3ee;color:#22d3ee;">
+            <div class="feat-preview" style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:5px;aspect-ratio:16/7;">
+                <div class="fp-cell hi" style="height:auto;border-radius:5px;"></div>
+                <div class="fp-cell" style="height:auto;border-radius:5px;opacity:.14;"></div>
+                <div class="fp-cell" style="height:auto;border-radius:5px;opacity:.14;"></div>
+                <div class="fp-cell" style="height:auto;border-radius:5px;opacity:.1;"></div>
+            </div>
+            <div class="feat-icon" style="background:rgba(34,211,238,.15);color:#22d3ee;"><i class="fas fa-tv"></i></div>
+            <div class="feat-title">Multi-Stream Viewer</div>
+            <div class="feat-desc">Watch up to 5 YouTube POV streams simultaneously. Drag, resize, and arrange freely. Auto-arrange presets for grid, focus, or side-by-side.</div>
+            <span class="feat-tag" style="background:rgba(34,211,238,.1);color:#22d3ee;">VOD Review</span>
+        </div>
+        <div class="feat-card reveal reveal-delay-4" style="--accent:#818cf8;color:#818cf8;">
+            <div class="feat-preview">
+                <div style="display:flex;gap:4px;margin-bottom:6px;">
+                    <div style="height:6px;width:40px;border-radius:3px;background:currentColor;opacity:.25;"></div>
+                    <div style="height:6px;width:36px;border-radius:3px;background:currentColor;opacity:.15;"></div>
+                    <div style="height:6px;width:44px;border-radius:3px;background:currentColor;opacity:.15;"></div>
+                </div>
+                <div class="fp-row h"></div>
+                <div class="fp-row s"></div>
+                <div class="fp-row" style="width:88%;"></div>
+                <div class="fp-row" style="width:65%;"></div>
+            </div>
+            <div class="feat-icon" style="background:rgba(129,140,248,.15);color:#818cf8;"><i class="fas fa-map"></i></div>
+            <div class="feat-title">Map Veto Tracker</div>
+            <div class="feat-desc">One sheet per opponent. Track pick/ban history, W/L results, bans, and tendencies. Click to cycle W/L — auto-imports from Match History.</div>
+            <span class="feat-tag" style="background:rgba(129,140,248,.1);color:#818cf8;">Prep</span>
+        </div>
+    </div>
+</section>
+
+<!-- ── SPOTLIGHT: REPLAY ANALYZER ───────────────────────────────── -->
+<div class="spotlight">
+    <div class="spotlight-inner">
+        <div class="spot-visual reveal">
+            <div class="spot-visual-mock">
+                <div class="mock-bar">
+                    <div class="mock-dot" style="background:#f87171;"></div>
+                    <div class="mock-dot" style="background:#fbbf24;"></div>
+                    <div class="mock-dot" style="background:#34d399;"></div>
+                </div>
+                <div class="mock-body">
+                    <div class="mock-row tall"></div>
+                    <div class="mock-stat-row">
+                        <div class="mock-stat"></div>
+                        <div class="mock-stat" style="background:rgba(52,211,153,.1);border-color:rgba(52,211,153,.15);"></div>
+                        <div class="mock-stat"></div>
+                        <div class="mock-stat" style="background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.15);"></div>
+                    </div>
+                    <div class="mock-table">
+                        <div class="mock-thead"></div>
+                        <div class="mock-trow"></div>
+                        <div class="mock-trow"></div>
+                        <div class="mock-trow"></div>
+                        <div class="mock-trow"></div>
+                        <div class="mock-trow"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="spot-label">Replay Analyzer</div>
+        </div>
+        <div class="spot-text reveal reveal-delay-2">
+            <div class="section-eyebrow">Replay Analyzer</div>
+            <h2 class="section-title">Your Replays.<br>Your Data.</h2>
+            <p class="section-sub">Upload `.rec` replay files directly and R6 Insights parses every kill, death, plant, and defuse at the round level. Everything flows automatically to every stat page.</p>
+            <div class="spot-features">
+                <div class="spot-feat">
+                    <div class="spot-feat-icon" style="background:rgba(167,139,250,.15);color:#a78bfa;"><i class="fas fa-check"></i></div>
+                    <span>Round-by-round event parsing — kills, headshots, plants, defuses</span>
+                </div>
+                <div class="spot-feat">
+                    <div class="spot-feat-icon" style="background:rgba(167,139,250,.15);color:#a78bfa;"><i class="fas fa-check"></i></div>
+                    <span>Operator tracking per player per round</span>
+                </div>
+                <div class="spot-feat">
+                    <div class="spot-feat-icon" style="background:rgba(167,139,250,.15);color:#a78bfa;"><i class="fas fa-check"></i></div>
+                    <span>All data stored in your team's private Firebase database</span>
+                </div>
+                <div class="spot-feat">
+                    <div class="spot-feat-icon" style="background:rgba(167,139,250,.15);color:#a78bfa;"><i class="fas fa-check"></i></div>
+                    <span>Trial mode — analyze tryout replays without affecting team records</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── COACH SUITE BANNER ────────────────────────────────────────── -->
+<div class="coach-banner reveal" id="coach">
+    <div class="coach-banner-inner">
+        <div>
+            <div class="section-eyebrow" style="margin-bottom:8px;">Exclusive to Captains, Coaches & Analysts</div>
+            <div class="coach-banner-title">The Coach Suite</div>
+            <p class="coach-banner-sub">A dedicated command center built for the people running the team. From pre-match prep to post-game review — everything in one place.</p>
+            <div class="coach-tools">
+                <span class="coach-tool-pill">Match Notes</span>
+                <span class="coach-tool-pill">Multi-Stream Viewer</span>
+                <span class="coach-tool-pill">Map Veto Tracker</span>
+                <span class="coach-tool-pill">Opponent Scouting</span>
+                <span class="coach-tool-pill">Opponent Player Scouting</span>
+                <span class="coach-tool-pill">LFT Board</span>
+                <span class="coach-tool-pill">Trial Scrim Analyzer</span>
+            </div>
+        </div>
+        <div>
+            <a href="r6insights/public/coach_suite.html" class="btn-hero-primary" style="white-space:nowrap;">
+                <i class="fas fa-chalkboard-user"></i> Open Coach Suite
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- ── PRICING ───────────────────────────────────────────────────── -->
+<section id="pricing">
+    <div class="pricing-inner">
+        <div class="pricing-header reveal">
+            <div class="section-eyebrow">Pricing</div>
+            <h2 class="section-title">Simple, Transparent Pricing</h2>
+            <p class="section-sub" style="margin:0 auto;">Whether you're a solo analyst or running a full org — there's a plan for you.</p>
+            <div class="pricing-toggle">
+                <button class="ptoggle active" onclick="setBilling('monthly',this)">Monthly</button>
+                <button class="ptoggle" onclick="setBilling('yearly',this)">Yearly <span style="color:#34d399;font-size:11px;margin-left:4px;">Save ~17%</span></button>
+            </div>
+        </div>
+
+        <div class="pricing-grid" id="pricingGrid">
+
+            <!-- PER PLAYER -->
+            <div class="price-card reveal reveal-delay-1">
+                <div class="price-tier">Per Player</div>
+                <div class="price-name">Solo</div>
+                <p class="price-desc">Full access to all stats and tools for a single player account.</p>
+
+                <div class="monthly-price price-amount">
+                    <span class="price-currency">$</span>
+                    <span class="price-number">4</span>
+                    <span class="price-period">.99<br>/mo</span>
+                </div>
+                <div class="yearly-price price-amount">
+                    <span class="price-currency">$</span>
+                    <span class="price-number">49</span>
+                    <span class="price-period">.99<br>/yr</span>
+                </div>
+                <div class="yearly-saving price-saving"><i class="fas fa-tag"></i> Save $10 — $60 value</div>
+                <div style="height:22px;" class="monthly-saving"></div>
+
+                <div class="price-features">
+                    <div class="pf"><i class="fas fa-check-circle"></i> Full Player Stats access</div>
+                    <div class="pf"><i class="fas fa-check-circle"></i> Compare tool</div>
+                    <div class="pf"><i class="fas fa-check-circle"></i> Match History viewer</div>
+                    <div class="pf"><i class="fas fa-check-circle"></i> Team Stats (read only)</div>
+                    <div class="pf"><i class="fas fa-check-circle"></i> Opponent Scouting</div>
+                    <div class="pf muted"><i class="fas fa-circle"></i> 1 invite code (you)</div>
+                </div>
+                <a href="#" class="price-btn price-btn-outline">Get Started</a>
+            </div>
+
+            <!-- PER TEAM -->
+            <div class="price-card featured reveal reveal-delay-2">
+                <div class="price-popular">Most Popular</div>
+                <div class="price-tier">Per Team</div>
+                <div class="price-name">Team</div>
+                <p class="price-desc">Full platform access for a complete roster — includes 5 invite codes.</p>
+
+                <div class="monthly-price price-amount">
+                    <span class="price-currency">$</span>
+                    <span class="price-number">24</span>
+                    <span class="price-period">.99<br>/mo</span>
+                </div>
+                <div class="yearly-price price-amount">
+                    <span class="price-currency">$</span>
+                    <span class="price-number">269</span>
+                    <span class="price-period">.99<br>/yr</span>
+                </div>
+                <div class="yearly-saving price-saving"><i class="fas fa-tag"></i> Save $30 — $300 value</div>
+                <div style="height:22px;" class="monthly-saving"></div>
+
+                <div class="price-codes"><i class="fas fa-ticket"></i> 5 Invite Codes Included</div>
+
+                <div class="price-features">
+                    <div class="pf"><i class="fas fa-check-circle"></i> Everything in Solo</div>
+                    <div class="pf"><i class="fas fa-check-circle"></i> <span class="pf-bold">Coach Suite</span> access</div>
+                    <div class="pf"><i class="fas fa-check-circle"></i> Match Notes + POV links</div>
+                    <div class="pf"><i class="fas fa-check-circle"></i> Map Veto Tracker</div>
+                    <div class="pf"><i class="fas fa-check-circle"></i> Multi-Stream Viewer</div>
+                    <div class="pf"><i class="fas fa-check-circle"></i> Team Management panel</div>
+                </div>
+                <a href="#" class="price-btn price-btn-primary">Get Started</a>
+            </div>
+
+            <!-- ORG -->
+            <div class="price-card reveal reveal-delay-3">
+                <div class="price-tier">Organization</div>
+                <div class="price-name">Org</div>
+                <p class="price-desc">Multi-team infrastructure for orgs running multiple rosters simultaneously.</p>
+
+                <div class="monthly-price price-amount">
+                    <span class="price-currency">$</span>
+                    <span class="price-number">114</span>
+                    <span class="price-period">.99<br>/mo</span>
+                </div>
+                <div class="yearly-price price-amount">
+                    <span class="price-currency">$</span>
+                    <span class="price-number">1199</span>
+                    <span class="price-period">.99<br>/yr</span>
+                </div>
+                <div class="yearly-saving price-saving"><i class="fas fa-tag"></i> Save $180 — $1,500 value</div>
+                <div style="height:22px;" class="monthly-saving"></div>
+
+                <div class="price-codes"><i class="fas fa-ticket"></i> 25 Invite Codes Included</div>
+
+                <div class="price-features">
+                    <div class="pf"><i class="fas fa-check-circle"></i> Everything in Team</div>
+                    <div class="pf"><i class="fas fa-check-circle"></i> 25 invite codes</div>
+                    <div class="pf"><i class="fas fa-check-circle"></i> Multiple team support</div>
+                    <div class="pf"><i class="fas fa-check-circle"></i> Admin dashboard access</div>
+                    <div class="pf"><i class="fas fa-check-circle"></i> Priority support</div>
+                </div>
+                <a href="#" class="price-btn price-btn-outline">Contact Us</a>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+<!-- ── FAQ ──────────────────────────────────────────────────────── -->
+<div class="faq-section reveal" id="faq">
+    <div class="section-eyebrow" style="text-align:center;margin-bottom:12px;">FAQ</div>
+    <h2 class="section-title" style="text-align:center;margin-bottom:48px;">Common Questions</h2>
+
+    <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">How does the replay upload work? <i class="fas fa-plus"></i></div>
+        <div class="faq-a">You upload <code>.rec</code> replay files directly through the Replay Analyzer page. The parser extracts every kill, death, plant, defuse, and operator choice at the round level — all stored privately in your team's database.</div>
+    </div>
+    <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">Is my team's data private? <i class="fas fa-plus"></i></div>
+        <div class="faq-a">Yes. Each team has its own isolated Firebase database node. Only authenticated members of your team can access your match data. No other teams can see your stats, replays, or coaching notes.</div>
+    </div>
+    <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">What does the invite code system work? <i class="fas fa-plus"></i></div>
+        <div class="faq-a">The captain generates an invite code in Team Management. Players sign up using that code and are automatically linked to your team. The Team plan includes 5 codes (enough for a full roster), the Org plan includes 25.</div>
+    </div>
+    <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">Who can access the Coach Suite? <i class="fas fa-plus"></i></div>
+        <div class="faq-a">The Coach Suite is restricted to players with the Captain, Coach, or Analyst role. Regular players can still view all stats pages but cannot access the coaching tools or delete matches.</div>
+    </div>
+    <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">Can I switch plans later? <i class="fas fa-plus"></i></div>
+        <div class="faq-a">Yes — you can upgrade or downgrade your plan at any time. If you upgrade mid-cycle, you'll be prorated for the remaining period.</div>
+    </div>
+</div>
+
+<!-- ── FOOTER ────────────────────────────────────────────────────── -->
+<footer>
+    <div class="footer-logo">R6 INSIGHTS</div>
+    <p class="footer-sub">The analytics platform for competitive Rainbow Six Siege.</p>
+    <p class="footer-sub" style="margin-top:8px;font-size:12px;">© 2026 R6 Insights </p>
+</footer>
+
+<script>
+// ── Billing toggle ────────────────────────────────────────────────
+function setBilling(type, btn){
+    document.querySelectorAll('.ptoggle').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const grid = document.getElementById('pricingGrid');
+    grid.classList.toggle('show-yearly', type==='yearly');
+}
+
+// ── FAQ toggle ────────────────────────────────────────────────────
+function toggleFaq(el){ el.classList.toggle('open'); }
+
+// ── Scroll reveal ─────────────────────────────────────────────────
+const observer = new IntersectionObserver(entries=>{
+    entries.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('visible'); });
+},{threshold:.12});
+document.querySelectorAll('.reveal').forEach(el=>observer.observe(el));
+</script>
+</body>
+</html>
