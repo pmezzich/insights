@@ -1249,23 +1249,16 @@ window.confirmDisbandTeam = function(){
 
 async function disbandTeam(){
     try {
-        // Load all players to clear their teamId and handle team-owned subs
         const playersSnap = await db.ref(`teams/${teamId}/players`).once('value');
         const players = playersSnap.val() || {};
         const inviteSnap = await db.ref(`teams/${teamId}/info/inviteCode`).once('value');
         const inviteCode = inviteSnap.val();
-
-        const updates = {};
-
-        // For each player: clear teamId, and revoke team-owned subs
         const now = Date.now();
-        const monthKey = new Date().toISOString().slice(0,7);
 
-        for(const [uid, p] of Object.entries(players)){
-            updates[`teams/${teamId}/players/${uid}`] = null;
-            updates[`users/${uid}/teamId`] = null;
-
-            // Check if they have a team-owned subscription — revoke it
+        // Step 1: update users + codes only (no team/ paths to avoid ancestor conflict)
+        const userUpdates = {};
+        for(const [uid] of Object.entries(players)){
+            userUpdates[`users/${uid}/teamId`] = null;
             const subSnap = await db.ref(`users/${uid}/subscription`).once('value');
             const sub = subSnap.val() || {};
             if(sub.ownedByTeam && sub.codeUsed){
@@ -1274,22 +1267,20 @@ async function disbandTeam(){
                 if(code){
                     const remaining = Math.max(0, (sub.expiresAt||0) - now);
                     const remainingDays = Math.ceil(remaining/(1000*60*60*24));
-                    updates[`subscription_codes/${sub.codeUsed}/durationDays`] = remainingDays;
-                    updates[`subscription_codes/${sub.codeUsed}/usedCount`] = Math.max(0,(code.usedCount||1)-1);
-                    updates[`subscription_codes/${sub.codeUsed}/usedBy/${uid}`] = null;
+                    userUpdates[`subscription_codes/${sub.codeUsed}/durationDays`] = remainingDays;
+                    userUpdates[`subscription_codes/${sub.codeUsed}/usedCount`] = Math.max(0,(code.usedCount||1)-1);
+                    userUpdates[`subscription_codes/${sub.codeUsed}/usedBy/${uid}`] = null;
                 }
-                updates[`users/${uid}/subscription`] = null;
+                userUpdates[`users/${uid}/subscription`] = null;
             }
         }
+        if(inviteCode) userUpdates[`invite_codes/${inviteCode}`] = null;
+        userUpdates[`team_registry/${teamId}`] = null;
+        await db.ref().update(userUpdates);
 
-        // Delete the team itself
-        updates[`teams/${teamId}`] = null;
-        updates[`team_registry/${teamId}`] = null;
-        if(inviteCode) updates[`invite_codes/${inviteCode}`] = null;
-        // Clear captain's own teamId
-        updates[`users/${currentUid}/teamId`] = null;
+        // Step 2: delete entire team node in one shot (avoids ancestor/descendant conflict)
+        await db.ref(`teams/${teamId}`).remove();
 
-        await db.ref().update(updates);
         toast('Team disbanded.', 'success');
         setTimeout(() => window.location.href = 'team_setup.html', 1400);
     } catch(e){
