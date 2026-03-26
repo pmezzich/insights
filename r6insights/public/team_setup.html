@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Team Setup — R6 Insights</title>
+<link rel="stylesheet" href="../styles/pro-global.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+<script src="../scripts/firebase-config.js"></script>
+<script>if(localStorage.getItem('r6_theme')==='light')document.documentElement.classList.add('light-mode');</script>
+<script src="../scripts/theme.js"></script>
+<script src="../scripts/subscription-gate.js"></script>
+<style>
+body {
+    min-height:100vh;
+    background-color:var(--darker);
+    background-image:url('https://images.contentstack.io/v3/assets/bltb6530b271fddd0b1/blt6577b1f58530e6b2/5eb7cdc165eec876c4b5d0d8/rainbow6siege_bloodmoon_splash.jpg');
+    background-size:cover; background-position:center; background-attachment:fixed;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:80px 20px 40px;
+}
+body::before { content:''; position:fixed; inset:0; background:rgba(5,8,15,.75); pointer-events:none; }
+
+/* ── TOP NAV ── */
+.top-nav {
+    position:fixed; top:0; left:0; right:0; z-index:100;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 24px;
+    background:rgba(5,8,15,.85);
+    border-bottom:1px solid var(--card-border);
+    backdrop-filter:blur(12px);
+}
+.nav-logo { display:flex; align-items:center; gap:9px; text-decoration:none; }
+.nav-logo img { height:28px; filter:invert(1) sepia(1) saturate(4) hue-rotate(240deg) brightness(.95); }
+.nav-logo-text { font-size:16px; font-weight:900; color:var(--light); letter-spacing:.5px; }
+.nav-right { display:flex; align-items:center; gap:10px; }
+
+/* ── OUTER WRAP ── */
+.outer { position:relative; z-index:1; width:100%; max-width:860px; }
+
+/* ── HEADER ── */
+.setup-header { text-align:center; margin-bottom:32px; }
+.setup-header h1 {
+    font-size:clamp(28px,5vw,42px); font-weight:900;
+    color:var(--light); margin-bottom:8px;
+}
+.setup-header p { font-size:15px; color:var(--gray); }
+
+/* ── MODE TOGGLE ── */
+.mode-toggle {
+    display:flex; gap:0; margin:0 auto 28px;
+    background:rgba(10,16,28,.8);
+    border:1px solid var(--card-border);
+    border-radius:12px; padding:4px;
+    width:fit-content;
+}
+.mode-btn {
+    padding:10px 28px; border-radius:9px;
+    font-family:inherit; font-size:14px; font-weight:700;
+    border:none; cursor:pointer;
+    display:flex; align-items:center; gap:8px;
+    transition:all .2s; color:var(--gray); background:transparent;
+}
+.mode-btn.active {
+    background:var(--primary); color:#fff;
+    box-shadow:0 2px 12px rgba(124,58,237,.4);
+}
+.mode-btn:not(.active):hover { color:var(--light); }
+
+/* ── PANES ── */
+.pane { display:none; }
+.pane.active { display:block; }
+
+/* ── CARD ── */
+.setup-card {
+    background:rgba(13,18,32,.97);
+    border:1px solid var(--card-border);
+    border-radius:16px; overflow:hidden;
+    box-shadow:0 16px 48px rgba(0,0,0,.7);
+}
+.card-hdr {
+    padding:20px 24px;
+    background:linear-gradient(135deg,rgba(124,58,237,.1),rgba(79,70,229,.04));
+    border-bottom:1px solid var(--card-border);
+    display:flex; align-items:center; gap:12px;
+}
+.card-hdr-icon {
+    width:42px; height:42px; border-radius:11px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:18px; flex-shrink:0;
+}
+.card-hdr-title { font-size:18px; font-weight:800; color:var(--light); }
+.card-hdr-sub   { font-size:13px; color:var(--gray); margin-top:2px; }
+.card-body { padding:24px; display:flex; flex-direction:column; gap:16px; }
+
+/* ── FORM ── */
+.fg { display:flex; flex-direction:column; gap:6px; }
+.fg label { font-size:11px; font-weight:700; color:var(--gray); text-transform:uppercase; letter-spacing:.5px; }
+.fi {
+    padding:11px 14px; border-radius:9px;
+    border:1px solid var(--card-border);
+    background:rgba(10,16,28,.85);
+    color:var(--light); font-family:inherit; font-size:14px;
+    outline:none; transition:border-color .15s, box-shadow .15s; width:100%;
+}
+.fi:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(124,58,237,.12); }
+.fi::placeholder { color:rgba(148,163,184,.22); }
+.fi.valid   { border-color:rgba(52,211,153,.5); }
+.fi.invalid { border-color:rgba(248,113,113,.5); }
+
+/* Code input */
+.code-fi {
+    font-family:monospace; font-size:15px; font-weight:700;
+    letter-spacing:2px; text-transform:uppercase; text-align:center;
+}
+
+/* Validation banner */
+.val-banner {
+    display:none; padding:10px 14px; border-radius:8px;
+    font-size:13px; font-weight:600;
+    align-items:center; gap:8px;
+}
+.val-banner.show { display:flex; }
+.val-banner.ok      { background:rgba(52,211,153,.1);  border:1px solid rgba(52,211,153,.25);  color:#34d399; }
+.val-banner.err     { background:rgba(248,113,113,.1); border:1px solid rgba(248,113,113,.25); color:#f87171; }
+.val-banner.checking{ background:rgba(251,191,36,.08); border:1px solid rgba(251,191,36,.2);   color:#fbbf24; }
+
+/* Submit btn */
+.btn-submit {
+    width:100%; padding:13px; border-radius:10px;
+    background:linear-gradient(135deg,var(--primary),var(--secondary));
+    color:#fff; border:none; font-family:inherit;
+    font-size:15px; font-weight:800; cursor:pointer;
+    transition:all .18s; display:flex; align-items:center; justify-content:center; gap:8px;
+}
+.btn-submit:hover:not(:disabled) { opacity:.9; transform:translateY(-1px); box-shadow:0 6px 20px rgba(124,58,237,.4); }
+.btn-submit:disabled { opacity:.45; cursor:not-allowed; transform:none; }
+
+/* Error */
+.form-err { font-size:12px; color:#f87171; display:none; }
+.form-err.show { display:block; }
+
+/* ── INFO BOX ── */
+.info-box {
+    display:flex; gap:10px; align-items:flex-start;
+    padding:12px 14px; border-radius:9px;
+    background:rgba(124,58,237,.06);
+    border:1px solid rgba(124,58,237,.18);
+    font-size:13px; color:var(--gray); line-height:1.6;
+}
+.info-box i { color:var(--primary); margin-top:2px; flex-shrink:0; }
+
+/* ── SKIP LINK ── */
+.skip-link { text-align:center; margin-top:18px; font-size:13px; color:var(--gray); }
+.skip-link a { color:#a78bfa; text-decoration:none; font-weight:700; }
+.skip-link a:hover { text-decoration:underline; }
+
+/* ── SUCCESS ── */
+.success-wrap { text-align:center; padding:40px 24px; }
+.success-icon { font-size:56px; color:#34d399; margin-bottom:16px; }
+.success-title { font-size:22px; font-weight:800; color:var(--light); margin-bottom:8px; }
+.success-sub   { font-size:14px; color:var(--gray); line-height:1.7; margin-bottom:28px; }
+
+/* Already on a team notice */
+.already-notice {
+    text-align:center; padding:48px 24px;
+    display:flex; flex-direction:column; align-items:center; gap:14px;
+}
+.already-notice i { font-size:44px; color:#34d399; opacity:.7; }
+.already-notice h3 { font-size:20px; font-weight:800; color:var(--light); }
+.already-notice p  { font-size:14px; color:var(--gray); max-width:360px; line-height:1.7; }
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<div class="top-nav">
+    <a class="nav-logo" href="index_pro.html">
+        <img src="../styles/r6_insights.png" alt="R6 Insights" onerror="this.style.display='none'">
+        <span class="nav-logo-text">R6 INSIGHTS</span>
+    </a>
+    <div class="nav-right">
+        <a href="index_pro.html" class="btn btn-secondary" style="font-size:13px;"><i class="fas fa-house"></i> Hub</a>
+        <a href="profile.html" id="navAvatar" class="nav-avatar-btn" title="Profile">?</a>
+        <button class="btn-logout" onclick="firebase.auth().signOut().then(()=>location.href='index_pro.html')">
+            <i class="fas fa-right-from-bracket"></i> Logout
+        </button>
+    </div>
+</div>
+
+<div class="outer">
+
+    <!-- Header -->
+    <div class="setup-header">
+        <h1>Set Up Your Team</h1>
+        <p>Join an existing team with an invite code, or create a new one for free.</p>
+    </div>
+
+    <!-- Already on a team (shown if user already has teamId) -->
+    <div class="setup-card" id="alreadyOnTeamCard" style="display:none;">
+        <div class="already-notice">
+            <i class="fas fa-users-gear"></i>
+            <h3>You're already on a team</h3>
+            <p id="alreadyTeamName">You're currently a member of a team. Go to Team Management to view your roster or leave.</p>
+            <a href="team_managment_pro.html" class="btn btn-primary" style="text-decoration:none;">
+                <i class="fas fa-users"></i> Go to Team Management
+            </a>
+        </div>
+    </div>
+
+    <!-- Main setup (shown when not on a team) -->
+    <div id="mainSetup">
+
+        <!-- Mode toggle -->
+        <div class="mode-toggle">
+            <button class="mode-btn active" id="btnJoin"   onclick="setMode('join')">
+                <i class="fas fa-right-to-bracket"></i> Join a Team
+            </button>
+            <button class="mode-btn"        id="btnCreate" onclick="setMode('create')">
+                <i class="fas fa-plus"></i> Create a Team
+            </button>
+        </div>
+
+        <!-- ── JOIN PANE ── -->
+        <div class="pane active" id="paneJoin">
+            <div class="setup-card">
+                <div class="card-hdr">
+                    <div class="card-hdr-icon" style="background:rgba(96,165,250,.12);border:1px solid rgba(96,165,250,.25);color:#60a5fa;">
+                        <i class="fas fa-right-to-bracket"></i>
+                    </div>
+                    <div>
+                        <div class="card-hdr-title">Join a Team</div>
+                        <div class="card-hdr-sub">Enter the invite code your captain shared with you</div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="fg">
+                        <label>Team Invite Code</label>
+                        <input class="fi code-fi" type="text" id="joinCode"
+                            placeholder="XXXXXX"
+                            maxlength="6"
+                            oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,''); validateInviteCode(this.value)">
+                    </div>
+                    <div class="val-banner" id="joinBanner"></div>
+                    <div class="info-box">
+                        <i class="fas fa-circle-info"></i>
+                        <span>Ask your team captain to generate and share an invite code from the <strong>Team Management</strong> page.</span>
+                    </div>
+                    <div class="form-err" id="joinErr"></div>
+                    <button class="btn-submit" id="joinBtn" onclick="joinTeam()" disabled>
+                        <i class="fas fa-right-to-bracket"></i> Join Team
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── CREATE PANE ── -->
+        <div class="pane" id="paneCreate">
+            <div class="setup-card">
+                <div class="card-hdr">
+                    <div class="card-hdr-icon" style="background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.25);color:#a78bfa;">
+                        <i class="fas fa-shield-halved"></i>
+                    </div>
+                    <div>
+                        <div class="card-hdr-title">Create a Team</div>
+                        <div class="card-hdr-sub">You'll become captain and can invite players with a generated code</div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="fg">
+                        <label>Team Name</label>
+                        <input class="fi" type="text" id="teamName"
+                            placeholder="e.g. Nighthaven Esports"
+                            maxlength="40"
+                            oninput="clearCreateErr()">
+                    </div>
+                    <div class="info-box">
+                        <i class="fas fa-crown" style="color:#fbbf24;"></i>
+                        <span>Creating a team is <strong style="color:var(--light);">free</strong> with any active subscription. You'll be set as captain and can generate an invite code to add players.</span>
+                    </div>
+                    <div class="form-err" id="createErr"></div>
+                    <button class="btn-submit" id="createBtn" onclick="createTeam()">
+                        <i class="fas fa-plus"></i> Create Team
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Skip link -->
+        <div class="skip-link">
+            Not ready yet? <a href="index_pro.html">Go to hub</a> — you can set this up anytime.
+        </div>
+
+    </div><!-- /mainSetup -->
+
+    <!-- Success (injected after action) -->
+    <div class="setup-card" id="successCard" style="display:none;">
+        <div class="success-wrap">
+            <div class="success-icon"><i class="fas fa-circle-check"></i></div>
+            <div class="success-title" id="successTitle">Done!</div>
+            <div class="success-sub"  id="successMsg"></div>
+            <a href="index_pro.html" class="btn-submit" style="text-decoration:none;display:inline-flex;width:auto;padding:12px 32px;">
+                <i class="fas fa-house"></i> Go to Hub
+            </a>
+        </div>
+    </div>
+
+</div><!-- /outer -->
+
+<script src="../scripts/profile-loader.js"></script>
+<script>
+(function(){
+'use strict';
+
+if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db   = firebase.database();
+
+let currentUid  = null;
+let validatedTeamId = null;   // set when invite code resolves
+let validateTimer   = null;
+
+// ── Auth + gate ───────────────────────────────────────────────────
+auth.onAuthStateChanged(async user => {
+    if(!user || !user.emailVerified) return location.href = 'index_pro.html';
+
+    R6Theme.init(user.uid, db);
+    currentUid = user.uid;
+
+    // Must have an active subscription
+    const access = await R6Gate.check(user, db);
+    if(!R6Gate.require('sub', access)) return;
+
+    // If already on a team, show the already-on-team message
+    if(access.teamId) {
+        try {
+            const tnSnap = await db.ref(`teams/${access.teamId}/info/teamName`).once('value');
+            const teamName = tnSnap.val() || access.teamId;
+            document.getElementById('alreadyTeamName').textContent =
+                `You're currently a member of ${teamName}. Go to Team Management to manage your roster.`;
+        } catch(e) {}
+        document.getElementById('alreadyOnTeamCard').style.display = '';
+        document.getElementById('mainSetup').style.display = 'none';
+    }
+
+    // Update nav avatar
+    if(typeof loadNavProfile === 'function') loadNavProfile(user, db);
+});
+
+// ── Mode toggle ───────────────────────────────────────────────────
+window.setMode = function(mode) {
+    document.getElementById('btnJoin').classList.toggle('active',   mode==='join');
+    document.getElementById('btnCreate').classList.toggle('active', mode==='create');
+    document.getElementById('paneJoin').classList.toggle('active',   mode==='join');
+    document.getElementById('paneCreate').classList.toggle('active', mode==='create');
+};
+
+// ── JOIN: validate invite code ────────────────────────────────────
+window.validateInviteCode = function(code) {
+    const banner = document.getElementById('joinBanner');
+    const btn    = document.getElementById('joinBtn');
+    validatedTeamId = null;
+    btn.disabled = true;
+
+    if(code.length < 6) {
+        banner.className = 'val-banner';
+        return;
+    }
+
+    banner.className = 'val-banner checking show';
+    banner.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking code…';
+
+    clearTimeout(validateTimer);
+    validateTimer = setTimeout(async () => {
+        try {
+            const snap = await db.ref(`invite_codes/${code}`).once('value');
+            const teamId = snap.val();
+            if(!teamId) {
+                banner.className = 'val-banner err show';
+                banner.innerHTML = '<i class="fas fa-circle-xmark"></i> Invalid code — check with your captain.';
+                return;
+            }
+            // Get team name
+            const tnSnap = await db.ref(`teams/${teamId}/info/teamName`).once('value');
+            const teamName = tnSnap.val() || teamId;
+            validatedTeamId = teamId;
+            banner.className = 'val-banner ok show';
+            banner.innerHTML = `<i class="fas fa-circle-check"></i> Valid — joining <strong>${escHtml(teamName)}</strong>`;
+            btn.disabled = false;
+        } catch(e) {
+            banner.className = 'val-banner err show';
+            banner.innerHTML = `<i class="fas fa-circle-xmark"></i> Error: ${escHtml(e.message)}`;
+        }
+    }, 500);
+};
+
+// ── JOIN: submit ──────────────────────────────────────────────────
+window.joinTeam = async function() {
+    if(!validatedTeamId) return;
+    const btn = document.getElementById('joinBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Joining…';
+
+    try {
+        // Get user's display name for the player record
+        const userSnap = await db.ref(`users/${currentUid}`).once('value');
+        const userData = userSnap.val() || {};
+
+        const updates = {};
+        // Link user to team
+        updates[`users/${currentUid}/teamId`] = validatedTeamId;
+        // Add player to team roster
+        updates[`teams/${validatedTeamId}/players/${currentUid}`] = {
+            displayName: userData.displayName || userData.email || 'Player',
+            username:    userData.username    || '',
+            role:        'player',
+            playRole:    userData.playRole    || '',
+            inRoster:    true,
+            joinedAt:    Date.now(),
+        };
+        await db.ref().update(updates);
+
+        // Get team name for success msg
+        const tnSnap = await db.ref(`teams/${validatedTeamId}/info/teamName`).once('value');
+        showSuccess(
+            `Welcome to ${tnSnap.val() || 'the team'}!`,
+            'You\'ve been added to the roster. Head to the hub to start using your team\'s analytics.'
+        );
+    } catch(e) {
+        document.getElementById('joinErr').textContent = 'Failed: ' + e.message;
+        document.getElementById('joinErr').className = 'form-err show';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-right-to-bracket"></i> Join Team';
+    }
+};
+
+// ── CREATE: submit ────────────────────────────────────────────────
+window.createTeam = async function() {
+    const name = (document.getElementById('teamName').value || '').trim();
+    if(!name) { showCreateErr('Please enter a team name.'); return; }
+
+    const btn = document.getElementById('createBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating…';
+
+    try {
+        // Generate stable team ID
+        const baseId = name.toLowerCase()
+            .replace(/\s+/g,'_')
+            .replace(/[^a-z0-9_]/g,'')
+            .substring(0,24);
+        const teamId = baseId + '_' + Date.now().toString(36).slice(-5);
+
+        // Check for collision
+        const exists = await db.ref(`teams/${teamId}/info`).once('value');
+        if(exists.exists()) throw new Error('Team ID collision — try a slightly different name.');
+
+        // Generate 6-char invite code
+        const code = genCode();
+
+        // Get user data for captain record
+        const userSnap = await db.ref(`users/${currentUid}`).once('value');
+        const userData = userSnap.val() || {};
+
+        const now = Date.now();
+        const updates = {};
+
+        // Team info
+        updates[`teams/${teamId}/info`] = {
+            teamName:   name,
+            status:     'active',
+            inviteCode: code,
+            created:    new Date().toISOString(),
+        };
+
+        // Captain player record
+        updates[`teams/${teamId}/players/${currentUid}`] = {
+            displayName: userData.displayName || userData.email || 'Captain',
+            username:    userData.username    || '',
+            role:        'captain',
+            playRole:    userData.playRole    || '',
+            inRoster:    true,
+            joinedAt:    now,
+        };
+
+        // Link invite code → teamId
+        updates[`invite_codes/${code}`] = teamId;
+
+        // Link user → teamId
+        updates[`users/${currentUid}/teamId`] = teamId;
+
+        // Team registry entry
+        updates[`team_registry/${teamId}`] = {
+            teamName:  name,
+            createdAt: new Date().toISOString(),
+        };
+
+        await db.ref().update(updates);
+
+        showSuccess(
+            `"${name}" is ready!`,
+            `You're set as captain. Your invite code is <strong style="font-family:monospace;font-size:16px;letter-spacing:2px;color:#fbbf24;">${code}</strong> — share it with your players so they can join.`
+        );
+    } catch(e) {
+        showCreateErr(e.message);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-plus"></i> Create Team';
+    }
+};
+
+// ── Helpers ───────────────────────────────────────────────────────
+function showSuccess(title, msg) {
+    document.getElementById('mainSetup').style.display     = 'none';
+    document.getElementById('alreadyOnTeamCard').style.display = 'none';
+    document.getElementById('successCard').style.display   = '';
+    document.getElementById('successTitle').textContent    = title;
+    document.getElementById('successMsg').innerHTML        = msg;
+}
+
+function showCreateErr(msg) {
+    const el = document.getElementById('createErr');
+    el.textContent = msg;
+    el.className   = 'form-err show';
+}
+
+window.clearCreateErr = function() {
+    document.getElementById('createErr').className = 'form-err';
+};
+
+function genCode() {
+    const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let s = '';
+    for(let i=0;i<6;i++) s += c[Math.floor(Math.random()*c.length)];
+    return s;
+}
+
+function escHtml(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+})();
+</script>
+</body>
+</html>
