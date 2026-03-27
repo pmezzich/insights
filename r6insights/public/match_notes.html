@@ -348,6 +348,36 @@ body { background-color: var(--darker); min-height: 100vh; padding-bottom: 60px;
     .main-layout { grid-template-columns: 1fr; grid-template-rows: 280px 1fr; }
     .sidebar { border-right: none; border-bottom: 1px solid var(--card-border); }
 }
+/* ── NOTES TABS ─────────────────────────────────────────────────── */
+.notes-tabs { display:flex; gap:0; border-bottom:1px solid var(--card-border); padding:0 16px; background:rgba(15,23,42,0.3); flex-shrink:0; }
+.notes-tab-btn { padding:11px 18px; font-size:12px; font-weight:700; color:var(--gray); background:none; border:none; border-bottom:2px solid transparent; cursor:pointer; font-family:inherit; display:flex; align-items:center; gap:6px; transition:all .15s; white-space:nowrap; }
+.notes-tab-btn:hover { color:var(--light); }
+.notes-tab-btn.active { color:var(--primary); border-bottom-color:var(--primary); }
+
+/* ── PLAYER NOTE CARDS ──────────────────────────────────────────── */
+.player-note-card { background:rgba(15,23,42,0.5); border:1px solid var(--card-border); border-radius:10px; overflow:hidden; margin-bottom:12px; }
+.player-note-header { display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid var(--card-border); background:rgba(15,23,42,0.3); }
+.player-note-av { width:32px; height:32px; border-radius:8px; background:rgba(124,58,237,0.15); border:1px solid rgba(124,58,237,0.25); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; color:#a78bfa; flex-shrink:0; }
+.player-note-name { font-size:14px; font-weight:800; color:var(--light); }
+.note-visibility-badge { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; letter-spacing:.3px; }
+.badge-public  { background:rgba(52,211,153,.1);  border:1px solid rgba(52,211,153,.25);  color:#34d399; }
+.badge-private { background:rgba(248,113,113,.1); border:1px solid rgba(248,113,113,.25); color:#f87171; }
+.player-note-body { padding:12px 14px; display:flex; flex-direction:column; gap:10px; }
+.note-section { display:flex; flex-direction:column; gap:6px; }
+.note-section-lbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--gray); display:flex; align-items:center; gap:6px; }
+.notes-textarea-sm {
+    width:100%; background:rgba(10,16,28,0.7); border:1px solid var(--card-border);
+    border-radius:8px; color:var(--light); font-family:inherit; font-size:13px;
+    padding:10px 12px; outline:none; resize:vertical; min-height:72px;
+    transition:border-color .15s, box-shadow .15s; line-height:1.55;
+}
+.notes-textarea-sm:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(124,58,237,0.1); }
+.notes-textarea-sm::placeholder { color:rgba(148,163,184,0.25); }
+.notes-textarea-sm[readonly] { opacity:.6; cursor:default; }
+.note-save-row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.note-save-status { font-size:11px; color:var(--gray); }
+.note-save-status.saving { color:#fbbf24; }
+.note-save-status.saved  { color:#34d399; }
 </style>
 </head>
 <body>
@@ -421,12 +451,13 @@ const db   = firebase.database();
 const x = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
 // ── State ─────────────────────────────────────────────────────────
-let teamId       = null;
-let allMatches   = [];
-let rosterPlayers = [];
+let teamId        = null;
+let allMatches    = [];
+let rosterPlayers = []; // [{uid, displayName}]
 let activeMatchId = null;
-let saveTimer    = null;
-let currentRole  = '';
+let saveTimer     = null;
+let currentRole   = '';
+let currentUid    = '';
 
 // ── Auth ──────────────────────────────────────────────────────────
 auth.onAuthStateChanged(async user => {
@@ -438,10 +469,11 @@ auth.onAuthStateChanged(async user => {
         if(!teamId) throw new Error('No team');
 
         // Get user role
+        currentUid = user.uid;
         const roleSnap = await db.ref(`teams/${teamId}/players/${user.uid}/role`).once('value');
         currentRole = (roleSnap.val()||'').toLowerCase();
 
-        // Load roster
+        // Load roster with UIDs
         const rSnap = await db.ref(`teams/${teamId}/players`).once('value');
         rosterPlayers = [];
         rSnap.forEach(c => {
@@ -449,9 +481,9 @@ auth.onAuthStateChanged(async user => {
             if(!p) return;
             if(p.inRoster === false || p.inRoster === 'false') return;
             if(['coach','analyst'].includes((p.role||'').toLowerCase())) return;
-            if(p.displayName) rosterPlayers.push(p.displayName);
+            if(p.displayName) rosterPlayers.push({ uid: c.key, displayName: p.displayName });
         });
-        rosterPlayers.sort();
+        rosterPlayers.sort((a,b) => a.displayName.localeCompare(b.displayName));
 
         // Load matches
         const mSnap = await db.ref(`teams/${teamId}/matches_pro`).once('value');
@@ -526,13 +558,34 @@ window.openMatchById = function(id) {
 // ── Open a match ──────────────────────────────────────────────────
 async function openMatch(m) {
     activeMatchId = m.id;
-    renderMatchList(allMatches); // re-render to update active state
+    renderMatchList(allMatches);
 
-    // Load notes from Firebase (latest)
-    const notesSnap = await db.ref(`teams/${teamId}/matches_pro/${m.id}/notes`).once('value');
-    const notes = notesSnap.val() || {};
+    const isStaff = ['captain','coach','analyst'].includes(currentRole);
+    const notesRef = `teams/${teamId}/matches_pro/${m.id}/notes`;
 
-    renderNotesPanel(m, notes);
+    // Load general notes + POV links (all members can read)
+    const [generalSnap, povSnap] = await Promise.all([
+        db.ref(`${notesRef}/general`).once('value'),
+        db.ref(`${notesRef}/povLinks`).once('value'),
+    ]);
+    const generalNotes = generalSnap.val() || {};
+    const povLinks     = povSnap.val() || {};
+
+    // Load player notes — staff gets all, players get public + own private
+    const playerNotes = {}; // { uid: { public:{}, private:{} } }
+    for(const player of rosterPlayers) {
+        const pubSnap = await db.ref(`${notesRef}/playerNotes/${player.uid}/public`).once('value');
+        playerNotes[player.uid] = { public: pubSnap.val() || {} };
+        // Try to load private — rules will block if not allowed
+        try {
+            if(isStaff || player.uid === currentUid) {
+                const privSnap = await db.ref(`${notesRef}/playerNotes/${player.uid}/private`).once('value');
+                playerNotes[player.uid].private = privSnap.val() || {};
+            }
+        } catch(e) { playerNotes[player.uid].private = null; }
+    }
+
+    renderNotesPanel(m, { general: generalNotes, povLinks, playerNotes });
 }
 
 // ── Render notes panel ────────────────────────────────────────────
@@ -542,122 +595,166 @@ function renderNotesPanel(m, notes) {
     const win = mW > mL;
     const resCol = win ? '#34d399' : '#f87171';
     const canEdit = ['captain','coach','analyst'].includes(currentRole);
-
+    const isStaff = canEdit;
     const panel = document.getElementById('notesPanel');
 
-    // Map summary
+    // Map tiles
     const mapTiles = (m.maps||[]).map(mp => {
-        const w = (mp.teamScore||0) > (mp.opponentScore||0);
-        const l = (mp.teamScore||0) < (mp.opponentScore||0);
-        const c = w ? '#34d399' : l ? '#f87171' : '#fbbf24';
-        return `<div class="map-tile">
-            <div class="map-tile-name">${x(mp.mapName||'?')}</div>
-            <div class="map-tile-score" style="color:${c};">${mp.teamScore??'?'}–${mp.opponentScore??'?'}</div>
-        </div>`;
+        const w=(mp.teamScore||0)>(mp.opponentScore||0), l=(mp.teamScore||0)<(mp.opponentScore||0);
+        const c=w?'#34d399':l?'#f87171':'#fbbf24';
+        return `<div class="map-tile"><div class="map-tile-name">${x(mp.mapName||'?')}</div><div class="map-tile-score" style="color:${c};">${mp.teamScore??'?'}\u2013${mp.opponentScore??'?'}</div></div>`;
     }).join('');
 
     // POV links
     const povLinks = notes.povLinks || {};
     const povRows = rosterPlayers.map(player => {
-        const link = povLinks[player] || '';
+        const link = povLinks[player.displayName] || '';
         const hasLink = !!link;
+        const esc_name = player.displayName.replace(/'/g,"\\'");
         return `<div class="pov-row">
-            <div class="pov-avatar">${player.slice(0,2).toUpperCase()}</div>
-            <div class="pov-name" title="${x(player)}">${x(player)}</div>
+            <div class="pov-avatar">${player.displayName.slice(0,2).toUpperCase()}</div>
+            <div class="pov-name" title="${x(player.displayName)}">${x(player.displayName)}</div>
             <input class="pov-input${hasLink?' has-val':''}" type="text"
-                id="pov_${CSS.escape(player)}"
-                placeholder="YouTube URL…"
+                id="pov_${CSS.escape(player.displayName)}"
+                placeholder="YouTube URL\u2026"
                 value="${x(link)}"
                 ${canEdit?'':'readonly'}
-                oninput="onPovInput(this,'${player.replace(/'/g,"\\'")}')">
-            <a class="pov-open-btn${hasLink?'':' disabled'}" id="povbtn_${CSS.escape(player)}"
+                oninput="onPovInput(this,'${esc_name}')">
+            <a class="pov-open-btn${hasLink?'':' disabled'}" id="povbtn_${CSS.escape(player.displayName)}"
                 href="${link||'#'}" target="_blank" title="Open in new tab">
                 <i class="fas fa-arrow-up-right-from-square"></i>
             </a>
         </div>`;
     }).join('');
+    const povCount = rosterPlayers.filter(p => povLinks[p.displayName]).length;
 
-    // Count POVs with links
-    const povCount = rosterPlayers.filter(p => povLinks[p]).length;
+    // General notes
+    const general = notes.general || {};
+    const genSavedInfo = general.updatedAt
+        ? `Saved ${new Date(general.updatedAt).toLocaleTimeString()} by ${general.updatedBy||'?'}`
+        : 'No general notes yet';
 
-    const savedInfo = notes.updatedAt
-        ? `Last saved ${new Date(notes.updatedAt).toLocaleString()} by ${notes.updatedBy||'unknown'}`
-        : 'No notes saved yet';
+    // Player note cards
+    const playerNotes = notes.playerNotes || {};
+    const playerCards = rosterPlayers.map(player => {
+        const pn = playerNotes[player.uid] || {};
+        const pub = pn.public || {};
+        const priv = pn.private;  // null = no access, {} = empty, {text} = has note
+        const canSeePrivate = isStaff || player.uid === currentUid;
+        const privSaved = priv?.updatedAt ? `Saved ${new Date(priv.updatedAt).toLocaleTimeString()} by ${priv.updatedBy||'?'}` : '';
+        const pubSaved  = pub.updatedAt   ? `Saved ${new Date(pub.updatedAt).toLocaleTimeString()} by ${pub.updatedBy||'?'}` : '';
+
+        return `<div class="player-note-card">
+            <div class="player-note-header">
+                <div class="player-note-av">${player.displayName.slice(0,2).toUpperCase()}</div>
+                <div class="player-note-name">${x(player.displayName)}</div>
+            </div>
+            <div class="player-note-body">
+                <!-- Public note -->
+                <div class="note-section">
+                    <div class="note-section-lbl">
+                        <i class="fas fa-globe" style="color:#34d399;"></i>
+                        <span class="note-visibility-badge badge-public">Public</span>
+                        <span style="font-weight:400;text-transform:none;letter-spacing:0;">— visible to all team members</span>
+                    </div>
+                    <textarea class="notes-textarea-sm" id="pub_${player.uid}"
+                        placeholder="${canEdit?'Public note for '+player.displayName+'\u2026':'No public note yet.'}"
+                        ${canEdit?'':'readonly'}
+                        oninput="schedulePlayerSave('${player.uid}','public')">${x(pub.text||'')}</textarea>
+                    ${pubSaved?`<div class="note-save-status" id="pub_status_${player.uid}">${pubSaved}</div>`:`<div class="note-save-status" id="pub_status_${player.uid}"></div>`}
+                </div>
+                <!-- Private note -->
+                ${canSeePrivate ? `<div class="note-section">
+                    <div class="note-section-lbl">
+                        <i class="fas fa-lock" style="color:#f87171;"></i>
+                        <span class="note-visibility-badge badge-private">Private</span>
+                        <span style="font-weight:400;text-transform:none;letter-spacing:0;">— only ${isStaff?'coaches & this player':'you & coaches'} can see this</span>
+                    </div>
+                    <textarea class="notes-textarea-sm" id="priv_${player.uid}"
+                        placeholder="${canEdit?'Private note for '+player.displayName+' (only coaches and this player see this)\u2026':'Private note from your coach.'}"
+                        ${canEdit?'':'readonly'}
+                        oninput="schedulePlayerSave('${player.uid}','private')">${x(priv?.text||'')}</textarea>
+                    ${privSaved?`<div class="note-save-status" id="priv_status_${player.uid}">${privSaved}</div>`:`<div class="note-save-status" id="priv_status_${player.uid}"></div>`}
+                </div>` : ''}
+            </div>
+        </div>`;
+    }).join('');
 
     panel.innerHTML = `
     <div class="notes-header">
         <div class="notes-header-info">
             <div class="notes-match-name">${x(m.opponent||'Unknown')}</div>
             <div class="notes-match-meta">
-                <span><i class="fas fa-calendar"></i> ${x(m.date||'—')}</span>
-                <span style="color:${resCol};font-weight:700;"><i class="fas fa-gamepad"></i> ${mW}–${mL} maps</span>
+                <span><i class="fas fa-calendar"></i> ${x(m.date||'\u2014')}</span>
+                <span style="color:${resCol};font-weight:700;"><i class="fas fa-gamepad"></i> ${mW}\u2013${mL} maps</span>
                 <span><i class="fas fa-tag"></i> ${x(m.matchType||'scrim')}</span>
-                ${(m.maps||[]).length ? `<span><i class="fas fa-map"></i> ${(m.maps||[]).map(mp=>mp.mapName||'?').join(' · ')}</span>` : ''}
+                ${(m.maps||[]).length?`<span><i class="fas fa-map"></i> ${(m.maps||[]).map(mp=>mp.mapName||'?').join(' \u00b7 ')}</span>`:''}
             </div>
         </div>
-        ${povCount >= 2 ? `
-        <button class="watch-all-btn" onclick="watchAllPovs('${m.id}')">
-            <i class="fas fa-tv"></i> Watch All POVs (${povCount})
-        </button>` : ''}
+        ${povCount>=2?`<button class="watch-all-btn" onclick="watchAllPovs('${m.id}')"><i class="fas fa-tv"></i> Watch All POVs (${povCount})</button>`:''}
     </div>
 
-    <div class="notes-body">
+    <!-- Tabs -->
+    <div class="notes-tabs">
+        <button class="notes-tab-btn active" id="tab-general" onclick="switchNoteTab('general')"><i class="fas fa-pen-to-square"></i> General Notes</button>
+        <button class="notes-tab-btn" id="tab-players" onclick="switchNoteTab('players')"><i class="fas fa-users"></i> Player Notes</button>
+        <button class="notes-tab-btn" id="tab-pov" onclick="switchNoteTab('pov')"><i class="fas fa-video"></i> POV Links${povCount>0?` <span style="background:rgba(124,58,237,.2);border-radius:4px;padding:1px 6px;font-size:10px;">${povCount}</span>`:''}</button>
+    </div>
 
-        <!-- Map Summary -->
-        ${(m.maps||[]).length ? `
-        <div class="notes-section">
-            <div class="notes-section-hdr"><i class="fas fa-map"></i> Map Results</div>
-            <div class="notes-section-body">
-                <div class="map-summary-grid">${mapTiles}</div>
-            </div>
-        </div>` : ''}
-
-        <!-- Coaching Notes -->
+    <!-- General notes tab -->
+    <div class="notes-body" id="tab-pane-general">
+        ${(m.maps||[]).length?`<div class="notes-section"><div class="notes-section-hdr"><i class="fas fa-map"></i> Map Results</div><div class="notes-section-body"><div class="map-summary-grid">${mapTiles}</div></div></div>`:''}
         <div class="notes-section">
             <div class="notes-section-hdr">
-                <i class="fas fa-pen-to-square"></i> Coaching Notes
-                ${!canEdit ? '<span style="margin-left:auto;font-size:10px;color:var(--gray);font-weight:400;text-transform:none;">View only</span>' : ''}
+                <i class="fas fa-globe" style="color:#34d399;"></i> General Notes
+                <span class="note-visibility-badge badge-public" style="margin-left:8px;">Public</span>
+                <span style="margin-left:auto;font-size:10px;color:var(--gray);font-weight:400;text-transform:none;">Visible to entire team</span>
             </div>
             <div class="notes-section-body">
-                <textarea class="notes-textarea" id="notesText"
-                    placeholder="Add coaching notes, tactical observations, areas to improve…${canEdit?'':'\n(Only coaches, analysts, and captains can edit notes)'}"
+                <textarea class="notes-textarea" id="generalText"
+                    placeholder="General coaching notes, team-wide observations, tactical focus areas\u2026${canEdit?'':'\n(View only \u2014 coaches can edit)'}"
                     ${canEdit?'':'readonly'}
-                    oninput="scheduleNoteSave()">${x(notes.text||'')}</textarea>
+                    oninput="scheduleGeneralSave()">${x(general.text||'')}</textarea>
                 <div class="notes-meta-bar">
-                    <span class="notes-saved-info" id="saveStatus">${savedInfo}</span>
-                    ${canEdit ? `<button class="btn btn-primary" onclick="saveNotes(true)">
-                        <i class="fas fa-floppy-disk"></i> Save Notes
-                    </button>` : ''}
+                    <span class="notes-saved-info" id="generalStatus">${genSavedInfo}</span>
+                    ${canEdit?`<button class="btn btn-primary" onclick="saveGeneral(true)"><i class="fas fa-floppy-disk"></i> Save</button>`:''}
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- POV Links -->
+    <!-- Player notes tab -->
+    <div class="notes-body" id="tab-pane-players" style="display:none;">
+        ${rosterPlayers.length?playerCards:`<div style="text-align:center;padding:40px;color:var(--gray);font-size:13px;"><i class="fas fa-users" style="font-size:28px;opacity:.15;display:block;margin-bottom:12px;"></i>No roster players found.</div>`}
+        ${canEdit&&rosterPlayers.length?`<div style="display:flex;justify-content:flex-end;margin-top:8px;"><button class="btn btn-primary" onclick="saveAllPlayerNotes()"><i class="fas fa-floppy-disk"></i> Save All Player Notes</button></div>`:''}
+    </div>
+
+    <!-- POV links tab -->
+    <div class="notes-body" id="tab-pane-pov" style="display:none;">
         <div class="notes-section">
             <div class="notes-section-hdr">
                 <i class="fas fa-video"></i> Player POV Links
-                <span style="margin-left:auto;font-size:10px;color:var(--gray);font-weight:400;text-transform:none;letter-spacing:0;">
-                    ${povCount} of ${rosterPlayers.length} linked
-                </span>
+                <span style="margin-left:auto;font-size:10px;color:var(--gray);font-weight:400;text-transform:none;letter-spacing:0;">${povCount} of ${rosterPlayers.length} linked</span>
             </div>
             <div class="notes-section-body">
-                ${rosterPlayers.length ? `
+                ${rosterPlayers.length?`
                 <div class="pov-grid" id="povGrid">${povRows}</div>
                 <div style="margin-top:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                    ${canEdit ? `<button class="btn btn-primary" onclick="savePovLinks()">
-                        <i class="fas fa-floppy-disk"></i> Save POV Links
-                    </button>` : ''}
-                    ${povCount >= 2 ? `
-                    <button class="watch-all-btn" onclick="watchAllPovs('${m.id}')">
-                        <i class="fas fa-tv"></i> Watch All POVs in Multi-Stream
-                    </button>` : `
-                    <span style="font-size:12px;color:var(--gray);">Add 2+ POV links to enable Multi-Stream</span>`}
-                </div>` : '<p style="color:var(--gray);font-size:13px;">No roster players found.</p>'}
+                    ${canEdit?`<button class="btn btn-primary" onclick="savePovLinks()"><i class="fas fa-floppy-disk"></i> Save POV Links</button>`:''}
+                    ${povCount>=2?`<button class="watch-all-btn" onclick="watchAllPovs('${m.id}')"><i class="fas fa-tv"></i> Watch All POVs in Multi-Stream</button>`:`<span style="font-size:12px;color:var(--gray);">Add 2+ POV links to enable Multi-Stream</span>`}
+                </div>`:'<p style="color:var(--gray);font-size:13px;">No roster players found.</p>'}
             </div>
         </div>
-
     </div>`;
 }
+
+window.switchNoteTab = function(tab) {
+    ['general','players','pov'].forEach(t => {
+        document.getElementById('tab-'+t)?.classList.toggle('active', t===tab);
+        const pane = document.getElementById('tab-pane-'+t);
+        if(pane) pane.style.display = t===tab?'':'none';
+    });
+};
 
 // ── POV input handler ─────────────────────────────────────────────
 window.onPovInput = function(inp, player) {
@@ -671,75 +768,88 @@ window.onPovInput = function(inp, player) {
     }
 };
 
-// ── Autosave notes (debounced 1.5s) ──────────────────────────────
-window.scheduleNoteSave = function() {
-    setStatus('saving');
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => saveNotes(false), 1500);
+// ── General notes save ───────────────────────────────────────────
+let generalSaveTimer = null;
+window.scheduleGeneralSave = function() {
+    setGeneralStatus('saving');
+    clearTimeout(generalSaveTimer);
+    generalSaveTimer = setTimeout(() => saveGeneral(false), 1500);
+};
+window.saveGeneral = async function(manual) {
+    if(!activeMatchId||!teamId) return;
+    const el = document.getElementById('generalText');
+    if(!el) return;
+    const user = auth.currentUser;
+    try {
+        await db.ref(`teams/${teamId}/matches_pro/${activeMatchId}/notes/general`).set({
+            text: el.value, updatedAt: Date.now(),
+            updatedBy: user?.displayName||user?.email||'unknown'
+        });
+        setGeneralStatus('saved', `Saved ${new Date().toLocaleTimeString()}`);
+        if(manual) toast('General notes saved');
+        refreshMatchNotesDot(activeMatchId);
+    } catch(e) { setGeneralStatus('idle','Save failed'); toast('Save failed: '+e.message); }
+};
+function setGeneralStatus(state, msg) {
+    const el = document.getElementById('generalStatus');
+    if(!el) return;
+    if(state==='saving') { el.className='notes-saved-info saving'; el.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Saving…'; }
+    else if(state==='saved') { el.className='notes-saved-info saved saved-pulse'; el.textContent=msg||'Saved'; }
+    else { el.className='notes-saved-info'; el.textContent=msg||''; }
+}
+
+// ── Player notes save ────────────────────────────────────────────
+const playerSaveTimers = {};
+window.schedulePlayerSave = function(uid, type) {
+    const key = uid+'_'+type;
+    const statusEl = document.getElementById((type==='public'?'pub':'priv')+'_status_'+uid);
+    if(statusEl) { statusEl.className='note-save-status saving'; statusEl.textContent='Saving…'; }
+    clearTimeout(playerSaveTimers[key]);
+    playerSaveTimers[key] = setTimeout(() => savePlayerNote(uid, type, false), 1500);
 };
 
-function setStatus(state, msg) {
-    const el = document.getElementById('saveStatus');
+async function savePlayerNote(uid, type, manual) {
+    if(!activeMatchId||!teamId) return;
+    const inputId = (type==='public'?'pub':'priv')+'_'+uid;
+    const el = document.getElementById(inputId);
     if(!el) return;
-    if(state === 'saving') {
-        el.className = 'notes-saved-info saving';
-        el.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Saving…';
-    } else if(state === 'saved') {
-        el.className = 'notes-saved-info saved saved-pulse';
-        el.textContent = msg || 'Saved';
-    } else {
-        el.className = 'notes-saved-info';
-        el.textContent = msg || '';
+    const statusEl = document.getElementById((type==='public'?'pub':'priv')+'_status_'+uid);
+    const user = auth.currentUser;
+    try {
+        await db.ref(`teams/${teamId}/matches_pro/${activeMatchId}/notes/playerNotes/${uid}/${type}`).set({
+            text: el.value, updatedAt: Date.now(),
+            updatedBy: user?.displayName||user?.email||'unknown'
+        });
+        const ts = `Saved ${new Date().toLocaleTimeString()}`;
+        if(statusEl) { statusEl.className='note-save-status saved'; statusEl.textContent=ts; }
+        if(manual) toast(`${type==='private'?'Private':'Public'} note saved`);
+    } catch(e) {
+        if(statusEl) { statusEl.className='note-save-status'; statusEl.textContent='Save failed'; }
+        toast('Save failed: '+e.message);
     }
 }
 
-// ── Save notes text ───────────────────────────────────────────────
-window.saveNotes = async function(manual) {
-    if(!activeMatchId || !teamId) return;
-    const textarea = document.getElementById('notesText');
-    if(!textarea) return;
-    const text = textarea.value;
-    const user = auth.currentUser;
-
-    try {
-        await db.ref(`teams/${teamId}/matches_pro/${activeMatchId}/notes`).update({
-            text,
-            updatedAt: Date.now(),
-            updatedBy: user?.displayName || user?.email || 'unknown'
-        });
-        setStatus('saved', `Saved ${new Date().toLocaleTimeString()}`);
-        if(manual) toast('Notes saved');
-        // Refresh match list to show/hide notes dot
-        refreshMatchNotesDot(activeMatchId);
-    } catch(e) {
-        setStatus('idle', 'Save failed');
-        toast('Save failed: ' + e.message);
+window.saveAllPlayerNotes = async function() {
+    for(const player of rosterPlayers) {
+        await savePlayerNote(player.uid, 'public', false);
+        await savePlayerNote(player.uid, 'private', false);
     }
+    toast('All player notes saved');
 };
 
 // ── Save POV links ────────────────────────────────────────────────
 window.savePovLinks = async function() {
-    if(!activeMatchId || !teamId) return;
+    if(!activeMatchId||!teamId) return;
     const povLinks = {};
     rosterPlayers.forEach(player => {
-        const inp = document.getElementById('pov_' + CSS.escape(player));
-        if(inp && inp.value.trim()) {
-            povLinks[player] = inp.value.trim();
-        }
+        const inp = document.getElementById('pov_'+CSS.escape(player.displayName));
+        if(inp&&inp.value.trim()) povLinks[player.displayName] = inp.value.trim();
     });
     try {
         await db.ref(`teams/${teamId}/matches_pro/${activeMatchId}/notes/povLinks`).set(povLinks);
         toast('POV links saved');
-        // Re-render header to update "Watch All POVs" button count
-        const m = allMatches.find(m => m.id === activeMatchId);
-        if(m) {
-            const notesSnap = await db.ref(`teams/${teamId}/matches_pro/${activeMatchId}/notes`).once('value');
-            renderNotesPanel(m, notesSnap.val()||{});
-        }
         refreshMatchNotesDot(activeMatchId);
-    } catch(e) {
-        toast('Save failed: ' + e.message);
-    }
+    } catch(e) { toast('Save failed: '+e.message); }
 };
 
 // ── Watch all POVs in multistream ─────────────────────────────────
