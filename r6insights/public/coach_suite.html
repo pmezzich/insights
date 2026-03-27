@@ -138,7 +138,7 @@
         <a href="index_pro.html" class="logo" style="text-decoration:none;">
             <img src="../styles/r6_insights.png" class="logo-img" alt="R6 Insights">
             <div class="logo-text">R6 INSIGHTS</div>
-            
+            <span class="nav-badge">Beta</span>
         </a>
         <div class="nav-right">
             <a href="index_pro.html" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Hub</a>
@@ -323,7 +323,6 @@
 
     </div><!-- #mainContent -->
 
-<div style="text-align:center;padding:14px 20px;font-size:12px;color:rgba(148,163,184,0.5);">© 2026 R6 Insights. All rights reserved.</div>
 </div><!-- .container -->
 
 <script src="../scripts/profile-loader.js"></script>
@@ -352,8 +351,19 @@ auth.onAuthStateChanged(async user => {
         ]);
         const userData = userSnap.val() || {};
         const isAdmin  = adminSnap.exists();
-        const role     = (userData.role || '').toLowerCase();
-        const teamId   = userData.teamId;
+        // userData.role may be stale — always cross-check the team player record
+        const userRole  = (userData.role || '').toLowerCase();
+        const teamId    = userData.teamId;
+
+        // Fetch the authoritative role from the team players node
+        let teamRole = userRole;
+        if (teamId) {
+            try {
+                const teamRoleSnap = await db.ref(`teams/${teamId}/players/${user.uid}/role`).once('value');
+                if (teamRoleSnap.exists()) teamRole = (teamRoleSnap.val() || '').toLowerCase();
+            } catch(_) {}
+        }
+        const role = teamRole || userRole;
 
         const hasAccess = isAdmin || ALLOWED_ROLES.includes(role);
 

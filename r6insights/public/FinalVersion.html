@@ -802,7 +802,7 @@ window.addEventListener('unhandledrejection', (e) => {
             <a href="index_pro.html" class="logo">
                 <img src="../styles/r6_insights.png" class="logo-img" alt="R6 Insights">
                 <div class="logo-text">R6 INSIGHTS</div>
-                
+                <span class="nav-badge">Beta</span>
             </a>
             <div class="nav-right">
                 <div class="team-pill" id="teamInfo" style="display: none;">
@@ -838,6 +838,13 @@ window.addEventListener('unhandledrejection', (e) => {
                         <h2>Upload Match Replay</h2>
                     </div>
                     
+                    <div class="form-group">
+                        <label class="form-label">Recording Team <span style="font-size:11px;color:var(--gray);font-weight:400;">(which team was recording?)</span></label>
+                        <select id="recordingTeamSelect" class="form-input">
+                            <option value="">Loading teams…</option>
+                        </select>
+                    </div>
+
                     <div class="form-group">
                         <label class="form-label">Opponent Team</label>
                         <input type="text" id="opponentInput" class="form-input" placeholder="Enter opponent team name">
@@ -1051,6 +1058,9 @@ window.addEventListener('unhandledrejection', (e) => {
                 userTeamName = teamNameSnapshot.val();
                 document.getElementById('teamName').textContent = userTeamName;
 
+                // Populate Recording Team selector
+                await populateTeamSelector(user.uid, teamId, userTeamName);
+
                 addMapUpload();
             } catch (error) {
                 showError(`Authentication error: ${error.message}`);
@@ -1058,6 +1068,44 @@ window.addEventListener('unhandledrejection', (e) => {
                 window.location.href = 'index_pro.html';
             }
         });
+
+        // Populate the recording team dropdown
+        async function populateTeamSelector(uid, primaryTeamId, primaryTeamName) {
+            const sel = document.getElementById('recordingTeamSelect');
+            if (!sel) return;
+
+            const options = [];
+
+            // Always include the user's own team first
+            if (primaryTeamId) {
+                options.push({ id: primaryTeamId, name: primaryTeamName || primaryTeamId });
+            }
+
+            // Admins get all teams
+            try {
+                const adminSnap = await db.ref(`admins/${uid}`).once('value');
+                if (adminSnap.exists()) {
+                    const allTeamsSnap = await db.ref('teams').once('value');
+                    const allTeams = allTeamsSnap.val() || {};
+                    Object.entries(allTeams).forEach(([tid, tdata]) => {
+                        if (tid !== primaryTeamId) {
+                            options.push({ id: tid, name: tdata?.info?.teamName || tid });
+                        }
+                    });
+                }
+            } catch(e) {}
+
+            sel.innerHTML = options.map(o =>
+                `<option value="${o.id}"${o.id === primaryTeamId ? ' selected' : ''}>${o.name}</option>`
+            ).join('');
+
+            // When selection changes, update teamId and userTeamName
+            sel.onchange = function() {
+                teamId = this.value;
+                userTeamName = this.options[this.selectedIndex].text;
+                document.getElementById('teamName').textContent = userTeamName;
+            };
+        }
 
         // Add a new map upload field
         function addMapUpload() {
@@ -1213,6 +1261,13 @@ window.addEventListener('unhandledrejection', (e) => {
             }
             
             // Initialize match data
+            // Re-sync teamId from selector in case user changed it
+            const recSel = document.getElementById('recordingTeamSelect');
+            if (recSel && recSel.value) {
+                teamId = recSel.value;
+                userTeamName = recSel.options[recSel.selectedIndex]?.text || userTeamName;
+            }
+
             const matchTypeEl = document.querySelector('input[name="matchType"]:checked');
             const matchType = matchTypeEl ? matchTypeEl.value : 'scrim';
             matchData = {
@@ -1753,25 +1808,20 @@ function updateMatchSummary() {
         }
 
         function showSuccess() {
-            const successEl = document.createElement('div');
-            successEl.className = 'event-item';
-            successEl.style.backgroundColor = 'rgba(16, 185, 129, 0.2)';
-            successEl.style.borderLeftColor = 'var(--success)';
-            successEl.innerHTML = `
-                <div class="event-header">
-                    <div class="event-type">Upload Successful!</div>
-                </div>
-                <div>Match data has been saved to Firebase</div>
-                <div class="form-actions" style="margin-top: 15px;">
-                    <button class="btn btn-primary" onclick="location.reload()">
-                        <i class="fas fa-sync"></i> Process Another Match
-                    </button>
-                </div>
-            `;
-            outputLog.parentNode.insertBefore(successEl, outputLog);
-            
-            // Scroll to success message
-            successEl.scrollIntoView({ behavior: 'smooth' });
+            // Auto-reset everything so the form is ready for the next match immediately
+            executeClearAll();
+            outputLog.textContent = '✅ Match uploaded successfully! Ready to process another match.';
+
+            // Brief green flash on the log to confirm
+            outputLog.style.borderColor = 'var(--success)';
+            outputLog.style.boxShadow   = '0 0 0 2px rgba(16,185,129,0.3)';
+            setTimeout(() => {
+                outputLog.style.borderColor = '';
+                outputLog.style.boxShadow   = '';
+            }, 2500);
+
+            // Scroll log into view
+            outputLog.scrollIntoView({ behavior: 'smooth' });
         }
 
         // UI Helpers
@@ -2034,7 +2084,6 @@ function hideLoading(){ const m=document.getElementById('loadingModal'); if(m) m
 })();
 </script>
 
-    <div style="text-align:center;padding:14px 20px;font-size:12px;color:rgba(148,163,184,0.5);">© 2026 R6 Insights. All rights reserved.</div>
-<script src="../scripts/profile-loader.js"></script>
+    <script src="../scripts/profile-loader.js"></script>
 </body>
 </html>

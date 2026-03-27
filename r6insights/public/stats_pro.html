@@ -695,20 +695,18 @@ auth.onAuthStateChanged(function(user){
     noTeam.style.display='block';
   }
 
-  // Demo mode: anonymous user from overview
-  var _isDemoStats = user && user.isAnonymous && sessionStorage.getItem('demoMode') === '1';
-  if(!user || (!user.emailVerified && !_isDemoStats)){ window.location.href='index_pro.html'; return; }
+  var _isDemo = user && user.isAnonymous && sessionStorage.getItem('demoMode') === '1';
+  if(!user || (!user.emailVerified && !_isDemo)){ window.location.href='index_pro.html'; return; }
 
-  // Resolve teamId — demo users get it from sessionStorage
-  var teamIdPromise = _isDemoStats
+  if(!_isDemo) R6Theme.init(user.uid, db);
+
+  var teamIdPromise = _isDemo
     ? Promise.resolve({ exists: ()=>true, val: ()=>sessionStorage.getItem('adminPreviewTeamId')||'' })
     : db.ref('users/'+user.uid+'/teamId').once('value');
 
-  if(!_isDemoStats) R6Theme.init(user.uid, db);
-
   teamIdPromise
     .then(function(tSnap){
-      if (!_isDemoStats) R6Theme.init(user.uid, db);
+      if(!_isDemo) R6Theme.init(user.uid, db);
       if (!tSnap.exists() || !tSnap.val()) {
         logln('No teamId — UID: '+user.uid);
         var dbg=document.getElementById('noTeamDebug');
