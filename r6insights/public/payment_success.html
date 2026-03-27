@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Payment Successful — R6 Insights</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;900&family=Barlow:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+:root{--ink:#05080f;--glow:#7C3AED;--soft:#a78bfa;--green:#34d399;--text:#e2e8f0;--muted:#64748b;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--ink);color:var(--text);font-family:'Barlow',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
+  background-image:url('https://images.contentstack.io/v3/assets/bltb6530b271fddd0b1/blt6577b1f58530e6b2/5eb7cdc165eec876c4b5d0d8/rainbow6siege_bloodmoon_splash.jpg');
+  background-size:cover;background-position:center;}
+body::before{content:'';position:fixed;inset:0;background:rgba(5,8,15,0.88);pointer-events:none;}
+
+.card{position:relative;z-index:1;width:100%;max-width:520px;background:rgba(10,15,30,0.97);border:1px solid rgba(124,58,237,0.3);border-radius:20px;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,0.7);}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(to right,var(--green),#22d3ee);}
+
+.card-body{padding:40px 36px;}
+.icon-wrap{width:72px;height:72px;border-radius:50%;background:rgba(52,211,153,0.15);border:2px solid rgba(52,211,153,0.4);display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--green);margin:0 auto 24px;}
+
+h1{font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:900;text-align:center;margin-bottom:10px;}
+.subtitle{text-align:center;color:var(--muted);font-size:15px;line-height:1.6;margin-bottom:28px;}
+
+.email-notice{background:rgba(52,211,153,0.08);border:1px solid rgba(52,211,153,0.25);border-radius:12px;padding:18px 20px;margin-bottom:28px;display:flex;align-items:flex-start;gap:14px;}
+.email-notice i{color:var(--green);font-size:18px;margin-top:1px;flex-shrink:0;}
+.email-notice p{font-size:14px;line-height:1.6;color:var(--text);}
+.email-notice strong{color:var(--green);}
+
+.steps{display:flex;flex-direction:column;gap:12px;margin-bottom:28px;}
+.step{display:flex;align-items:center;gap:14px;padding:12px 16px;background:rgba(124,58,237,0.06);border:1px solid rgba(124,58,237,0.12);border-radius:10px;}
+.step-num{width:28px;height:28px;border-radius:50%;background:var(--glow);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.step-text{font-size:13px;color:var(--text);}
+
+.btn{display:block;text-align:center;padding:14px;border-radius:10px;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;text-decoration:none;transition:all .18s;cursor:pointer;border:none;width:100%;}
+.btn-primary{background:linear-gradient(135deg,var(--glow),#4F46E5);color:#fff;box-shadow:0 4px 20px rgba(124,58,237,.35);margin-bottom:10px;}
+.btn-primary:hover{opacity:.9;transform:translateY(-1px);}
+.btn-outline{background:transparent;color:var(--text);border:1px solid rgba(255,255,255,0.12);}
+.btn-outline:hover{border-color:rgba(167,139,250,.4);color:var(--soft);}
+
+.footer-note{text-align:center;margin-top:20px;font-size:12px;color:var(--muted);}
+.footer-note a{color:#7289da;text-decoration:none;}
+
+/* Loading state */
+#loadingState{display:flex;flex-direction:column;align-items:center;gap:16px;padding:40px;}
+.spinner{width:44px;height:44px;border:3px solid rgba(124,58,237,0.2);border-top-color:var(--glow);border-radius:50%;animation:spin .75s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+
+<div class="card" id="card">
+  <!-- Loading shown briefly while we verify session -->
+  <div id="loadingState" class="card-body">
+    <div class="spinner"></div>
+    <p style="color:var(--muted);font-size:14px;">Confirming your order…</p>
+  </div>
+
+  <!-- Success state (shown after verification) -->
+  <div id="successState" class="card-body" style="display:none;">
+    <div class="icon-wrap"><i class="fas fa-circle-check"></i></div>
+    <h1>Payment Successful!</h1>
+    <p class="subtitle">Your subscription has been activated. Check your email for your code.</p>
+
+    <div class="email-notice">
+      <i class="fas fa-envelope"></i>
+      <p>We've sent your <strong>subscription code</strong> to your email address. It may take a minute to arrive — check your spam folder if you don't see it.</p>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text">Open the email from R6 Insights and copy your code</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text">Click <strong>Create Account</strong> below and enter the code</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text">Verify your email and you're ready to go</div>
+      </div>
+    </div>
+
+    <a href="create_account.html" class="btn btn-primary">
+      <i class="fas fa-user-plus"></i> Create Account
+    </a>
+    <a href="index_pro.html" class="btn btn-outline">
+      <i class="fas fa-right-to-bracket"></i> Sign In (Already have an account)
+    </a>
+
+    <div class="footer-note">
+      Issues with your order? Find us on <a href="https://discord.gg/Gyng9tT76y" target="_blank">Discord</a>.
+    </div>
+  </div>
+
+  <!-- Error state -->
+  <div id="errorState" class="card-body" style="display:none;">
+    <div class="icon-wrap" style="background:rgba(239,68,68,0.12);border-color:rgba(239,68,68,0.3);color:#f87171;">
+      <i class="fas fa-triangle-exclamation"></i>
+    </div>
+    <h1 style="color:#fca5a5;">Something went wrong</h1>
+    <p class="subtitle">Your payment was processed but we couldn't confirm the session. Your code will arrive via email within a few minutes.</p>
+    <a href="overview.html" class="btn btn-primary" style="margin-top:8px;">Back to Home</a>
+    <div class="footer-note" style="margin-top:16px;">
+      Still having trouble? <a href="https://discord.gg/Gyng9tT76y" target="_blank">Contact us on Discord</a>.
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  const sessionId = params.get('session_id');
+
+  if (!sessionId) {
+    // No session ID — probably navigated directly
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('successState').style.display = 'block';
+    return;
+  }
+
+  // Very brief delay so loading spinner is visible
+  setTimeout(() => {
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('successState').style.display = 'block';
+  }, 1200);
+})();
+</script>
+</body>
+</html>
