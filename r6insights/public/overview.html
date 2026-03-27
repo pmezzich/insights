@@ -625,6 +625,35 @@ footer {
     .hstat-val { font-size:28px; }
     .features-grid { grid-template-columns:1fr; }
 }
+
+/* ── CHECKOUT MODAL ── */
+#checkoutModal {
+    position:fixed;inset:0;background:rgba(0,0,0,0.75);
+    display:none;align-items:center;justify-content:center;
+    z-index:9999;padding:20px;backdrop-filter:blur(6px);
+}
+#checkoutModal.open { display:flex; }
+.cm-card {
+    background:rgba(10,15,30,0.99);border:1px solid rgba(124,58,237,0.3);
+    border-radius:18px;width:100%;max-width:400px;
+    box-shadow:0 24px 64px rgba(0,0,0,0.8);overflow:hidden;position:relative;
+}
+.cm-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(to right,var(--glow),#4F46E5);}
+.cm-header{padding:22px 24px 16px;border-bottom:1px solid rgba(255,255,255,0.07);}
+.cm-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:900;color:#fff;margin-bottom:4px;}
+.cm-sub{font-size:13px;color:var(--muted);}
+.cm-body{padding:20px 24px;}
+.cm-plan-row{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.07);margin-bottom:16px;background:rgba(15,23,42,0.5);}
+.cm-plan-name{font-size:14px;font-weight:700;color:#fff;}
+.cm-plan-price{font-size:14px;font-weight:800;color:var(--soft);}
+.cm-err{font-size:12px;color:#f87171;margin-bottom:12px;display:none;}
+.cm-err.show{display:block;}
+.cm-btn{width:100%;padding:13px;border-radius:10px;background:linear-gradient(135deg,var(--glow),#4F46E5);color:#fff;border:none;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;cursor:pointer;transition:all .18s;display:flex;align-items:center;justify-content:center;gap:8px;}
+.cm-btn:hover:not(:disabled){opacity:.9;transform:translateY(-1px);}
+.cm-btn:disabled{opacity:.45;cursor:not-allowed;transform:none;}
+.cm-close{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;transition:color .15s;line-height:1;}
+.cm-close:hover{color:#fff;}
+.cm-secure{display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;color:var(--muted);margin-top:12px;}
 </style>
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
@@ -979,7 +1008,7 @@ footer {
                     <div class="pf"><i class="fas fa-check-circle"></i> Opponent Scouting</div>
                     <div class="pf muted"><i class="fas fa-circle"></i> 1 invite code (you)</div>
                 </div>
-                <a href="https://discord.gg/Gyng9tT76y" target="_blank" class="price-btn price-btn-outline">Get Started</a>
+                <button onclick="openCheckout('solo')" class="price-btn price-btn-outline">Get Started</button>
             </div>
 
             <!-- PER TEAM -->
@@ -1018,7 +1047,7 @@ footer {
                     <div class="pf"><i class="fas fa-check-circle"></i> Multi-Stream Viewer</div>
                     <div class="pf"><i class="fas fa-check-circle"></i> Team Management panel</div>
                 </div>
-                <a href="https://discord.gg/Gyng9tT76y" target="_blank" class="price-btn price-btn-primary">Get Started</a>
+                <button onclick="openCheckout('team')" class="price-btn price-btn-primary">Get Started</button>
             </div>
 
             <!-- ORG -->
@@ -1055,7 +1084,7 @@ footer {
                     <div class="pf"><i class="fas fa-check-circle"></i> Admin dashboard access</div>
                     <div class="pf"><i class="fas fa-check-circle"></i> Priority support</div>
                 </div>
-                <a href="https://discord.gg/Gyng9tT76y" target="_blank" class="price-btn price-btn-outline">Get Started</a>
+                <button onclick="openCheckout('org')" class="price-btn price-btn-outline">Get Started</button>
             </div>
 
         </div>
@@ -1137,11 +1166,120 @@ function setBilling(type, btn){
 // ── FAQ toggle ────────────────────────────────────────────────────
 function toggleFaq(el){ el.classList.toggle('open'); }
 
+
+// ── Checkout ──────────────────────────────────────────────────────────────────
+// UPDATE THIS to your deployed Worker URL
+const WORKER_URL = 'https://wandering-butterfly-2324.pmezzich.workers.dev';
+
+// Plan key is determined by the current billing toggle state
+const PLAN_LABELS = {
+    solo_monthly:  { name: 'Solo Plan — 1 Month',   price: '$4.99'     },
+    solo_3mo:      { name: 'Solo Plan — 3 Months',  price: '$11.99'    },
+    solo_yearly:   { name: 'Solo Plan — 1 Year',    price: '$49.99'    },
+    team_monthly:  { name: 'Team Plan — 1 Month',   price: '$24.99'    },
+    team_3mo:      { name: 'Team Plan — 3 Months',  price: '$65.00'    },
+    team_yearly:   { name: 'Team Plan — 1 Year',    price: '$269.99'   },
+    org_monthly:   { name: 'Org Plan — 1 Month',    price: '$114.99'   },
+    org_3mo:       { name: 'Org Plan — 3 Months',   price: '$325.00'   },
+    org_yearly:    { name: 'Org Plan — 1 Year',     price: '$1,199.99' },
+};
+
+let _activePlanKey = null;
+
+function getCurrentBilling() {
+    // Read which toggle is active
+    const active = document.querySelector('.ptoggle.active');
+    if (!active) return 'monthly';
+    const text = active.textContent.trim().toLowerCase();
+    if (text.startsWith('3')) return '3mo';
+    if (text.startsWith('y')) return 'yearly';
+    return 'monthly';
+}
+
+window.openCheckout = function(planType) {
+    const billing  = getCurrentBilling();
+    const planKey  = `${planType}_${billing}`;
+    const info     = PLAN_LABELS[planKey];
+    if (!info) return;
+
+    _activePlanKey = planKey;
+    document.getElementById('cmPlanName').textContent  = info.name;
+    document.getElementById('cmPlanPrice').textContent = info.price;
+    document.getElementById('cmErr').className = 'cm-err';
+    document.getElementById('cmErr').textContent = '';
+    document.getElementById('cmBtn').disabled = false;
+    document.getElementById('cmBtn').innerHTML = '<i class="fas fa-lock"></i> Continue to Secure Payment';
+    document.getElementById('checkoutModal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+};
+
+window.closeCheckout = function() {
+    document.getElementById('checkoutModal').classList.remove('open');
+    document.body.style.overflow = '';
+};
+
+window.proceedToCheckout = async function() {
+    const btn = document.getElementById('cmBtn');
+    const err = document.getElementById('cmErr');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Redirecting…';
+    err.className = 'cm-err';
+
+    try {
+        const res  = await fetch(`${WORKER_URL}/create-checkout`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ planKey: _activePlanKey }),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || 'Server error');
+        window.location.href = data.url;
+    } catch(e) {
+        err.textContent = e.message || 'Something went wrong. Please try again.';
+        err.className = 'cm-err show';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-lock"></i> Continue to Secure Payment';
+    }
+};
+
+// Close modal on backdrop click
+document.getElementById('checkoutModal').addEventListener('click', function(e) {
+    if (e.target === this) closeCheckout();
+});
+// Close on Escape
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeCheckout(); });
+
 // ── Scroll reveal ─────────────────────────────────────────────────
 const observer = new IntersectionObserver(entries=>{
     entries.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('visible'); });
 },{threshold:.12});
 document.querySelectorAll('.reveal').forEach(el=>observer.observe(el));
 </script>
+
+<!-- ── CHECKOUT MODAL ───────────────────────────────────────────── -->
+<div id="checkoutModal">
+    <div class="cm-card">
+        <button class="cm-close" onclick="closeCheckout()"><i class="fas fa-xmark"></i></button>
+        <div class="cm-header">
+            <div class="cm-title">Complete Your Purchase</div>
+            <div class="cm-sub">You'll be redirected to Stripe's secure checkout.</div>
+        </div>
+        <div class="cm-body">
+            <div class="cm-plan-row">
+                <span class="cm-plan-name" id="cmPlanName">—</span>
+                <span class="cm-plan-price" id="cmPlanPrice">—</span>
+            </div>
+            <div class="cm-err" id="cmErr"></div>
+            <button class="cm-btn" id="cmBtn" onclick="proceedToCheckout()">
+                <i class="fas fa-lock"></i> Continue to Secure Payment
+            </button>
+            <div class="cm-secure">
+                <i class="fab fa-stripe" style="font-size:16px;color:#635bff;"></i>
+                Payments secured by Stripe · We never store card details
+            </div>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>
