@@ -391,6 +391,40 @@
             transition: all 0.18s;
         }
         .btn-logout:hover { background: rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.65); }
+
+        /* ── DEMO BANNER ── */
+        #demoBanner {
+            display: none;
+            background: linear-gradient(90deg, rgba(52,211,153,0.15), rgba(34,211,238,0.1));
+            border-bottom: 1px solid rgba(52,211,153,0.35);
+            padding: 10px 24px;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        #demoBanner.show { display: flex; }
+        .demo-pill {
+            display: inline-flex; align-items: center; gap: 7px;
+            background: rgba(52,211,153,0.2);
+            border: 1px solid rgba(52,211,153,0.4);
+            color: #34d399;
+            font-size: 11px; font-weight: 800;
+            padding: 4px 12px; border-radius: 20px;
+            text-transform: uppercase; letter-spacing: .8px;
+        }
+        .demo-text { font-size: 13px; color: rgba(226,232,240,0.8); flex: 1; }
+        .demo-exit-btn {
+            padding: 7px 16px; border-radius: 7px;
+            background: rgba(52,211,153,0.15);
+            border: 1px solid rgba(52,211,153,0.35);
+            color: #34d399; font-size: 12px; font-weight: 700;
+            cursor: pointer; font-family: inherit;
+            display: inline-flex; align-items: center; gap: 6px;
+            transition: all .15s;
+        }
+        .demo-exit-btn:hover { background: rgba(52,211,153,0.25); }
     </style>
 </head>
 <body>
@@ -449,6 +483,12 @@
 
     <!-- Hub — hidden until authenticated -->
     <div id="hubWrap">
+    <!-- Demo Mode Banner -->
+    <div id="demoBanner">
+        <span class="demo-pill"><i class="fas fa-eye"></i> Demo Mode</span>
+        <span class="demo-text">You're viewing a demo of R6 Insights with sample data. <a href="overview.html#pricing" style="color:#34d399;font-weight:700;">Get a plan</a> to use it with your own team.</span>
+        <button class="demo-exit-btn" onclick="exitDemo()"><i class="fas fa-xmark"></i> Exit Demo</button>
+    </div>
     <div class="container">
 
         <!-- Nav Header -->
@@ -641,8 +681,32 @@
                 showLogin();
                 return;
             }
+
+            // ── Demo Mode: anonymous user coming from overview demo button ──
+            const isDemoMode = user.isAnonymous && sessionStorage.getItem('demoMode') === '1';
+            if (isDemoMode) {
+                const demoTeamId   = sessionStorage.getItem('adminPreviewTeamId') || '';
+                const demoTeamName = sessionStorage.getItem('adminPreviewTeamName') || 'Demo Team';
+                try {
+                    const tSnap = await db.ref(`teams/${demoTeamId}/info/teamName`).once('value');
+                    $('teamNameDisplay').textContent = tSnap.val() || demoTeamName;
+                } catch(_) {
+                    $('teamNameDisplay').textContent = demoTeamName;
+                }
+                showHub();
+                showDemoBanner();
+                // Unlock all cards for demo
+                document.querySelectorAll('[data-gate]').forEach(el => {
+                    el.style.pointerEvents = '';
+                    el.style.opacity = '';
+                    const lock = el.querySelector('.gate-lock');
+                    if (lock) lock.remove();
+                });
+                return;
+            }
+
             // Gate: email must be verified
-                if (!user.emailVerified) { showVerify(user); return; }
+            if (!user.emailVerified) { showVerify(user); return; }
             R6Theme.init(user.uid, db);
 
             try {
@@ -793,6 +857,21 @@
             el.textContent = msg;
             el.className = 'show';
         }
+
+        // ── Demo helpers ──────────────────────────────────────────────────
+        function showDemoBanner() {
+            const b = document.getElementById('demoBanner');
+            if (b) b.classList.add('show');
+        }
+
+        window.exitDemo = async function() {
+            sessionStorage.removeItem('demoMode');
+            sessionStorage.removeItem('adminPreviewTeamId');
+            sessionStorage.removeItem('adminPreviewTeamName');
+            try { await auth.signOut(); } catch(_) {}
+            window.location.href = 'overview.html';
+        };
+
     })();
     </script>
     <script src="../scripts/profile-loader.js"></script>

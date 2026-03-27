@@ -513,13 +513,20 @@ nav {
 .price-btn-outline:hover { border-color:rgba(167,139,250,.4); color:var(--soft); }
 
 /* Billing toggle visibility */
-.monthly-price { display:flex; }
-.yearly-price  { display:none; }
-.show-yearly .monthly-price { display:none; }
-.show-yearly .yearly-price  { display:flex; }
-.monthly-saving { display:none; }
-.yearly-saving  { display:none; }
-.show-yearly .yearly-saving { display:inline-flex; }
+.monthly-price    { display:flex; }
+.threemo-price    { display:none; }
+.yearly-price     { display:none; }
+.show-threemo .monthly-price    { display:none; }
+.show-threemo .threemo-price    { display:flex; }
+.show-threemo .yearly-price     { display:none; }
+.show-yearly  .monthly-price    { display:none; }
+.show-yearly  .threemo-price    { display:none; }
+.show-yearly  .yearly-price     { display:flex; }
+.monthly-saving  { display:none; }
+.threemo-saving  { display:none; }
+.yearly-saving   { display:none; }
+.show-threemo .threemo-saving { display:inline-flex; }
+.show-yearly  .yearly-saving  { display:inline-flex; }
 
 /* ══════════════════════════════════════════════════════════════════
    COACH SUITE HIGHLIGHT
@@ -619,6 +626,9 @@ footer {
     .features-grid { grid-template-columns:1fr; }
 }
 </style>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+<script src="../scripts/firebase-config.js"></script>
 </head>
 <body>
 
@@ -635,6 +645,7 @@ footer {
         <a href="#coach">Coach Suite</a>
         <a href="#pricing">Pricing</a>
         <a href="#faq">FAQ</a>
+        <a href="javascript:launchDemo()" style="color:#34d399;display:flex;align-items:center;gap:6px;"><i class="fas fa-eye"></i> Try Demo</a>
         <a href="https://discord.gg/Gyng9tT76y" target="_blank" style="color:#7289da;display:flex;align-items:center;gap:6px;">
             <i class="fab fa-discord"></i> Contact Us
         </a>
@@ -670,9 +681,9 @@ footer {
             <a href="#pricing" class="btn-hero-primary">
                 <i class="fas fa-bolt"></i> Get Started
             </a>
-            <a href="#features" class="btn-hero-secondary">
-                <i class="fas fa-play-circle"></i> See What's Inside
-            </a>
+            <button class="btn-hero-secondary" onclick="launchDemo()" id="demoBtn">
+                <i class="fas fa-eye"></i> Try Demo Free
+            </button>
         </div>
         <div class="hero-stats">
             <div class="hstat">
@@ -892,6 +903,33 @@ footer {
     </div>
 </div>
 
+
+<!-- ── DEMO CTA ──────────────────────────────────────────────────── -->
+<div style="padding:0 40px 80px;max-width:1200px;margin:0 auto;">
+    <div style="background:linear-gradient(135deg,rgba(52,211,153,0.1),rgba(34,211,238,0.06));border:1px solid rgba(52,211,153,0.25);border-radius:24px;padding:52px 60px;text-align:center;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:-80px;right:-80px;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(52,211,153,0.1) 0%,transparent 70%);pointer-events:none;"></div>
+        <div style="display:inline-flex;align-items:center;gap:8px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--green);border:1px solid rgba(52,211,153,0.3);padding:5px 14px;border-radius:20px;background:rgba(52,211,153,0.08);margin-bottom:20px;">
+            <i class="fas fa-eye"></i> No sign-up required
+        </div>
+        <h2 style="font-family:'Barlow Condensed',sans-serif;font-size:clamp(32px,5vw,52px);font-weight:900;color:var(--white);margin-bottom:14px;line-height:1.05;">See R6 Insights in Action</h2>
+        <p style="font-size:16px;color:var(--muted);max-width:500px;margin:0 auto 36px;line-height:1.7;">
+            Browse the full platform loaded with a real competitive team's data. No account needed — just click and explore.
+        </p>
+        <div style="display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;">
+            <button onclick="launchDemo()" id="demoBtnSection" style="display:inline-flex;align-items:center;gap:10px;padding:15px 36px;border-radius:10px;background:var(--green);color:#000;border:none;font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:900;letter-spacing:.3px;text-transform:uppercase;cursor:pointer;transition:all .18s;box-shadow:0 4px 24px rgba(52,211,153,.35);">
+                <i class="fas fa-play"></i> Launch Demo
+            </button>
+            <span style="font-size:13px;color:var(--muted);">← Fully interactive · Real match data · No data entry</span>
+        </div>
+        <div style="display:flex;justify-content:center;gap:28px;margin-top:28px;flex-wrap:wrap;">
+            <span style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;"><i class="fas fa-chart-bar" style="color:var(--green);"></i> Player Stats</span>
+            <span style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;"><i class="fas fa-crosshairs" style="color:var(--green);"></i> Opponent Scouting</span>
+            <span style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;"><i class="fas fa-chalkboard-user" style="color:var(--green);"></i> Coach Suite</span>
+            <span style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;"><i class="fas fa-clock-rotate-left" style="color:var(--green);"></i> Match History</span>
+        </div>
+    </div>
+</div>
+
 <!-- ── PRICING ───────────────────────────────────────────────────── -->
 <section id="pricing">
     <div class="pricing-inner">
@@ -901,7 +939,8 @@ footer {
             <p class="section-sub" style="margin:0 auto;">Whether you're a solo analyst or running a full org — there's a plan for you.</p>
             <div class="pricing-toggle">
                 <button class="ptoggle active" onclick="setBilling('monthly',this)">Monthly</button>
-                <button class="ptoggle" onclick="setBilling('yearly',this)">Yearly <span style="color:#34d399;font-size:11px;margin-left:4px;">Save ~17%</span></button>
+                <button class="ptoggle" onclick="setBilling('threemo',this)">3 Months <span style="color:#fbbf24;font-size:11px;margin-left:4px;">Save 20%</span></button>
+                <button class="ptoggle" onclick="setBilling('yearly',this)">Yearly <span style="color:#34d399;font-size:11px;margin-left:4px;">Save 33%</span></button>
             </div>
         </div>
 
@@ -918,12 +957,18 @@ footer {
                     <span class="price-number">4</span>
                     <span class="price-period">.99<br>/mo</span>
                 </div>
+                <div class="threemo-price price-amount">
+                    <span class="price-currency">$</span>
+                    <span class="price-number">11</span>
+                    <span class="price-period">.99<br>/3 mo</span>
+                </div>
                 <div class="yearly-price price-amount">
                     <span class="price-currency">$</span>
                     <span class="price-number">49</span>
                     <span class="price-period">.99<br>/yr</span>
                 </div>
-                <div class="yearly-saving price-saving"><i class="fas fa-tag"></i> Save $10 — $60 value</div>
+                <div class="threemo-saving price-saving"><i class="fas fa-tag"></i> Save $3 vs monthly — $15 value</div>
+                <div class="yearly-saving price-saving"><i class="fas fa-tag"></i> Save $10 vs monthly — $60 value</div>
                 <div style="height:22px;" class="monthly-saving"></div>
 
                 <div class="price-features">
@@ -934,7 +979,7 @@ footer {
                     <div class="pf"><i class="fas fa-check-circle"></i> Opponent Scouting</div>
                     <div class="pf muted"><i class="fas fa-circle"></i> 1 invite code (you)</div>
                 </div>
-                <a href="#" class="price-btn price-btn-outline">Get Started</a>
+                <a href="https://discord.gg/Gyng9tT76y" target="_blank" class="price-btn price-btn-outline">Get Started</a>
             </div>
 
             <!-- PER TEAM -->
@@ -949,12 +994,18 @@ footer {
                     <span class="price-number">24</span>
                     <span class="price-period">.99<br>/mo</span>
                 </div>
+                <div class="threemo-price price-amount">
+                    <span class="price-currency">$</span>
+                    <span class="price-number">65</span>
+                    <span class="price-period"><br>/3 mo</span>
+                </div>
                 <div class="yearly-price price-amount">
                     <span class="price-currency">$</span>
                     <span class="price-number">269</span>
                     <span class="price-period">.99<br>/yr</span>
                 </div>
-                <div class="yearly-saving price-saving"><i class="fas fa-tag"></i> Save $30 — $300 value</div>
+                <div class="threemo-saving price-saving"><i class="fas fa-tag"></i> Save $10 vs monthly — $75 value</div>
+                <div class="yearly-saving price-saving"><i class="fas fa-tag"></i> Save $30 vs monthly — $300 value</div>
                 <div style="height:22px;" class="monthly-saving"></div>
 
                 <div class="price-codes"><i class="fas fa-ticket"></i> 5 Invite Codes Included</div>
@@ -967,7 +1018,7 @@ footer {
                     <div class="pf"><i class="fas fa-check-circle"></i> Multi-Stream Viewer</div>
                     <div class="pf"><i class="fas fa-check-circle"></i> Team Management panel</div>
                 </div>
-                <a href="#" class="price-btn price-btn-primary">Get Started</a>
+                <a href="https://discord.gg/Gyng9tT76y" target="_blank" class="price-btn price-btn-primary">Get Started</a>
             </div>
 
             <!-- ORG -->
@@ -981,12 +1032,18 @@ footer {
                     <span class="price-number">114</span>
                     <span class="price-period">.99<br>/mo</span>
                 </div>
+                <div class="threemo-price price-amount">
+                    <span class="price-currency">$</span>
+                    <span class="price-number">325</span>
+                    <span class="price-period"><br>/3 mo</span>
+                </div>
                 <div class="yearly-price price-amount">
                     <span class="price-currency">$</span>
                     <span class="price-number">1199</span>
                     <span class="price-period">.99<br>/yr</span>
                 </div>
-                <div class="yearly-saving price-saving"><i class="fas fa-tag"></i> Save $300 — $1,500 value</div>
+                <div class="threemo-saving price-saving"><i class="fas fa-tag"></i> Save $20 vs monthly — $375 value</div>
+                <div class="yearly-saving price-saving"><i class="fas fa-tag"></i> Save $180 vs monthly — $1,500 value</div>
                 <div style="height:22px;" class="monthly-saving"></div>
 
                 <div class="price-codes"><i class="fas fa-ticket"></i> 25 Invite Codes Included</div>
@@ -998,7 +1055,7 @@ footer {
                     <div class="pf"><i class="fas fa-check-circle"></i> Admin dashboard access</div>
                     <div class="pf"><i class="fas fa-check-circle"></i> Priority support</div>
                 </div>
-                <a href="#" class="price-btn price-btn-outline">Contact Us</a>
+                <a href="https://discord.gg/Gyng9tT76y" target="_blank" class="price-btn price-btn-outline">Get Started</a>
             </div>
 
         </div>
@@ -1040,12 +1097,41 @@ footer {
 </footer>
 
 <script>
+
+// ── Demo Mode ─────────────────────────────────────────────────────
+// IMPORTANT: Set this to your demo team's Firebase ID.
+// Create a demo team via the Admin Panel, upload fake match data,
+// then paste the team ID here (e.g. 'r6i_demo_team_abc12').
+const DEMO_TEAM_ID = 'PASTE_YOUR_DEMO_TEAM_ID_HERE';
+
+async function launchDemo(){
+    const btns = document.querySelectorAll('#demoBtn,#demoBtnSection');
+    btns.forEach(b=>{ b.disabled=true; b.innerHTML='<i class="fas fa-spinner fa-spin"></i> Loading Demo…'; });
+
+    try {
+        if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+        const auth = firebase.auth();
+        // Sign in anonymously so Firebase rules pass
+        const cred = await auth.signInAnonymously();
+        // Flag demo mode so index_pro shows the demo team
+        sessionStorage.setItem('demoMode','1');
+        sessionStorage.setItem('adminPreviewTeamId', DEMO_TEAM_ID);
+        sessionStorage.setItem('adminPreviewTeamName','Demo Team');
+        window.location.href = 'index_pro.html?adminPreview=1&demo=1';
+    } catch(e){
+        btns.forEach(b=>{ b.disabled=false; b.innerHTML='<i class="fas fa-eye"></i> Try Demo Free'; });
+        alert('Demo launch failed: ' + e.message + '\n\nMake sure Firebase Anonymous Auth is enabled in your Firebase console.');
+    }
+}
+
 // ── Billing toggle ────────────────────────────────────────────────
 function setBilling(type, btn){
     document.querySelectorAll('.ptoggle').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     const grid = document.getElementById('pricingGrid');
-    grid.classList.toggle('show-yearly', type==='yearly');
+    grid.classList.remove('show-threemo','show-yearly');
+    if(type==='threemo') grid.classList.add('show-threemo');
+    if(type==='yearly')  grid.classList.add('show-yearly');
 }
 
 // ── FAQ toggle ────────────────────────────────────────────────────
