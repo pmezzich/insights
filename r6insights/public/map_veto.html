@@ -305,15 +305,12 @@ html.light-mode .map-input { color:#0F172A; }
 html.light-mode .cell-input:focus,
 html.light-mode .map-input:focus { background:rgba(255,255,255,0.9); }
 
-/* ── FORMAT TOGGLE ── */
-.format-toggle { display:flex; gap:0; background:rgba(10,16,28,.8); border:1px solid var(--card-border); border-radius:8px; padding:3px; }
-.fmt-btn { padding:5px 14px; border-radius:5px; font-family:inherit; font-size:12px; font-weight:800; border:none; cursor:pointer; color:var(--gray); background:transparent; transition:all .15s; letter-spacing:.3px; }
-.fmt-btn.active { background:var(--primary); color:#fff; box-shadow:0 2px 8px rgba(124,58,237,.4); }
-.fmt-btn:not(.active):hover { color:var(--light); }
-/* Hide map columns dynamically */
-.veto-table .col-map4, .veto-table .col-map5 { display:none; }
-.veto-table.bo5 .col-map4, .veto-table.bo5 .col-map5 { display:table-cell; }
-.veto-table.bo1 .col-map2, .veto-table.bo1 .col-map3 { display:none; }
+/* ── PER-ROW FORMAT TOGGLE ── */
+.row-fmt { display:flex; gap:2px; }
+.row-fmt-btn { padding:2px 7px; border-radius:4px; font-family:inherit; font-size:10px; font-weight:800; border:1px solid var(--card-border); cursor:pointer; color:var(--gray); background:transparent; transition:all .12s; }
+.row-fmt-btn.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+.row-fmt-btn:not(.active):hover { color:var(--light); border-color:rgba(124,58,237,.4); }
+/* Per-row cell hiding via inline display */
 </style>
 </head>
 <body>
@@ -384,6 +381,7 @@ html.light-mode .map-input:focus { background:rgba(255,255,255,0.9); }
                 <thead>
                     <tr>
                         <th style="width:26px;"></th>
+                        <th style="min-width:78px;">Format</th>
                         <th class="left" style="min-width:88px;">Date</th>
                         <th class="left" style="min-width:100px;">Tournament</th>
                         <th style="min-width:100px;">Our Ban</th>
@@ -494,6 +492,7 @@ function newRow(d){
         map3:d?.map3||'', map3r:d?.map3r||'none',
         map4:d?.map4||'', map4r:d?.map4r||'none',
         map5:d?.map5||'', map5r:d?.map5r||'none',
+        format:d?.format||'bo3',
         series:d?.series||'none', notes:d?.notes||''
     };
 }
@@ -546,24 +545,17 @@ function openSheet(idx){
     const wins  = sheet.rows.filter(r=>r.series==='W').length;
     const losses= sheet.rows.filter(r=>r.series==='L').length;
     const wr    = (wins+losses)>0?Math.round(wins/(wins+losses)*100)+'%':'—';
-    const fmt = sheet.format || 'bo3';
     header.innerHTML=`
         <input class="sheet-name-input" value="${esc(sheet.name)}"
             title="Double-click or edit to rename"
             oninput="sheets[${idx}].name=this.value;renderTabs();scheduleSave();"
             onfocus="this.select()">
-        <div class="format-toggle">
-            <button class="fmt-btn${fmt==='bo1'?' active':''}" onclick="setFormat(${idx},'bo1')">BO1</button>
-            <button class="fmt-btn${fmt==='bo3'?' active':''}" onclick="setFormat(${idx},'bo3')">BO3</button>
-            <button class="fmt-btn${fmt==='bo5'?' active':''}" onclick="setFormat(${idx},'bo5')">BO5</button>
-        </div>
         <div class="sheet-stats">
             <div class="sstat"><span>${sheet.rows.length}</span> matches</div>
             <div class="sstat win"><strong>${wins}</strong> W</div>
             <div class="sstat loss"><strong>${losses}</strong> L</div>
             <div class="sstat"><strong>${wr}</strong> win rate</div>
         </div>`;
-    applyFormat(fmt);
 
     renderBody(idx);
 }
@@ -590,6 +582,13 @@ function renderBody(idx){
         tr.dataset.ri=ri;
         tr.innerHTML=`
             <td class="row-num">${ri+1}</td>
+            <td>
+                <div class="row-fmt">
+                    <button class="row-fmt-btn${(row.format||'bo3')==='bo1'?' active':''}" onclick="setRowFormat(${idx},${ri},'bo1')">B1</button>
+                    <button class="row-fmt-btn${(row.format||'bo3')==='bo3'?' active':''}" onclick="setRowFormat(${idx},${ri},'bo3')">B3</button>
+                    <button class="row-fmt-btn${(row.format||'bo3')==='bo5'?' active':''}" onclick="setRowFormat(${idx},${ri},'bo5')">B5</button>
+                </div>
+            </td>
             <td class="left"><input class="cell-input" value="${esc(row.date)}" placeholder="MM/DD/YY" oninput="onCell(${idx},${ri},'date',this.value)"></td>
             <td class="left"><input class="cell-input" value="${esc(row.tourn)}" placeholder="Scrim / Event…" oninput="onCell(${idx},${ri},'tourn',this.value)"></td>
             <td><div class="ban-wrap"><span class="ban-lbl us">US</span><input class="map-input" value="${esc(row.ourBan)}" placeholder="Map" list="mapList" oninput="onCell(${idx},${ri},'ourBan',this.value)"></div></td>
@@ -603,6 +602,7 @@ function renderBody(idx){
             <td class="left"><input class="cell-input" value="${esc(row.notes)}" placeholder="Notes…" oninput="onCell(${idx},${ri},'notes',this.value)"></td>
             <td><button class="row-del" onclick="deleteRow(${idx},${ri})"><i class="fas fa-xmark"></i></button></td>`;
         tbody.appendChild(tr);
+        applyRowFormat(tr, row.format || 'bo3');
     });
 }
 
@@ -816,22 +816,30 @@ function scheduleSave(){
     saveTimer=setTimeout(()=>saveAll(false),1800);
 }
 
-// ── Format (BO1/BO3/BO5) ─────────────────────────────────────────
-window.setFormat = function(idx, fmt) {
-    sheets[idx].format = fmt;
-    applyFormat(fmt);
-    // Re-render header buttons
-    document.querySelectorAll('.fmt-btn').forEach(b => {
-        b.classList.toggle('active', b.textContent.toLowerCase() === fmt);
-    });
+// ── Per-row format ────────────────────────────────────────────────
+window.setRowFormat = function(si, ri, fmt) {
+    sheets[si].rows[ri].format = fmt;
+    const tr = document.querySelector(`tr[data-ri="${ri}"]`);
+    if(tr) applyRowFormat(tr, fmt);
     scheduleSave();
+    // Update buttons in this row
+    const btns = tr ? tr.querySelectorAll('.row-fmt-btn') : [];
+    const map = {bo1:'B1', bo3:'B3', bo5:'B5'};
+    btns.forEach(b => b.classList.toggle('active', b.textContent === map[fmt]));
 };
 
-function applyFormat(fmt) {
-    const table = document.querySelector('.veto-table');
-    if(!table) return;
-    table.classList.remove('bo1','bo3','bo5');
-    table.classList.add(fmt||'bo3');
+function applyRowFormat(tr, fmt) {
+    // Map cells: map2=col2, map3=col3, map4=col4, map5=col5 (0-indexed from all tds)
+    // td indices: 0=num, 1=format, 2=date, 3=tourn, 4=ourBan, 5=theirBan, 6=map1, 7=map2, 8=map3, 9=map4, 10=map5, 11=series, 12=notes, 13=del
+    const tds = tr.querySelectorAll('td');
+    const show = (i, vis) => { if(tds[i]) tds[i].style.display = vis ? '' : 'none'; };
+    if(fmt === 'bo1') {
+        show(7, false); show(8, false); show(9, false); show(10, false);
+    } else if(fmt === 'bo3') {
+        show(7, true);  show(8, true);  show(9, false); show(10, false);
+    } else { // bo5
+        show(7, true);  show(8, true);  show(9, true);  show(10, true);
+    }
 }
 
 window.saveAll = async function(manual){
