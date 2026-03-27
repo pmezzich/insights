@@ -471,12 +471,18 @@ const x=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g
 
 /* ─── AUTH ─── */
 auth.onAuthStateChanged(async user=>{
-    if(!user) return(window.location.href='index_pro.html');
-    if(!user.emailVerified) return(window.location.href='index_pro.html');
-    R6Theme.init(user.uid, db);
+    const _isDemoTeam = user && user.isAnonymous && sessionStorage.getItem('demoMode') === '1';
+    if(!user || (!user.emailVerified && !_isDemoTeam)) return(window.location.href='index_pro.html');
+    if(!_isDemoTeam) R6Theme.init(user.uid, db);
     try{
         setLoading('Checking session…');
-        teamId=await getPreviewTeamId(user, db);
+        // Demo: pull teamId from sessionStorage; real users use getPreviewTeamId
+        if(_isDemoTeam){
+            teamId = sessionStorage.getItem('adminPreviewTeamId') || '';
+            if(!teamId) throw new Error('No demo team ID in session.');
+        } else {
+            teamId=await getPreviewTeamId(user, db);
+        }
         if(!teamId) throw new Error('No team found.');
         const tn=await db.ref(`teams/${teamId}/info/teamName`).once('value');
         teamName=tn.val()||'';

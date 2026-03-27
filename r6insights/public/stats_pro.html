@@ -695,13 +695,21 @@ auth.onAuthStateChanged(function(user){
     noTeam.style.display='block';
   }
 
-  if(!user){ window.location.href='index_pro.html'; return; }
-  if(!user.emailVerified){ window.location.href='index_pro.html'; return; }
+  // Demo mode: anonymous user from overview
+  var _isDemoStats = user && user.isAnonymous && sessionStorage.getItem('demoMode') === '1';
+  if(!user || (!user.emailVerified && !_isDemoStats)){ window.location.href='index_pro.html'; return; }
 
-  db.ref('users/'+user.uid+'/teamId').once('value')
+  // Resolve teamId — demo users get it from sessionStorage
+  var teamIdPromise = _isDemoStats
+    ? Promise.resolve({ exists: ()=>true, val: ()=>sessionStorage.getItem('adminPreviewTeamId')||'' })
+    : db.ref('users/'+user.uid+'/teamId').once('value');
+
+  if(!_isDemoStats) R6Theme.init(user.uid, db);
+
+  teamIdPromise
     .then(function(tSnap){
-      R6Theme.init(user.uid, db);
-      if (!tSnap.exists()) {
+      if (!_isDemoStats) R6Theme.init(user.uid, db);
+      if (!tSnap.exists() || !tSnap.val()) {
         logln('No teamId — UID: '+user.uid);
         var dbg=document.getElementById('noTeamDebug');
         if(dbg) dbg.textContent='Your UID: '+user.uid;

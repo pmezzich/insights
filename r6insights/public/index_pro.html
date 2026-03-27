@@ -425,6 +425,30 @@
             transition: all .15s;
         }
         .demo-exit-btn:hover { background: rgba(52,211,153,0.25); }
+
+        /* ── DEMO LOCKED CARDS ── */
+        .tool-card.demo-locked {
+            opacity: 0.45;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        .tool-card.demo-locked:hover {
+            transform: none;
+            box-shadow: none;
+            border-color: var(--card-border);
+        }
+        .tool-card.demo-locked:hover::before { opacity: 0; }
+        .demo-lock-badge {
+            position: absolute;
+            top: 14px; right: 14px;
+            display: inline-flex; align-items: center; gap: 5px;
+            background: rgba(148,163,184,0.12);
+            border: 1px solid rgba(148,163,184,0.25);
+            color: var(--gray);
+            font-size: 10px; font-weight: 800;
+            padding: 3px 9px; border-radius: 6px;
+            text-transform: uppercase; letter-spacing: .5px;
+        }
     </style>
 </head>
 <body>
@@ -695,12 +719,20 @@
                 }
                 showHub();
                 showDemoBanner();
-                // Unlock all cards for demo
-                document.querySelectorAll('[data-gate]').forEach(el => {
-                    el.style.pointerEvents = '';
-                    el.style.opacity = '';
-                    const lock = el.querySelector('.gate-lock');
-                    if (lock) lock.remove();
+                // In demo mode: only Player Stats and Team Stats are accessible
+                document.querySelectorAll('.tool-card').forEach(el => {
+                    const href = el.getAttribute('href') || '';
+                    const isUnlocked = href.includes('stats_pro.html') || href.includes('teamstats_pro.html');
+                    if (!isUnlocked) {
+                        el.classList.add('demo-locked');
+                        // Add lock badge if not already there
+                        if (!el.querySelector('.demo-lock-badge')) {
+                            const badge = document.createElement('span');
+                            badge.className = 'demo-lock-badge';
+                            badge.innerHTML = '<i class="fas fa-lock"></i> Full Plan';
+                            el.appendChild(badge);
+                        }
+                    }
                 });
                 return;
             }
