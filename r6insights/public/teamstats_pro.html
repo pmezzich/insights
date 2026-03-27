@@ -477,7 +477,7 @@ auth.onAuthStateChanged(async user=>{
     try{
         setLoading('Checking session…');
         teamId = _isDemo
-            ? (sessionStorage.getItem('adminPreviewTeamId') || '')
+            ? (sessionStorage.getItem('adminPreviewTeamId') || 'r6i_demo_00000')
             : await getPreviewTeamId(user, db);
         if(!teamId) throw new Error('No team found.');
         const tn=await db.ref(`teams/${teamId}/info/teamName`).once('value');

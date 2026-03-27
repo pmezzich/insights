@@ -700,8 +700,9 @@ auth.onAuthStateChanged(function(user){
 
   if(!_isDemo) R6Theme.init(user.uid, db);
 
+  var _demoTeamId = sessionStorage.getItem('adminPreviewTeamId') || 'r6i_demo_00000';
   var teamIdPromise = _isDemo
-    ? Promise.resolve({ exists: ()=>true, val: ()=>sessionStorage.getItem('adminPreviewTeamId')||'' })
+    ? Promise.resolve({ exists: ()=>true, val: ()=>_demoTeamId })
     : db.ref('users/'+user.uid+'/teamId').once('value');
 
   teamIdPromise
