@@ -304,6 +304,16 @@ html.light-mode .cell-input,
 html.light-mode .map-input { color:#0F172A; }
 html.light-mode .cell-input:focus,
 html.light-mode .map-input:focus { background:rgba(255,255,255,0.9); }
+
+/* ── FORMAT TOGGLE ── */
+.format-toggle { display:flex; gap:0; background:rgba(10,16,28,.8); border:1px solid var(--card-border); border-radius:8px; padding:3px; }
+.fmt-btn { padding:5px 14px; border-radius:5px; font-family:inherit; font-size:12px; font-weight:800; border:none; cursor:pointer; color:var(--gray); background:transparent; transition:all .15s; letter-spacing:.3px; }
+.fmt-btn.active { background:var(--primary); color:#fff; box-shadow:0 2px 8px rgba(124,58,237,.4); }
+.fmt-btn:not(.active):hover { color:var(--light); }
+/* Hide map columns dynamically */
+.veto-table .col-map4, .veto-table .col-map5 { display:none; }
+.veto-table.bo5 .col-map4, .veto-table.bo5 .col-map5 { display:table-cell; }
+.veto-table.bo1 .col-map2, .veto-table.bo1 .col-map3 { display:none; }
 </style>
 </head>
 <body>
@@ -379,8 +389,10 @@ html.light-mode .map-input:focus { background:rgba(255,255,255,0.9); }
                         <th style="min-width:100px;">Our Ban</th>
                         <th style="min-width:100px;">Their Ban</th>
                         <th style="min-width:110px;">Map 1 <span style="color:var(--primary);font-size:9px;display:block;font-weight:400;">Our Pick</span></th>
-                        <th style="min-width:110px;">Map 2 <span style="color:#60a5fa;font-size:9px;display:block;font-weight:400;">Their Pick</span></th>
-                        <th style="min-width:110px;">Map 3 <span style="color:var(--gray);font-size:9px;display:block;font-weight:400;">Decider</span></th>
+                        <th class="col-map2" style="min-width:110px;">Map 2 <span style="color:#60a5fa;font-size:9px;display:block;font-weight:400;">Their Pick</span></th>
+                        <th class="col-map3" style="min-width:110px;">Map 3 <span style="color:var(--gray);font-size:9px;display:block;font-weight:400;">Decider</span></th>
+                        <th class="col-map4" style="min-width:110px;">Map 4 <span style="color:#f472b6;font-size:9px;display:block;font-weight:400;">Their Pick</span></th>
+                        <th class="col-map5" style="min-width:110px;">Map 5 <span style="color:var(--gray);font-size:9px;display:block;font-weight:400;">Decider</span></th>
                         <th style="min-width:58px;">Series</th>
                         <th class="left" style="min-width:150px;">Notes</th>
                         <th style="width:28px;"></th>
@@ -480,6 +492,8 @@ function newRow(d){
         map1:d?.map1||'', map1r:d?.map1r||'none',
         map2:d?.map2||'', map2r:d?.map2r||'none',
         map3:d?.map3||'', map3r:d?.map3r||'none',
+        map4:d?.map4||'', map4r:d?.map4r||'none',
+        map5:d?.map5||'', map5r:d?.map5r||'none',
         series:d?.series||'none', notes:d?.notes||''
     };
 }
@@ -574,8 +588,10 @@ function renderBody(idx){
             <td><div class="ban-wrap"><span class="ban-lbl us">US</span><input class="map-input" value="${esc(row.ourBan)}" placeholder="Map" list="mapList" oninput="onCell(${idx},${ri},'ourBan',this.value)"></div></td>
             <td><div class="ban-wrap"><span class="ban-lbl them">THM</span><input class="map-input" value="${esc(row.theirBan)}" placeholder="Map" list="mapList" oninput="onCell(${idx},${ri},'theirBan',this.value)"></div></td>
             <td><div class="map-cell"><input class="map-input" value="${esc(row.map1)}" placeholder="Map" list="mapList" oninput="onCell(${idx},${ri},'map1',this.value)"><span class="wl ${row.map1r}" onclick="cycleWL(${idx},${ri},'map1r')">${row.map1r==='none'?'·':row.map1r}</span></div></td>
-            <td><div class="map-cell"><input class="map-input" value="${esc(row.map2)}" placeholder="Map" list="mapList" oninput="onCell(${idx},${ri},'map2',this.value)"><span class="wl ${row.map2r}" onclick="cycleWL(${idx},${ri},'map2r')">${row.map2r==='none'?'·':row.map2r}</span></div></td>
-            <td><div class="map-cell"><input class="map-input" value="${esc(row.map3)}" placeholder="Map" list="mapList" oninput="onCell(${idx},${ri},'map3',this.value)"><span class="wl ${row.map3r}" onclick="cycleWL(${idx},${ri},'map3r')">${row.map3r==='none'?'·':row.map3r}</span></div></td>
+            <td class="col-map2"><div class="map-cell"><input class="map-input" value="${esc(row.map2)}" placeholder="Map" list="mapList" oninput="onCell(${idx},${ri},'map2',this.value)"><span class="wl ${row.map2r}" onclick="cycleWL(${idx},${ri},'map2r')">${row.map2r==='none'?'·':row.map2r}</span></div></td>
+            <td class="col-map3"><div class="map-cell"><input class="map-input" value="${esc(row.map3)}" placeholder="Map" list="mapList" oninput="onCell(${idx},${ri},'map3',this.value)"><span class="wl ${row.map3r}" onclick="cycleWL(${idx},${ri},'map3r')">${row.map3r==='none'?'·':row.map3r}</span></div></td>
+            <td class="col-map4"><div class="map-cell"><input class="map-input" value="${esc(row.map4||'')}" placeholder="Map" list="mapList" oninput="onCell(${idx},${ri},'map4',this.value)"><span class="wl ${row.map4r||'none'}" onclick="cycleWL(${idx},${ri},'map4r')">${(row.map4r||'none')==='none'?'·':row.map4r}</span></div></td>
+            <td class="col-map5"><div class="map-cell"><input class="map-input" value="${esc(row.map5||'')}" placeholder="Map" list="mapList" oninput="onCell(${idx},${ri},'map5',this.value)"><span class="wl ${row.map5r||'none'}" onclick="cycleWL(${idx},${ri},'map5r')">${(row.map5r||'none')==='none'?'·':row.map5r}</span></div></td>
             <td><span class="series-res ${row.series}" onclick="cycleSeries(${idx},${ri})">${row.series==='none'?'—':row.series}</span></td>
             <td class="left"><input class="cell-input" value="${esc(row.notes)}" placeholder="Notes…" oninput="onCell(${idx},${ri},'notes',this.value)"></td>
             <td><button class="row-del" onclick="deleteRow(${idx},${ri})"><i class="fas fa-xmark"></i></button></td>`;
@@ -791,6 +807,24 @@ function scheduleSave(){
     setStatus('saving');
     clearTimeout(saveTimer);
     saveTimer=setTimeout(()=>saveAll(false),1800);
+}
+
+// ── Format (BO1/BO3/BO5) ─────────────────────────────────────────
+window.setFormat = function(idx, fmt) {
+    sheets[idx].format = fmt;
+    applyFormat(fmt);
+    // Re-render header buttons
+    document.querySelectorAll('.fmt-btn').forEach(b => {
+        b.classList.toggle('active', b.textContent.toLowerCase() === fmt);
+    });
+    scheduleSave();
+};
+
+function applyFormat(fmt) {
+    const table = document.querySelector('.veto-table');
+    if(!table) return;
+    table.classList.remove('bo1','bo3','bo5');
+    table.classList.add(fmt||'bo3');
 }
 
 window.saveAll = async function(manual){
