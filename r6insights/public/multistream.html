@@ -480,9 +480,10 @@ function spawnWindow(vid, ch, x, y, w, h, player){
         </div>
         <div class="sw-content">
             <div class="sw-shield"></div>
-            <iframe src="https://www.youtube.com/embed/${vid}?autoplay=0&rel=0&modestbranding=1"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowfullscreen></iframe>
+            <iframe src="https://www.youtube-nocookie.com/embed/${vid}?autoplay=0&rel=0&modestbranding=1"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowfullscreen
+                referrerpolicy="strict-origin-when-cross-origin"></iframe>
         </div>
         <div class="sw-resize nw"></div><div class="sw-resize ne"></div>
         <div class="sw-resize sw"></div><div class="sw-resize se"></div>
