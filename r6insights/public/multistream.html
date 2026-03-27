@@ -24,6 +24,8 @@ body { background-color: var(--darker); min-height: 100vh; overflow: hidden; pad
     transition: max-height .28s cubic-bezier(.4,0,.2,1), opacity .2s, padding .2s;
     max-height: 200px;
     overflow: hidden;
+    position: relative;
+    z-index: 10;
 }
 #drawer.hidden { max-height: 0; opacity: 0; padding-top: 0; padding-bottom: 0; pointer-events: none; }
 
@@ -78,8 +80,10 @@ body { background-color: var(--darker); min-height: 100vh; overflow: hidden; pad
 #canvas {
     position: fixed;
     left: 0; right: 0; bottom: 0;
+    top: 220px; /* safe initial value — recalcCanvas() corrects this immediately */
     overflow: hidden;
     background: rgba(10,14,24,0.6);
+    z-index: 0;
 }
 
 /* ── EMPTY STATE ────────────────────────────────────────────────── */
@@ -409,12 +413,19 @@ function recalcCanvas(){
     const nav    = document.querySelector('.nav-header');
     const ptitle = document.querySelector('.page-title');
     const drawer = document.getElementById('drawer');
-    const top    = nav.offsetHeight + ptitle.offsetHeight + (drawerOpen ? drawer.offsetHeight : 0);
     const canvas = document.getElementById('canvas');
-    canvas.style.top = top+'px';
+    if(!nav || !ptitle || !canvas) return;
+    const navH    = nav.offsetHeight    || 64;
+    const titleH  = ptitle.offsetHeight || 72;
+    const drawerH = drawerOpen ? (drawer ? drawer.offsetHeight : 0) : 0;
+    const top     = navH + titleH + drawerH;
+    canvas.style.top = top + 'px';
 }
 window.addEventListener('resize', recalcCanvas);
+// Run multiple times to catch late renders
 setTimeout(recalcCanvas, 50);
+setTimeout(recalcCanvas, 200);
+setTimeout(recalcCanvas, 600);
 
 // ── Drawer ────────────────────────────────────────────────────────
 window.toggleDrawer = function(){
