@@ -546,17 +546,24 @@ function openSheet(idx){
     const wins  = sheet.rows.filter(r=>r.series==='W').length;
     const losses= sheet.rows.filter(r=>r.series==='L').length;
     const wr    = (wins+losses)>0?Math.round(wins/(wins+losses)*100)+'%':'—';
+    const fmt = sheet.format || 'bo3';
     header.innerHTML=`
         <input class="sheet-name-input" value="${esc(sheet.name)}"
             title="Double-click or edit to rename"
             oninput="sheets[${idx}].name=this.value;renderTabs();scheduleSave();"
             onfocus="this.select()">
+        <div class="format-toggle">
+            <button class="fmt-btn${fmt==='bo1'?' active':''}" onclick="setFormat(${idx},'bo1')">BO1</button>
+            <button class="fmt-btn${fmt==='bo3'?' active':''}" onclick="setFormat(${idx},'bo3')">BO3</button>
+            <button class="fmt-btn${fmt==='bo5'?' active':''}" onclick="setFormat(${idx},'bo5')">BO5</button>
+        </div>
         <div class="sheet-stats">
             <div class="sstat"><span>${sheet.rows.length}</span> matches</div>
             <div class="sstat win"><strong>${wins}</strong> W</div>
             <div class="sstat loss"><strong>${losses}</strong> L</div>
             <div class="sstat"><strong>${wr}</strong> win rate</div>
         </div>`;
+    applyFormat(fmt);
 
     renderBody(idx);
 }
