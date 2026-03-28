@@ -425,6 +425,17 @@ window.createAccount = async function() {
             return current;
         });
 
+        // 6. If org or team code — claim admin/head role (first redeemer wins)
+        if (['org', 'team'].includes(validatedCode.plan) && (validatedCode.orgId || validatedCode.teamPurchaseId)) {
+            try {
+                await fetch('https://wandering-butterfly-2324.pmezzich.workers.dev/claim-admin-role', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ uid, email, codeKey: validatedCode.key })
+                });
+            } catch(e) { console.warn('Claim admin role failed (non-fatal):', e.message); }
+        }
+
         // 6. Show success — sign-in is gated until email is verified
         document.getElementById('pane2').style.display = 'none';
         document.getElementById('successScreen').style.display = 'block';

@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Team Admin — R6 Insights</title>
+<link rel="stylesheet" href="../styles/pro-global.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+<script src="../scripts/firebase-config.js"></script>
+<script>if(localStorage.getItem('r6_theme')==='light')document.documentElement.classList.add('light-mode');</script>
+<script src="../scripts/theme.js"></script>
+<style>
+body { background-color:var(--darker); min-height:100vh; padding-bottom:40px; }
+
+/* ── TABS ── */
+.tab-bar{display:flex;gap:0;border-bottom:1px solid var(--card-border);padding:0 24px;background:rgba(15,23,42,0.4);}
+.tab-btn{padding:14px 20px;font-size:13px;font-weight:700;color:var(--gray);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;transition:all .18s;white-space:nowrap;}
+.tab-btn:hover{color:var(--light);}
+.tab-btn.active{color:#60a5fa;border-bottom-color:#60a5fa;}
+.tab-pane{display:none;padding:20px 24px;flex-direction:column;gap:16px;}
+.tab-pane.active{display:flex;}
+
+/* ── KPI STRIP ── */
+.kpi-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;}
+.kpi-card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:12px;padding:18px;text-align:center;}
+.kpi-val{font-size:28px;font-weight:900;color:var(--light);}
+.kpi-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);margin-top:5px;}
+
+/* ── PANEL ── */
+.panel{background:var(--card-bg);border:1px solid var(--card-border);border-radius:12px;overflow:hidden;}
+.panel-hdr{padding:13px 18px;border-bottom:1px solid var(--card-border);font-size:12px;font-weight:700;display:flex;align-items:center;gap:8px;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;}
+.panel-body{padding:16px 18px;}
+
+/* ── CODE ROW ── */
+.code-row{display:grid;grid-template-columns:180px 80px 80px 1fr auto;gap:10px;align-items:center;padding:10px 14px;border-radius:8px;border:1px solid var(--card-border);background:rgba(10,16,28,.5);margin-bottom:6px;font-size:12px;}
+.code-val{font-family:monospace;font-size:13px;font-weight:800;color:#60a5fa;letter-spacing:1px;}
+.code-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;}
+.code-badge.active {background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.3);color:#34d399;}
+.code-badge.used   {background:rgba(251,191,36,.1); border:1px solid rgba(251,191,36,.25);color:#fbbf24;}
+.code-badge.unused {background:rgba(148,163,184,.1);border:1px solid rgba(148,163,184,.2);color:var(--gray);}
+.code-hdr{display:grid;grid-template-columns:180px 80px 80px 1fr auto;gap:10px;padding:6px 14px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);}
+
+/* ── REVOC BADGE ── */
+.revoc-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:5px;font-size:11px;font-weight:700;}
+.revoc-ok  {background:rgba(52,211,153,.1); border:1px solid rgba(52,211,153,.2); color:#34d399;}
+.revoc-warn{background:rgba(251,191,36,.1); border:1px solid rgba(251,191,36,.2); color:#fbbf24;}
+.revoc-full{background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.25);color:#f87171;}
+
+/* ── EMPTY ── */
+.empty-state{text-align:center;padding:50px 20px;color:var(--gray);}
+.empty-state i{font-size:36px;opacity:.15;display:block;margin-bottom:12px;}
+.empty-state p{font-size:13px;}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(10px);background:rgba(59,130,246,.92);color:#fff;border-radius:8px;padding:10px 20px;font-size:13px;font-weight:700;opacity:0;transition:all .22s;z-index:9999;pointer-events:none;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<div class="nav-header">
+    <a href="index_pro.html" class="logo" style="text-decoration:none;">
+        <img src="../styles/r6_insights.png" class="logo-img" alt="R6 Insights">
+        <div class="logo-text">R6 INSIGHTS</div>
+    </a>
+    <div class="nav-right">
+        <a href="index_pro.html" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Hub</a>
+        <a href="profile.html" id="navAvatar" class="nav-avatar-btn" title="Profile">?</a>
+        <button class="btn-logout" onclick="firebase.auth().signOut().then(()=>window.location.href='index_pro.html')">
+            <i class="fas fa-right-from-bracket"></i> Logout
+        </button>
+    </div>
+</div>
+
+<!-- Page Title -->
+<div class="page-title">
+    <div class="page-title-icon" style="background:rgba(96,165,250,0.15);border:1px solid rgba(96,165,250,0.3);color:#60a5fa;">
+        <i class="fas fa-key"></i>
+    </div>
+    <div>
+        <h2>Team Admin Panel</h2>
+        <p id="tpSubtitle">Loading…</p>
+    </div>
+</div>
+
+<!-- Tab bar -->
+<div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('overview')" id="tab-overview"><i class="fas fa-gauge"></i> Overview</button>
+    <button class="tab-btn"        onclick="switchTab('codes')"    id="tab-codes"><i class="fas fa-key"></i> Codes & Players</button>
+</div>
+
+<!-- ══ OVERVIEW ══ -->
+<div class="tab-pane active" id="pane-overview">
+    <div class="kpi-strip">
+        <div class="kpi-card"><div class="kpi-val" id="kpiCodes">—</div><div class="kpi-lbl">Codes Used</div></div>
+        <div class="kpi-card"><div class="kpi-val" id="kpiCodesLeft">—</div><div class="kpi-lbl">Codes Available</div></div>
+        <div class="kpi-card"><div class="kpi-val" id="kpiPlayers">—</div><div class="kpi-lbl">Active Players</div></div>
+        <div class="kpi-card"><div class="kpi-val" id="kpiRevocs">—</div><div class="kpi-lbl">Revocations This Month</div></div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-hdr"><i class="fas fa-circle-info"></i> Purchase Info</div>
+        <div class="panel-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px;">
+                <div><span style="color:var(--gray);">Plan</span><br><strong id="tpPlan">—</strong></div>
+                <div><span style="color:var(--gray);">Duration Per Code</span><br><strong id="tpDuration">—</strong></div>
+                <div><span style="color:var(--gray);">Total Codes</span><br><strong id="tpCodeCount">—</strong></div>
+                <div><span style="color:var(--gray);">Monthly Revocation Limit</span><br>
+                    <span id="tpRevocBadge" class="revoc-badge revoc-ok">0 / 4 used</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-hdr"><i class="fas fa-circle-info" style="color:#fbbf24;"></i>
+            <span style="color:#fbbf24;">Your Role as Team Head</span>
+        </div>
+        <div class="panel-body" style="font-size:13px;color:var(--gray);line-height:1.7;">
+            You were the first player to activate a code from this team purchase, making you the <strong style="color:var(--light);">Team Head</strong>.
+            You can revoke any code from this purchase and a new code with the remaining time will be sent to your email.
+            The limit is <strong style="color:var(--light);">4 revocations per month</strong> across all codes from this purchase.
+            If you revoke a team captain, you must assign a replacement first.
+        </div>
+    </div>
+</div>
+
+<!-- ══ CODES & PLAYERS ══ -->
+<div class="tab-pane" id="pane-codes">
+    <div class="panel">
+        <div class="panel-hdr">
+            <i class="fas fa-key"></i> Codes &amp; Players
+            <span style="margin-left:auto;font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0;">
+                4 revocations / month
+            </span>
+        </div>
+        <div class="panel-body">
+            <div class="code-hdr"><span>Code</span><span>Status</span><span>Duration</span><span>Player</span><span></span></div>
+            <div id="codesBody">
+                <div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading codes…</p></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Captain Replacement Modal -->
+<div id="captainModal" style="display:none;position:fixed;inset:0;background:rgba(5,10,20,.88);z-index:9100;align-items:center;justify-content:center;padding:20px;">
+    <div style="background:rgba(15,23,42,.99);border:1px solid rgba(255,255,255,.1);border-radius:16px;max-width:440px;width:100%;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.8);">
+        <div style="font-size:17px;font-weight:800;color:#f8fafc;margin-bottom:6px;display:flex;align-items:center;gap:9px;"><span style="font-size:22px;">⚠️</span> Captain Removal</div>
+        <p style="font-size:13px;color:#94a3b8;margin-bottom:18px;line-height:1.6;">This player is the team captain. You must assign a replacement before removing them.</p>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748b;margin-bottom:8px;">Select New Captain</div>
+        <div id="captainMembersList" style="display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto;"></div>
+        <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
+            <button onclick="closeCaptainModal()" style="padding:9px 18px;border-radius:8px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#94a3b8;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Cancel</button>
+            <button onclick="confirmWithCaptain()" style="padding:9px 18px;border-radius:8px;background:linear-gradient(135deg,#3B82F6,#4F46E5);color:#fff;border:none;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Confirm & Remove</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast"></div>
+<div style="text-align:center;padding:14px 20px;font-size:12px;color:rgba(148,163,184,0.5);">© 2026 R6 Insights. All rights reserved.</div>
+<script src="../scripts/profile-loader.js"></script>
+<script>
+(function(){
+'use strict';
+
+if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db   = firebase.database();
+
+const x = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+const WORKER = 'https://wandering-butterfly-2324.pmezzich.workers.dev';
+
+let TP_ID      = null;  // teamPurchaseId
+let TP_DATA    = {};    // team_purchases/${TP_ID}
+let ALL_CODES  = [];    // all codes from this purchase
+
+let pendingRevoke      = null;
+let selectedNewCaptain = null;
+
+// ── Auth ──────────────────────────────────────────────────────────
+auth.onAuthStateChanged(async user => {
+    if (!user || !user.emailVerified) return window.location.href = 'index_pro.html';
+    R6Theme.init(user.uid, db);
+
+    const uSnap    = await db.ref(`users/${user.uid}`).once('value');
+    const userData = uSnap.val() || {};
+
+    if (!userData.isTeamHead) {
+        document.getElementById('tpSubtitle').textContent = 'Access denied — not a team head.';
+        return;
+    }
+
+    TP_ID = userData.teamPurchaseId;
+    if (!TP_ID) {
+        document.getElementById('tpSubtitle').textContent = 'No team purchase linked to your account.';
+        return;
+    }
+
+    try {
+        const tpSnap = await db.ref(`team_purchases/${TP_ID}`).once('value');
+        TP_DATA = tpSnap.val() || {};
+        document.getElementById('tpSubtitle').textContent =
+            `Team Head · ${TP_DATA.codeCount || '?'} codes · purchased ${TP_DATA.createdAt ? new Date(TP_DATA.createdAt).toLocaleDateString() : '—'}`;
+
+        await Promise.all([loadOverview(), loadCodes()]);
+    } catch(e) {
+        toast('Load error: ' + e.message);
+    }
+});
+
+// ── Tab switching ─────────────────────────────────────────────────
+window.switchTab = function(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b  => b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+    document.getElementById('pane-' + tab).classList.add('active');
+};
+
+// ── Overview ──────────────────────────────────────────────────────
+async function loadOverview() {
+    const month   = new Date().toISOString().slice(0, 7);
+    const revSnap = await db.ref(`team_purchases/${TP_ID}/revocationLog/${month}`).once('value');
+    const revocs  = revSnap.val() || 0;
+
+    const plans = { team: 'Team Plan', org: 'Org Plan', solo: 'Solo Plan' };
+    document.getElementById('tpPlan').textContent      = plans[TP_DATA.plan] || TP_DATA.plan || '—';
+    document.getElementById('tpDuration').textContent  = TP_DATA.durationDays ? TP_DATA.durationDays + ' days' : '—';
+    document.getElementById('tpCodeCount').textContent = TP_DATA.codeCount || '—';
+    document.getElementById('kpiRevocs').textContent   = revocs;
+
+    const badge = document.getElementById('tpRevocBadge');
+    badge.textContent  = `${revocs} / 4 used this month`;
+    badge.className    = 'revoc-badge ' + (revocs === 0 ? 'revoc-ok' : revocs < 4 ? 'revoc-warn' : 'revoc-full');
+}
+
+// ── Codes + Players ───────────────────────────────────────────────
+async function loadCodes() {
+    const codesIndexSnap = await db.ref(`team_purchases/${TP_ID}/codes`).once('value');
+    const codeKeys       = Object.keys(codesIndexSnap.val() || {});
+
+    ALL_CODES = [];
+    await Promise.all(codeKeys.map(async key => {
+        const snap = await db.ref(`subscription_codes/${key}`).once('value');
+        if (snap.val()) ALL_CODES.push({ id: key, ...snap.val() });
+    }));
+
+    // KPIs
+    const used       = ALL_CODES.filter(c => (c.usedCount || 0) > 0).length;
+    const available  = ALL_CODES.filter(c => (c.usedCount || 0) < (c.maxUses === 'unlimited' ? Infinity : (c.maxUses || 1))).length;
+    const now        = Date.now();
+
+    document.getElementById('kpiCodes').textContent     = used;
+    document.getElementById('kpiCodesLeft').textContent = available;
+
+    // Count active players across all codes
+    let playerCount = 0;
+    for (const code of ALL_CODES) {
+        playerCount += Object.keys(code.usedBy || {}).length;
+    }
+    document.getElementById('kpiPlayers').textContent = playerCount;
+
+    await renderCodesWithPlayers();
+}
+
+async function renderCodesWithPlayers() {
+    const body = document.getElementById('codesBody');
+    if (!ALL_CODES.length) {
+        body.innerHTML = '<div class="empty-state"><i class="fas fa-key"></i><p>No codes found for this purchase.</p></div>';
+        return;
+    }
+
+    const now  = Date.now();
+    let   html = '';
+
+    for (const c of ALL_CODES) {
+        const used   = c.usedCount || 0;
+        const maxU   = c.maxUses === 'unlimited' ? Infinity : (c.maxUses || 1);
+        const isFull = maxU !== Infinity && used >= maxU;
+        const status = isFull ? 'used' : used > 0 ? 'active' : 'unused';
+        const durLbl = c.durationDays ? c.durationDays + 'd' : '—';
+        const uids   = Object.keys(c.usedBy || {});
+
+        // Build player rows for each uid using this code
+        let playerHtml = '';
+        for (const uid of uids) {
+            const uSnap = await db.ref(`users/${uid}`).once('value');
+            const u     = uSnap.val() || {};
+            const sub   = u.subscription || {};
+            const isActive = (sub.expiresAt || 0) > now;
+            const name     = x(u.displayName || u.email || uid.slice(0, 8));
+            const onTeam   = u.teamId ? 'On team' : 'No team';
+
+            playerHtml += `
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:rgba(10,16,28,.4);border-top:1px solid rgba(255,255,255,.05);">
+                <div style="width:28px;height:28px;border-radius:6px;background:rgba(96,165,250,.15);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#60a5fa;flex-shrink:0;">
+                    ${name[0] ? name[0].toUpperCase() : '?'}
+                </div>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-size:13px;font-weight:700;color:var(--light);">${name}</div>
+                    <div style="font-size:11px;color:var(--gray);">${onTeam} · ${isActive ? '<span style="color:#34d399;">Active</span>' : '<span style="color:#94a3b8;">Expired</span>'}</div>
+                </div>
+                <button onclick="revokeCode('${c.id}')"
+                    style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#f87171;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap;flex-shrink:0;">
+                    <i class="fas fa-ban"></i> Revoke
+                </button>
+            </div>`;
+        }
+
+        // If no user, show empty slot
+        if (!uids.length) {
+            playerHtml = `<div style="padding:8px 14px;border-top:1px solid rgba(255,255,255,.05);font-size:12px;color:rgba(148,163,184,.4);">No user on this code</div>`;
+        }
+
+        html += `
+        <div style="border:1px solid var(--card-border);border-radius:8px;margin-bottom:10px;overflow:hidden;background:rgba(10,16,28,.5);">
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;">
+                <span class="code-val" style="flex:1;">${x(c.id)}</span>
+                <span class="code-badge ${status}" style="flex-shrink:0;">${status.toUpperCase()}</span>
+                <span style="font-size:11px;color:var(--gray);flex-shrink:0;">${durLbl}</span>
+                <button onclick="navigator.clipboard.writeText('${c.id}').then(()=>toast('Copied!'))"
+                    style="background:transparent;border:none;color:var(--gray);cursor:pointer;font-size:13px;padding:4px;flex-shrink:0;" title="Copy">
+                    <i class="fas fa-copy"></i>
+                </button>
+            </div>
+            ${playerHtml}
+        </div>`;
+    }
+
+    body.innerHTML = html;
+}
+
+// ── Revoke ────────────────────────────────────────────────────────
+window.revokeCode = async function(codeId) {
+    const code = ALL_CODES.find(c => c.id === codeId);
+    if (!code) { toast('Code not found'); return; }
+
+    const uids = Object.keys(code.usedBy || {});
+    if (!uids.length) { toast('No user on this code'); return; }
+    const uid    = uids[0];
+    const teamId = code.teamId || null;
+
+    if (!confirm(`Revoke code ${codeId}?\n\nThe player will lose access. A new code with remaining time will be sent to your email.`)) return;
+
+    // Check if captain — require replacement
+    let isCaptain = false;
+    if (teamId) {
+        const roleSnap = await db.ref(`teams/${teamId}/players/${uid}/role`).once('value');
+        isCaptain = roleSnap.val() === 'captain';
+    }
+
+    if (isCaptain && teamId) {
+        const playersSnap = await db.ref(`teams/${teamId}/players`).once('value');
+        const players     = playersSnap.val() || {};
+        const others      = Object.entries(players).filter(([pid]) => pid !== uid);
+
+        if (!others.length) {
+            toast('Cannot revoke — this player is the only team member.');
+            return;
+        }
+
+        pendingRevoke      = { codeId, uid, teamId, code };
+        selectedNewCaptain = null;
+
+        document.getElementById('captainMembersList').innerHTML = others.map(([pid, p]) => `
+            <div id="cmember_${pid}" onclick="selectNewCaptain('${pid}', this)"
+                style="cursor:pointer;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(15,23,42,.5);display:flex;align-items:center;gap:10px;transition:border-color .15s;">
+                <div style="width:30px;height:30px;border-radius:6px;background:rgba(96,165,250,.15);display:flex;align-items:center;justify-content:center;font-weight:800;color:#60a5fa;font-size:14px;">
+                    ${x((p.displayName || '?')[0].toUpperCase())}
+                </div>
+                <div>
+                    <div style="font-size:13px;font-weight:700;color:var(--light);">${x(p.displayName || 'Unknown')}</div>
+                    <div style="font-size:11px;color:var(--gray);">@${x(p.username || pid.slice(0,8))}</div>
+                </div>
+            </div>`).join('');
+
+        document.getElementById('captainModal').style.display = 'flex';
+        return;
+    }
+
+    await doRevoke(codeId, uid, teamId, null, code);
+};
+
+window.selectNewCaptain = function(uid, el) {
+    selectedNewCaptain = uid;
+    document.querySelectorAll('#captainMembersList > div').forEach(d =>
+        d.style.borderColor = 'rgba(255,255,255,.1)');
+    el.style.borderColor = '#3B82F6';
+};
+
+window.confirmWithCaptain = async function() {
+    if (!selectedNewCaptain) { toast('Please select a new captain first'); return; }
+    closeCaptainModal();
+    await doRevoke(pendingRevoke.codeId, pendingRevoke.uid, pendingRevoke.teamId, selectedNewCaptain, pendingRevoke.code);
+};
+
+window.closeCaptainModal = function() {
+    document.getElementById('captainModal').style.display = 'none';
+    pendingRevoke = selectedNewCaptain = null;
+};
+
+async function doRevoke(codeId, uid, teamId, newCaptainUid, codeData) {
+    const month   = new Date().toISOString().slice(0, 7);
+    const revPath = `team_purchases/${TP_ID}/revocationLog/${month}`;
+
+    const subSnap = await db.ref(`users/${uid}/subscription`).once('value');
+    const sub     = subSnap.val() || {};
+
+    toast('Processing revocation…');
+
+    const res = await fetch(`${WORKER}/revoke-player`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+            codeUsed:          codeId,
+            expiresAt:         sub.expiresAt || 0,
+            uid,
+            captainEmail:      auth.currentUser?.email || '',
+            plan:              codeData.plan || 'team',
+            teamName:          `Team Purchase ${TP_ID}`,
+            codeUsedCount:     codeData.usedCount || 1,
+            codeMaxUses:       codeData.maxUses   || 1,
+            teamId:            teamId  || null,
+            newCaptainUid:     newCaptainUid || null,
+            removeFromTeam:    true,
+            revocationLogPath: revPath,
+            revocationLimit:   4,
+        }),
+    });
+
+    const data = await res.json();
+    if (!data.ok) {
+        toast('Revoke failed: ' + (data.error || 'Unknown error'));
+        return;
+    }
+
+    toast(data.remainingDays > 0
+        ? `✓ Player removed. New ${data.remainingDays}-day code sent to your email.`
+        : '✓ Player removed. No remaining time to reissue.');
+
+    await loadCodes();
+    await loadOverview();
+}
+
+// ── Toast ─────────────────────────────────────────────────────────
+function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._t);
+    t._t = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+})();
+</script>
+</body>
+</html>

@@ -106,6 +106,7 @@ body { background-color:var(--darker); min-height:100vh; padding-bottom:40px; }
     <button class="tab-btn active" onclick="switchTab('overview')" id="tab-overview"><i class="fas fa-gauge"></i> Overview</button>
     <button class="tab-btn" onclick="switchTab('teams')"    id="tab-teams"><i class="fas fa-shield-halved"></i> Teams</button>
     <button class="tab-btn" onclick="switchTab('codes')"    id="tab-codes"><i class="fas fa-key"></i> Codes</button>
+    <button class="tab-btn" onclick="switchTab('players')"  id="tab-players"><i class="fas fa-users"></i> Players</button>
 </div>
 
 <!-- ══ OVERVIEW ══ -->
@@ -126,7 +127,7 @@ body { background-color:var(--darker); min-height:100vh; padding-bottom:40px; }
                 <div><span style="color:var(--gray);">Plan</span><br><strong id="orgPlan">—</strong></div>
                 <div><span style="color:var(--gray);">Subscription Expires</span><br><strong id="orgExpiry">—</strong></div>
                 <div><span style="color:var(--gray);">Monthly Revocation Limit</span><br>
-                    <span id="orgRevocBadge" class="revoc-badge revoc-ok">0 / 4 used</span>
+                    <span id="orgRevocBadge" class="revoc-badge revoc-ok">0 / 6 used</span>
                 </div>
             </div>
         </div>
@@ -161,8 +162,29 @@ body { background-color:var(--darker); min-height:100vh; padding-bottom:40px; }
     </div>
 </div>
 
-<div id="toast"></div>
+<!-- ══ PLAYERS ══ -->
+<div class="tab-pane" id="pane-players">
+    <div class="panel">
+        <div class="panel-hdr"><i class="fas fa-users"></i> All Players on Org Codes</div>
+        <div class="panel-body" id="playersBody">
+            <div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading players…</p></div>
+        </div>
+    </div>
+</div>
+<div id="captainModal" style="display:none;position:fixed;inset:0;background:rgba(5,10,20,.88);z-index:9100;align-items:center;justify-content:center;padding:20px;">
+    <div style="background:rgba(15,23,42,.99);border:1px solid rgba(255,255,255,.1);border-radius:16px;max-width:440px;width:100%;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.8);">
+        <div style="font-size:17px;font-weight:800;color:#f8fafc;margin-bottom:6px;display:flex;align-items:center;gap:9px;"><span style="font-size:22px;">⚠️</span> Captain Removal</div>
+        <p style="font-size:13px;color:#94a3b8;margin-bottom:18px;line-height:1.6;">This player is the team captain. You must assign a replacement before removing them.</p>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748b;margin-bottom:8px;">Select New Captain</div>
+        <div id="captainMembersList" style="display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto;"></div>
+        <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
+            <button onclick="closeCaptainModal()" style="padding:9px 18px;border-radius:8px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#94a3b8;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Cancel</button>
+            <button id="confirmCaptainBtn" onclick="confirmWithCaptain()" style="padding:9px 18px;border-radius:8px;background:linear-gradient(135deg,#7C3AED,#4F46E5);color:#fff;border:none;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Confirm & Remove</button>
+        </div>
+    </div>
+</div>
 
+<div id="toast"></div>
 <div style="text-align:center;padding:14px 20px;font-size:12px;color:rgba(148,163,184,0.5);">© 2026 R6 Insights. All rights reserved.</div>
 <script src="../scripts/profile-loader.js"></script>
 <script>
@@ -178,132 +200,139 @@ const x = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(
 let ORG_DATA   = {};
 let ORG_ID     = null;
 let ALL_CODES  = [];
-let ALL_TEAMS  = {};
+
+let pendingRevoke       = null;  // { codeId, uid, teamId, codeData }
+let selectedNewCaptain  = null;
+
+const WORKER = 'https://wandering-butterfly-2324.pmezzich.workers.dev';
 
 // ── Auth + gate ───────────────────────────────────────────────────
 auth.onAuthStateChanged(async user => {
-    if(!user||!user.emailVerified) return window.location.href='index_pro.html';
+    if(!user || !user.emailVerified) return window.location.href = 'index_pro.html';
     R6Theme.init(user.uid, db);
 
-    const access = await R6Gate.check(user, db);
-    if(!R6Gate.require('org', access)) return;
+    // Gate: must be org admin
+    const userSnap = await db.ref(`users/${user.uid}`).once('value');
+    const userData  = userSnap.val() || {};
+    if (!userData.isOrgAdmin) {
+        document.getElementById('orgSubtitle').textContent = 'Access denied — not an org admin.';
+        return;
+    }
 
-    // Get org data
+    ORG_ID = userData.orgId;
+    if (!ORG_ID) {
+        document.getElementById('orgSubtitle').textContent = 'No organisation linked to your account.';
+        return;
+    }
+
     try {
-        const userSnap = await db.ref(`users/${user.uid}`).once('value');
-        const userData = userSnap.val()||{};
-        ORG_ID = userData.orgId;
-
-        if(!ORG_ID) {
-            document.getElementById('orgSubtitle').textContent = 'No organisation linked to your account.';
-            return;
-        }
-
         const orgSnap = await db.ref(`orgs/${ORG_ID}`).once('value');
-        ORG_DATA = orgSnap.val()||{};
+        ORG_DATA = orgSnap.val() || {};
         document.getElementById('orgSubtitle').textContent = ORG_DATA.name || ORG_ID;
-
         await Promise.all([loadOverview(user, userData), loadTeams(), loadCodes()]);
     } catch(e) {
         console.error(e);
-        toast('Load error: '+e.message);
+        toast('Load error: ' + e.message);
     }
 });
 
 // ── Tab switching ─────────────────────────────────────────────────
 window.switchTab = function(tab) {
-    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-    document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
-    document.getElementById('tab-'+tab).classList.add('active');
-    document.getElementById('pane-'+tab).classList.add('active');
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+    document.getElementById('pane-' + tab).classList.add('active');
+    if (tab === 'players' && ALL_CODES.length) loadPlayers();
 };
 
 // ── Overview ──────────────────────────────────────────────────────
 async function loadOverview(user, userData) {
-    const sub    = userData.subscription||{};
-    const now    = Date.now();
-    const month  = new Date().toISOString().slice(0,7);
+    const sub   = userData.subscription || {};
+    const now   = Date.now();
+    const month = new Date().toISOString().slice(0, 7);
 
     document.getElementById('orgName').textContent  = ORG_DATA.name || ORG_ID;
     document.getElementById('orgPlan').textContent  = 'Org Plan';
     document.getElementById('orgExpiry').textContent = sub.expiresAt
-        ? (sub.expiresAt > now + 36400*24*60*60*1000 ? 'Lifetime' : new Date(sub.expiresAt).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}))
+        ? (sub.expiresAt > now + 36400*24*60*60*1000
+            ? 'Lifetime'
+            : new Date(sub.expiresAt).toLocaleDateString('en-US', {month:'long',day:'numeric',year:'numeric'}))
         : '—';
 
-    // Revocation count this month across all org teams
-    let totalRevocs = 0;
-    const teamIds = Object.keys(ORG_DATA.teams||{});
-    for(const tid of teamIds) {
-        const rSnap = await db.ref(`teams/${tid}/revocationLog/${month}`).once('value');
-        totalRevocs += (rSnap.val()||0);
-    }
+    // Org-level revocation count this month
+    const revSnap = await db.ref(`orgs/${ORG_ID}/revocationLog/${month}`).once('value');
+    const totalRevocs = revSnap.val() || 0;
 
     const revocEl = document.getElementById('orgRevocBadge');
-    revocEl.textContent = `${totalRevocs} / ${4*teamIds.length} used`;
-    revocEl.className = 'revoc-badge ' + (totalRevocs === 0 ? 'revoc-ok' : totalRevocs < 4*teamIds.length ? 'revoc-warn' : 'revoc-full');
-    document.getElementById('orgRevocBadge').textContent = `${totalRevocs} / ${4*Math.max(1,teamIds.length)} this month`;
-
-    document.getElementById('kpiTeams').textContent = teamIds.length;
+    revocEl.textContent = `${totalRevocs} / 6 used this month`;
+    revocEl.className = 'revoc-badge ' + (totalRevocs === 0 ? 'revoc-ok' : totalRevocs < 6 ? 'revoc-warn' : 'revoc-full');
     document.getElementById('kpiRevocs').textContent = totalRevocs;
+
+    const teamIds = Object.keys(ORG_DATA.teams || {});
+    document.getElementById('kpiTeams').textContent = teamIds.length;
 }
 
 // ── Teams ─────────────────────────────────────────────────────────
 async function loadTeams() {
-    const teamIds = Object.keys(ORG_DATA.teams||{});
-    if(!teamIds.length) {
+    // Derive teams from codes — any code with a teamId belongs to this org's roster
+    const teamIds = new Set();
+    for (const code of ALL_CODES) {
+        if (code.teamId) teamIds.add(code.teamId);
+    }
+    // Also check ORG_DATA.teams
+    Object.keys(ORG_DATA.teams || {}).forEach(t => teamIds.add(t));
+
+    if (!teamIds.size) {
         document.getElementById('teamsBody').innerHTML = '<div class="empty-state"><i class="fas fa-users-slash"></i><p>No teams in this org yet.</p></div>';
         document.getElementById('kpiPlayers').textContent = '0';
         return;
     }
+
     let totalPlayers = 0;
     let html = '';
-    for(const tid of teamIds) {
+    for (const tid of teamIds) {
         const [infoSnap, playersSnap] = await Promise.all([
             db.ref(`teams/${tid}/info`).once('value'),
             db.ref(`teams/${tid}/players`).once('value'),
         ]);
-        const info    = infoSnap.val()||{};
-        const players = playersSnap.val()||{};
+        const info    = infoSnap.val()  || {};
+        const players = playersSnap.val() || {};
         const pCount  = Object.keys(players).length;
         totalPlayers += pCount;
-        const initials = (info.teamName||'??').slice(0,2).toUpperCase();
+        const initials = (info.teamName || '??').slice(0, 2).toUpperCase();
         html += `
         <div class="team-card">
             <div class="team-card-top">
                 <div class="team-av">${initials}</div>
                 <div>
-                    <div class="team-name">${x(info.teamName||tid)}</div>
-                    <div class="team-meta">${pCount} member${pCount!==1?'s':''} · Created ${info.created?new Date(info.created).toLocaleDateString():'—'}</div>
+                    <div class="team-name">${x(info.teamName || tid)}</div>
+                    <div class="team-meta">${pCount} member${pCount !== 1 ? 's' : ''} · Created ${info.created ? new Date(info.created).toLocaleDateString() : '—'}</div>
                 </div>
-                <a href="team_managment_pro.html" class="btn btn-secondary" style="margin-left:auto;font-size:12px;padding:6px 12px;">
-                    <i class="fas fa-arrow-right"></i> Manage
-                </a>
             </div>
         </div>`;
     }
     document.getElementById('teamsBody').innerHTML = html || '<div class="empty-state"><i class="fas fa-users-slash"></i><p>No teams.</p></div>';
     document.getElementById('kpiPlayers').textContent = totalPlayers;
-    document.getElementById('kpiTeams').textContent = teamIds.length;
+    document.getElementById('kpiTeams').textContent   = teamIds.size;
 }
 
 // ── Codes ─────────────────────────────────────────────────────────
 async function loadCodes() {
-    // Load all codes that belong to this org
-    const snap = await db.ref('subscription_codes').orderByChild('orgId').equalTo(ORG_ID).once('value');
+    // Load code keys from orgs/${ORG_ID}/codes index (no full-list read needed)
+    const codesIndexSnap = await db.ref(`orgs/${ORG_ID}/codes`).once('value');
+    const codeKeys = Object.keys(codesIndexSnap.val() || {});
+
     ALL_CODES = [];
-    snap.forEach(c => ALL_CODES.push({ id:c.key, ...c.val() }));
+    await Promise.all(codeKeys.map(async key => {
+        const snap = await db.ref(`subscription_codes/${key}`).once('value');
+        if (snap.val()) ALL_CODES.push({ id: key, ...snap.val() });
+    }));
 
-    // Also load by plan=org/team if orgId not set (legacy)
-    if(!ALL_CODES.length) {
-        const snap2 = await db.ref('subscription_codes').orderByChild('plan').equalTo('org').once('value');
-        snap2.forEach(c => ALL_CODES.push({ id:c.key, ...c.val() }));
-    }
-
-    const used = ALL_CODES.filter(c=>(c.usedCount||0)>0).length;
-    document.getElementById('kpiCodes').textContent    = used;
-    document.getElementById('kpiCodesLeft').textContent = ALL_CODES.filter(c=>{
-        const maxU = c.maxUses==='unlimited'?Infinity:(c.maxUses||1);
-        return (c.usedCount||0) < maxU;
+    const used = ALL_CODES.filter(c => (c.usedCount || 0) > 0).length;
+    document.getElementById('kpiCodes').textContent     = used;
+    document.getElementById('kpiCodesLeft').textContent = ALL_CODES.filter(c => {
+        const maxU = c.maxUses === 'unlimited' ? Infinity : (c.maxUses || 1);
+        return (c.usedCount || 0) < maxU;
     }).length;
 
     renderCodes();
@@ -311,92 +340,216 @@ async function loadCodes() {
 
 function renderCodes() {
     const body = document.getElementById('codesBody');
-    if(!ALL_CODES.length) {
+    if (!ALL_CODES.length) {
         body.innerHTML = '<div class="empty-state"><i class="fas fa-key"></i><p>No codes found for this org.</p></div>';
         return;
     }
     const now = Date.now();
     body.innerHTML = ALL_CODES.map(c => {
-        const used   = c.usedCount||0;
-        const maxU   = c.maxUses==='unlimited'?Infinity:(c.maxUses||1);
-        const isFull = maxU!==Infinity&&used>=maxU;
-        const status = isFull?'used':used>0?'active':'unused';
-        const expiry = c.expiresAt ? new Date(c.expiresAt).toLocaleDateString() : '—';
+        const used   = c.usedCount || 0;
+        const maxU   = c.maxUses === 'unlimited' ? Infinity : (c.maxUses || 1);
+        const isFull = maxU !== Infinity && used >= maxU;
+        const status = isFull ? 'used' : used > 0 ? 'active' : 'unused';
         const usedByList = c.usedBy ? Object.values(c.usedBy) : [];
-        const canRevoke  = c.ownedByTeam && used > 0;
+        const canRevoke  = used > 0 && c.ownedByTeam;
+        const teamLabel  = c.teamId || 'Unassigned';
 
         return `<div class="code-row">
             <span class="code-val">${x(c.id)}</span>
             <span class="code-badge ${status}">${status.toUpperCase()}</span>
-            <span style="font-size:11px;color:var(--gray);">${usedByList.length} user${usedByList.length!==1?'s':''}</span>
-            <span style="font-size:11px;color:var(--gray);">${expiry}</span>
-            <span style="font-size:11px;color:var(--gray);">${x(c.teamId||'Unassigned')}</span>
+            <span style="font-size:11px;color:var(--gray);">${usedByList.length} user${usedByList.length !== 1 ? 's' : ''}</span>
+            <span style="font-size:11px;color:var(--gray);">—</span>
+            <span style="font-size:11px;color:var(--gray);">${x(teamLabel)}</span>
             <span style="display:flex;gap:4px;">
                 <button onclick="navigator.clipboard.writeText('${c.id}').then(()=>toast('Copied!'))"
                     style="background:transparent;border:none;color:var(--gray);cursor:pointer;font-size:13px;padding:4px;" title="Copy">
                     <i class="fas fa-copy"></i>
                 </button>
-                ${canRevoke?`<button onclick="revokeCode('${c.id}')"
-                    style="background:transparent;border:none;color:rgba(248,113,113,.5);cursor:pointer;font-size:13px;padding:4px;" title="Revoke">
+                ${canRevoke ? `<button onclick="revokeCode('${c.id}')"
+                    style="background:transparent;border:none;color:rgba(248,113,113,.6);cursor:pointer;font-size:13px;padding:4px;" title="Revoke">
                     <i class="fas fa-ban"></i>
-                </button>`:''}
+                </button>` : ''}
             </span>
         </div>`;
     }).join('');
 }
 
-// ── Revoke code (org owner level) ─────────────────────────────────
+// ── Players ───────────────────────────────────────────────────────
+async function loadPlayers() {
+    const body = document.getElementById('playersBody');
+    body.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading players…</p></div>';
+
+    const now = Date.now();
+    const rows = [];
+
+    for (const code of ALL_CODES) {
+        const uids = Object.keys(code.usedBy || {});
+        for (const uid of uids) {
+            const uSnap = await db.ref(`users/${uid}`).once('value');
+            const u     = uSnap.val() || {};
+            const sub   = u.subscription || {};
+            rows.push({ uid, code, user: u, sub,
+                isActive:    (sub.expiresAt || 0) > now,
+                displayName: u.displayName || u.email || uid.slice(0, 8),
+                teamId:      u.teamId || code.teamId || null,
+            });
+        }
+    }
+
+    if (!rows.length) {
+        body.innerHTML = '<div class="empty-state"><i class="fas fa-users-slash"></i><p>No active players on org codes.</p></div>';
+        return;
+    }
+
+    body.innerHTML = rows.map(p => `
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:8px;border:1px solid var(--card-border);background:rgba(10,16,28,.5);margin-bottom:6px;transition:border-color .15s;"
+             onmouseenter="this.style.borderColor='rgba(124,58,237,.3)'" onmouseleave="this.style.borderColor='rgba(255,255,255,.1)'">
+            <div style="width:36px;height:36px;border-radius:8px;background:rgba(124,58,237,.18);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#a78bfa;flex-shrink:0;">
+                ${x(p.displayName[0].toUpperCase())}
+            </div>
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:14px;font-weight:700;color:var(--light);">${x(p.displayName)}</div>
+                <div style="font-size:11px;color:var(--gray);margin-top:2px;">Code: ${x(p.code.id)} · ${p.teamId ? 'On a team' : 'No team'}</div>
+            </div>
+            <span style="font-size:10px;padding:2px 8px;border-radius:4px;margin-right:6px;${p.isActive
+                ? 'background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.3);color:#34d399;'
+                : 'background:rgba(148,163,184,.1);border:1px solid rgba(148,163,184,.2);color:var(--gray);'}">
+                ${p.isActive ? 'ACTIVE' : 'EXPIRED'}
+            </span>
+            <button onclick="revokeCode('${p.code.id}')"
+                style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#f87171;border-radius:6px;padding:5px 11px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap;flex-shrink:0;">
+                <i class="fas fa-ban"></i> Revoke
+            </button>
+        </div>`).join('');
+}
+
+// ── Revoke ────────────────────────────────────────────────────────
 window.revokeCode = async function(codeId) {
-    if(!confirm(`Revoke code ${codeId}? The current user will lose access and the code will be reset with remaining time.`)) return;
-    try {
-        const snap = await db.ref(`subscription_codes/${codeId}`).once('value');
-        const code = snap.val();
-        if(!code) { toast('Code not found'); return; }
+    const code = ALL_CODES.find(c => c.id === codeId);
+    if (!code) { toast('Code not found'); return; }
 
-        // Check monthly revocation limit
-        const month = new Date().toISOString().slice(0,7);
-        const teamId = code.teamId;
-        const revSnap = teamId ? await db.ref(`teams/${teamId}/revocationLog/${month}`).once('value') : null;
-        const revCount = revSnap?.val()||0;
-        if(revCount>=4) { toast('Monthly revocation limit (4) reached for this team'); return; }
+    const uids = Object.keys(code.usedBy || {});
+    if (!uids.length) { toast('No user on this code'); return; }
+    const uid    = uids[0];
+    const teamId = code.teamId || null;
 
-        // Find user holding this code
-        const uids = Object.values(code.usedBy||{});
-        const updates = {};
+    if (!confirm(`Revoke code ${codeId}?\n\nThe player will lose access. A new code with remaining time will be sent to your email.`)) return;
 
-        for(const uid of uids) {
-            const userSnap = await db.ref(`users/${uid}/subscription`).once('value');
-            const sub = userSnap.val()||{};
-            if(sub.codeUsed === codeId) {
-                // Calculate remaining time
-                const remaining = Math.max(0, (sub.expiresAt||0) - Date.now());
-                const remainingDays = Math.ceil(remaining/(1000*60*60*24));
-                updates[`subscription_codes/${codeId}/durationDays`] = remainingDays;
-                updates[`subscription_codes/${codeId}/usedCount`] = Math.max(0,(code.usedCount||1)-1);
-                updates[`subscription_codes/${codeId}/usedBy/${uid}`] = null;
-                updates[`users/${uid}/subscription`] = null;
-                updates[`users/${uid}/teamId`] = null;
-                if(teamId) {
-                    updates[`teams/${teamId}/players/${uid}`] = null;
-                    updates[`teams/${teamId}/revocationLog/${month}`] = revCount+1;
-                }
-            }
+    // Check if user is a captain — if so, require captain replacement
+    let isCaptain = false;
+    if (teamId) {
+        const roleSnap = await db.ref(`teams/${teamId}/players/${uid}/role`).once('value');
+        isCaptain = roleSnap.val() === 'captain';
+    }
+
+    if (isCaptain && teamId) {
+        const playersSnap = await db.ref(`teams/${teamId}/players`).once('value');
+        const players     = playersSnap.val() || {};
+        const others      = Object.entries(players).filter(([pid]) => pid !== uid);
+
+        if (!others.length) {
+            toast('Cannot revoke — this player is the only team member.');
+            return;
         }
 
-        await db.ref().update(updates);
-        toast('Code revoked — user removed and remaining time restored to code');
-        loadCodes();
-    } catch(e) { toast('Revoke failed: '+e.message); }
+        pendingRevoke      = { codeId, uid, teamId, code };
+        selectedNewCaptain = null;
+
+        document.getElementById('captainMembersList').innerHTML = others.map(([pid, p]) => `
+            <div id="cmember_${pid}" onclick="selectNewCaptain('${pid}', this)"
+                 style="cursor:pointer;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(15,23,42,.5);display:flex;align-items:center;gap:10px;transition:border-color .15s;">
+                <div style="width:30px;height:30px;border-radius:6px;background:rgba(124,58,237,.18);display:flex;align-items:center;justify-content:center;font-weight:800;color:#a78bfa;font-size:14px;">
+                    ${x((p.displayName || '?')[0].toUpperCase())}
+                </div>
+                <div>
+                    <div style="font-size:13px;font-weight:700;color:var(--light);">${x(p.displayName || 'Unknown')}</div>
+                    <div style="font-size:11px;color:var(--gray);">@${x(p.username || pid.slice(0,8))}</div>
+                </div>
+            </div>`).join('');
+
+        const modal = document.getElementById('captainModal');
+        modal.style.display = 'flex';
+        return;
+    }
+
+    // Not a captain — revoke directly
+    await doRevoke(codeId, uid, teamId, null, code);
 };
+
+window.selectNewCaptain = function(uid, el) {
+    selectedNewCaptain = uid;
+    document.querySelectorAll('#captainMembersList > div').forEach(d =>
+        d.style.borderColor = 'rgba(255,255,255,.1)');
+    el.style.borderColor = '#7C3AED';
+};
+
+window.confirmWithCaptain = async function() {
+    if (!selectedNewCaptain) { toast('Please select a new captain first'); return; }
+    closeCaptainModal();
+    await doRevoke(pendingRevoke.codeId, pendingRevoke.uid, pendingRevoke.teamId, selectedNewCaptain, pendingRevoke.code);
+};
+
+window.closeCaptainModal = function() {
+    document.getElementById('captainModal').style.display = 'none';
+    pendingRevoke = selectedNewCaptain = null;
+};
+
+async function doRevoke(codeId, uid, teamId, newCaptainUid, codeData) {
+    const month   = new Date().toISOString().slice(0, 7);
+    const revPath = `orgs/${ORG_ID}/revocationLog/${month}`;
+
+    const subSnap = await db.ref(`users/${uid}/subscription`).once('value');
+    const sub     = subSnap.val() || {};
+
+    toast('Processing revocation…');
+
+    const res = await fetch(`${WORKER}/revoke-player`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+            codeUsed:         codeId,
+            expiresAt:        sub.expiresAt || 0,
+            uid,
+            captainEmail:     auth.currentUser?.email || '',
+            plan:             codeData.plan || 'team',
+            teamName:         ORG_DATA.name || ORG_ID,
+            codeUsedCount:    codeData.usedCount || 1,
+            codeMaxUses:      codeData.maxUses   || 1,
+            teamId:           teamId || null,
+            newCaptainUid:    newCaptainUid || null,
+            removeFromTeam:   true,
+            revocationLogPath: revPath,
+            revocationLimit:  6,
+        }),
+    });
+
+    const data = await res.json();
+    if (!data.ok) {
+        toast('Revoke failed: ' + (data.error || 'Unknown error'));
+        return;
+    }
+
+    toast(data.remainingDays > 0
+        ? `✓ Player removed. New ${data.remainingDays}-day code sent to your email.`
+        : '✓ Player removed. No remaining time to reissue.');
+
+    await loadCodes();
+    if (document.getElementById('pane-players').classList.contains('active')) loadPlayers();
+    if (document.getElementById('pane-teams').classList.contains('active')) loadTeams();
+
+    // Refresh overview KPIs
+    const uSnap  = await db.ref(`users/${auth.currentUser.uid}`).once('value');
+    await loadOverview(auth.currentUser, uSnap.val() || {});
+}
 
 // ── Toast ─────────────────────────────────────────────────────────
 function toast(msg) {
     const t = document.getElementById('toast');
-    t.textContent=msg; t.classList.add('show');
-    clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2500);
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._t);
+    t._t = setTimeout(() => t.classList.remove('show'), 3000);
 }
 
 })();
 </script>
-</body>
-</html>

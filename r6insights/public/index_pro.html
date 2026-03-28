@@ -392,6 +392,30 @@
         }
         .btn-logout:hover { background: rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.65); }
 
+        /* ── ADMIN / FEEDBACK NAV BUTTONS ── */
+        .btn-nav-admin {
+            padding: 7px 13px; border-radius: 8px;
+            font-size: 12px; font-weight: 700; cursor: pointer;
+            font-family: inherit; text-decoration: none;
+            display: inline-flex; align-items: center; gap: 6px;
+            transition: all 0.18s;
+        }
+        .btn-org-admin {
+            border: 1px solid rgba(251,191,36,0.4);
+            background: rgba(251,191,36,0.1); color: #fbbf24;
+        }
+        .btn-org-admin:hover { background: rgba(251,191,36,0.2); }
+        .btn-team-admin {
+            border: 1px solid rgba(96,165,250,0.4);
+            background: rgba(96,165,250,0.1); color: #60a5fa;
+        }
+        .btn-team-admin:hover { background: rgba(96,165,250,0.2); }
+        .btn-feedback {
+            border: 1px solid rgba(114,137,218,0.4);
+            background: rgba(114,137,218,0.1); color: #7289da;
+        }
+        .btn-feedback:hover { background: rgba(114,137,218,0.22); }
+
         /* ── DEMO BANNER ── */
         #demoBanner {
             display: none;
@@ -527,6 +551,18 @@
                     <i class="fas fa-shield-halved"></i>
                     <span id="teamNameDisplay">—</span>
                 </div>
+                <!-- Org Admin — shown only to org admins -->
+                <a href="org_admin.html" id="orgAdminBtn" class="btn-nav-admin btn-org-admin" style="display:none;" title="Org Admin Panel">
+                    <i class="fas fa-building"></i> Org Admin
+                </a>
+                <!-- Team Admin — shown only to team heads -->
+                <a href="team_admin.html" id="teamAdminBtn" class="btn-nav-admin btn-team-admin" style="display:none;" title="Team Admin Panel">
+                    <i class="fas fa-key"></i> Team Admin
+                </a>
+                <!-- Feedback — shown to all authenticated users -->
+                <a href="https://discord.gg/Gyng9tT76y" target="_blank" id="feedbackBtn" class="btn-nav-admin btn-feedback" style="display:none;" title="Feedback & Suggestions">
+                    <i class="fab fa-discord"></i> Feedback
+                </a>
                 <a href="profile.html" id="navAvatar" class="nav-avatar-btn" title="Profile">?</a>
                 <button class="btn-logout" onclick="doLogout()">
                     <i class="fas fa-right-from-bracket"></i> Logout
@@ -762,6 +798,16 @@
                 showHub();
                 // Apply locks to cards the user can't access
                 R6Gate.applyHubGates(access);
+
+                // Show feedback button for all authenticated users
+                $('feedbackBtn').style.display = '';
+
+                // Show org admin / team head buttons based on user flags
+                const userSnap = await db.ref(`users/${user.uid}`).once('value');
+                const userData = userSnap.val() || {};
+                if (userData.isOrgAdmin)  $('orgAdminBtn').style.display  = '';
+                if (userData.isTeamHead)  $('teamAdminBtn').style.display = '';
+
                 // Show team setup card if no team
                 if (!teamId && access?.hasSub) {
                     const card = document.getElementById('teamSetupCard');
