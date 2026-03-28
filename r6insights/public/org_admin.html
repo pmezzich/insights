@@ -229,7 +229,9 @@ auth.onAuthStateChanged(async user => {
         const orgSnap = await db.ref(`orgs/${ORG_ID}`).once('value');
         ORG_DATA = orgSnap.val() || {};
         document.getElementById('orgSubtitle').textContent = ORG_DATA.name || ORG_ID;
-        await Promise.all([loadOverview(user, userData), loadTeams(), loadCodes()]);
+        await loadOverview(user, userData);
+        await loadCodes();   // must complete first — loadTeams reads ALL_CODES
+        await loadTeams();
     } catch(e) {
         console.error(e);
         toast('Load error: ' + e.message);
@@ -274,17 +276,22 @@ async function loadOverview(user, userData) {
 
 // ── Teams ─────────────────────────────────────────────────────────
 async function loadTeams() {
-    // Derive teams from codes — any code with a teamId belongs to this org's roster
+    // Collect all uids across all org codes, then look up their teamId
     const teamIds = new Set();
+
     for (const code of ALL_CODES) {
-        if (code.teamId) teamIds.add(code.teamId);
+        const uids = Object.keys(code.usedBy || {});
+        for (const uid of uids) {
+            const teamSnap = await db.ref(`users/${uid}/teamId`).once('value');
+            const tid = teamSnap.val();
+            if (tid) teamIds.add(tid);
+        }
     }
-    // Also check ORG_DATA.teams
-    Object.keys(ORG_DATA.teams || {}).forEach(t => teamIds.add(t));
 
     if (!teamIds.size) {
-        document.getElementById('teamsBody').innerHTML = '<div class="empty-state"><i class="fas fa-users-slash"></i><p>No teams in this org yet.</p></div>';
+        document.getElementById('teamsBody').innerHTML = '<div class="empty-state"><i class="fas fa-users-slash"></i><p>No teams found — players may not have joined a team yet.</p></div>';
         document.getElementById('kpiPlayers').textContent = '0';
+        document.getElementById('kpiTeams').textContent   = '0';
         return;
     }
 
@@ -295,7 +302,7 @@ async function loadTeams() {
             db.ref(`teams/${tid}/info`).once('value'),
             db.ref(`teams/${tid}/players`).once('value'),
         ]);
-        const info    = infoSnap.val()  || {};
+        const info    = infoSnap.val()    || {};
         const players = playersSnap.val() || {};
         const pCount  = Object.keys(players).length;
         totalPlayers += pCount;
