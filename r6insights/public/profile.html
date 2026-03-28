@@ -753,11 +753,16 @@ function startCountdown(expAt) {
 
 async function loadReferrals(uid, code) {
     try {
-        const snap = await db.ref('users').orderByChild('subscription/referredBy').equalTo(code).once('value');
+        const [refSnap, subSnap] = await Promise.all([
+            db.ref('users').orderByChild('subscription/referredBy').equalTo(code).once('value'),
+            db.ref(`users/${uid}/subscription`).once('value'),
+        ]);
+        const sub = subSnap.val() || {};
         const joined = [];
         const now = Date.now();
-        snap.forEach(c => {
+        refSnap.forEach(c => {
             const u = c.val();
+            // Only count users with an active paid subscription
             if (u.subscription?.expiresAt > now) joined.push(u.displayName || u.email || 'Friend');
         });
         const count = Math.min(joined.length, 3);
@@ -771,7 +776,33 @@ async function loadReferrals(uid, code) {
             else        { d.className='referral-friend empty';  d.innerHTML=`<i class="fas fa-user-plus"></i>Slot ${i+1}`; }
             slots.appendChild(d);
         }
-        if(count>=3) $('referralBonus').style.display='';
+
+        if(count >= 3) {
+            $('referralBonus').style.display = '';
+            // Fire reward exactly once — guard with rewardSent flag
+            if (!sub.referralRewardSent) {
+                try {
+                    const user = firebase.auth().currentUser;
+                    const email = user?.email || sub.email || '';
+                    const res = await fetch(
+                        'https://wandering-butterfly-2324.pmezzich.workers.dev/referral-reward',
+                        {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ uid, email, referralCode: code })
+                        }
+                    );
+                    const data = await res.json();
+                    if (data.ok) {
+                        toast('🎉 Reward unlocked! Your free month code has been sent to your email.', 'success');
+                    } else {
+                        console.warn('Referral reward error:', data.error);
+                    }
+                } catch(e) {
+                    console.warn('Referral reward call failed:', e.message);
+                }
+            }
+        }
     } catch(e) { console.warn('Referral load:', e); }
 }
 

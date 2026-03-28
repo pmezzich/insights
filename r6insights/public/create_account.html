@@ -412,7 +412,7 @@ window.createAccount = async function() {
             },
             teamId: null,
         };
-        if(referral) userRecord.referredBy = referral;
+        if(referral) userRecord.subscription.referredBy = referral;
         await db.ref(`users/${uid}`).set(userRecord);
 
         // 5. Increment code usage + record uid
