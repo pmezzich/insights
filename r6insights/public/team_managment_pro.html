@@ -984,6 +984,34 @@ window.confirmRemove = function(uid, name){
     openModal('confirmModal');
 };
 
+// ── Generates a new XXXX-XXXX-XXXX-XXXX subscription code ──────────
+function generateSubscriptionCode(){
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const seg = () => Array.from({length:4}, ()=>chars[Math.floor(Math.random()*chars.length)]).join('');
+    return `${seg()}-${seg()}-${seg()}-${seg()}`;
+}
+
+// ── Sends the re-issued code to the captain via the Cloudflare Worker ──
+async function sendReissuedCodeEmail(toEmail, newCode, remainingDays, plan){
+    try {
+        await fetch('https://wandering-butterfly-2324.pmezzich.workers.dev/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                type: 'code_reissued',
+                to: toEmail,
+                code: newCode,
+                days: remainingDays,
+                plan,
+                teamName
+            })
+        });
+    } catch(e) {
+        console.warn('Reissued-code email failed:', e.message);
+        toast('New code saved, but email delivery failed — check your profile for the code.','error');
+    }
+}
+
 async function removePlayer(uid){
     try{
         // Check if their subscription is team-owned (captain can revoke) or solo (untouchable)
@@ -994,7 +1022,7 @@ async function removePlayer(uid){
         updates[`teams/${teamId}/players/${uid}`] = null;
         updates[`users/${uid}/teamId`] = null;
 
-        // If team-owned code — revoke it (restore remaining time to code pool)
+        // If team-owned code — revoke it and reissue a NEW code with remaining time
         if (sub.ownedByTeam && sub.codeUsed) {
             const codeRef = db.ref(`subscription_codes/${sub.codeUsed}`);
             const codeSnap = await codeRef.once('value');
@@ -1009,25 +1037,59 @@ async function removePlayer(uid){
                     closeModal('confirmModal');
                     return;
                 }
-                // Calculate remaining time and restore to code
-                const remaining = Math.max(0, (sub.expiresAt || 0) - Date.now());
+
+                // Calculate remaining time
+                const remaining   = Math.max(0, (sub.expiresAt || 0) - Date.now());
                 const remainingDays = Math.ceil(remaining / (1000*60*60*24));
-                updates[`subscription_codes/${sub.codeUsed}/durationDays`] = remainingDays;
-                updates[`subscription_codes/${sub.codeUsed}/usedCount`] = Math.max(0, (codeData.usedCount||1) - 1);
-                // Remove from usedBy
+
+                // Generate a brand-new code so the removed player cannot reuse the old one
+                const newCode = generateSubscriptionCode();
+
+                // Write new code to Firebase
+                updates[`subscription_codes/${newCode}`] = {
+                    plan:        codeData.plan,
+                    durationDays: remainingDays,
+                    maxUses:     1,
+                    usedCount:   0,
+                    createdAt:   Date.now(),
+                    reissuedFrom: sub.codeUsed,
+                    ownedByTeam: true,
+                    teamId:      teamId,
+                };
+
+                // Fully invalidate the old code (mark used so it can't be redeemed again)
+                updates[`subscription_codes/${sub.codeUsed}/usedCount`] = codeData.maxUses === 'unlimited'
+                    ? (codeData.usedCount || 1)
+                    : (codeData.maxUses || 1);
                 updates[`subscription_codes/${sub.codeUsed}/usedBy/${uid}`] = null;
-                // Clear subscription from user
+
+                // Clear subscription from removed user
                 updates[`users/${uid}/subscription`] = null;
+
                 // Increment revocation counter
                 updates[`teams/${teamId}/revocationLog/${monthKey}`] = revCount + 1;
+
+                // Apply DB changes first, then fire email (non-blocking)
+                await db.ref().update(updates);
+                closeModal('confirmModal');
+                toast('Player removed. Sending new code to your email…', 'success');
+
+                if (remainingDays > 0) {
+                    const captainEmail = auth.currentUser?.email;
+                    if (captainEmail) {
+                        await sendReissuedCodeEmail(captainEmail, newCode, remainingDays, codeData.plan);
+                    }
+                } else {
+                    toast('No remaining days on that code — nothing to reissue.', 'success');
+                }
+                return; // updates already applied above
             }
         }
+
         // Solo sub users: just remove from team, keep their subscription intact
-        
         await db.ref().update(updates);
         closeModal('confirmModal');
-        toast('Player removed from team.','success');
-        loadTeam();
+        toast('Player removed from team.', 'success');
     }catch(e){ toast('Remove failed: '+e.message,'error'); }
 }
 

@@ -220,6 +220,12 @@ body::before { content:''; position:fixed; inset:0; background:rgba(5,8,15,.72);
                 <label>Confirm Password</label>
                 <input class="fi" type="password" id="confirmPassword" placeholder="Repeat password" autocomplete="new-password">
             </div>
+            <div class="fg">
+                <label>Referral Code <span style="color:rgba(148,163,184,.4);font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span></label>
+                <input class="fi" type="text" id="referralCode" placeholder="e.g. FRIEND2026" maxlength="30" autocomplete="off"
+                    style="text-transform:uppercase;"
+                    oninput="this.value=this.value.toUpperCase()">
+            </div>
             <div class="form-err" id="createErr"></div>
             <button class="btn-submit" id="createBtn" onclick="createAccount()">
                 <i class="fas fa-user-plus"></i> Create Account
@@ -228,14 +234,25 @@ body::before { content:''; position:fixed; inset:0; background:rgba(5,8,15,.72);
 
         <!-- Success -->
         <div id="successScreen">
-            <div class="success-icon"><i class="fas fa-circle-check"></i></div>
-            <div class="success-title">Account Created!</div>
+            <div class="success-icon"><i class="fas fa-envelope-circle-check"></i></div>
+            <div class="success-title">Verify Your Email</div>
             <div class="success-sub" id="successMsg">
                 Check your email for a verification link, then sign in.
             </div>
-            <button class="btn-submit" onclick="window.location.href='index_pro.html'" style="margin-bottom:10px;">
+            <!-- Shown once verified -->
+            <button class="btn-submit" id="goSignInBtn" onclick="window.location.href='index_pro.html'" style="margin-bottom:10px;display:none;">
                 <i class="fas fa-arrow-right-to-bracket"></i> Go to Sign In
             </button>
+            <!-- Check / resend controls shown until verified -->
+            <div id="verifyControls" style="display:flex;flex-direction:column;gap:10px;">
+                <button class="btn-submit" id="checkVerifyBtn" onclick="checkVerification()">
+                    <i class="fas fa-rotate-right"></i> I've Verified — Continue
+                </button>
+                <button onclick="resendVerification()" style="background:transparent;border:none;color:#a78bfa;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;padding:4px;">
+                    <i class="fas fa-paper-plane"></i> Resend Verification Email
+                </button>
+            </div>
+            <div id="verifyStatus" style="font-size:12px;margin-top:8px;min-height:18px;"></div>
         </div>
 
         <div class="divider"></div>
@@ -351,6 +368,7 @@ window.createAccount = async function() {
     const email       = document.getElementById('email').value.trim();
     const password    = document.getElementById('password').value;
     const confirm     = document.getElementById('confirmPassword').value;
+    const referral    = (document.getElementById('referralCode')?.value || '').trim().toUpperCase() || null;
     const errEl       = document.getElementById('createErr');
     const btn         = document.getElementById('createBtn');
 
@@ -379,8 +397,8 @@ window.createAccount = async function() {
             ? now + (36500 * 24 * 60 * 60 * 1000)  // ~100 years = lifetime
             : now + (validatedCode.durationDays * 24 * 60 * 60 * 1000);
 
-        // 4. Write user record
-        await db.ref(`users/${uid}`).set({
+        // 4. Write user record (include referral if provided)
+        const userRecord = {
             displayName,
             email,
             createdAt:   now,
@@ -393,7 +411,9 @@ window.createAccount = async function() {
                 ownedByTeam:  validatedCode.ownedByTeam || false,
             },
             teamId: null,
-        });
+        };
+        if(referral) userRecord.referredBy = referral;
+        await db.ref(`users/${uid}`).set(userRecord);
 
         // 5. Increment code usage + record uid
         const codeRef = db.ref(`subscription_codes/${validatedCode.key}`);
@@ -405,12 +425,12 @@ window.createAccount = async function() {
             return current;
         });
 
-        // 6. Show success
+        // 6. Show success — sign-in is gated until email is verified
         document.getElementById('pane2').style.display = 'none';
         document.getElementById('successScreen').style.display = 'block';
         document.getElementById('successMsg').innerHTML =
             `A verification email has been sent to <strong>${email}</strong>.<br>
-             Verify your email then sign in to access R6 Insights.`;
+             Click the link in that email, then press <strong>I've Verified — Continue</strong> below.`;
         stepUI(3);
 
     } catch(e) {
@@ -422,6 +442,56 @@ window.createAccount = async function() {
         showErr(msg, true);
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-user-plus"></i> Create Account';
+    }
+};
+
+// ── Check email verification status ───────────────────────────────
+window.checkVerification = async function() {
+    const btn    = document.getElementById('checkVerifyBtn');
+    const status = document.getElementById('verifyStatus');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking…';
+    status.textContent = '';
+    try {
+        const user = auth.currentUser;
+        if(!user) throw new Error('Session lost — please refresh and sign in.');
+        await user.reload();  // force token refresh from Firebase
+        if(user.emailVerified) {
+            // Unlock sign-in
+            document.getElementById('verifyControls').style.display = 'none';
+            document.getElementById('goSignInBtn').style.display   = 'block';
+            document.getElementById('successMsg').innerHTML =
+                '<strong style="color:#34d399;"><i class="fas fa-circle-check"></i> Email verified!</strong><br>You can now sign in to R6 Insights.';
+            status.style.color = '#34d399';
+            status.textContent = '';
+        } else {
+            status.style.color = '#f87171';
+            status.textContent = 'Email not yet verified. Check your inbox (and spam folder).';
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-rotate-right"></i> I\'ve Verified — Continue';
+        }
+    } catch(e) {
+        status.style.color = '#f87171';
+        status.textContent = e.message;
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-rotate-right"></i> I\'ve Verified — Continue';
+    }
+};
+
+// ── Resend verification email ──────────────────────────────────────
+window.resendVerification = async function() {
+    const status = document.getElementById('verifyStatus');
+    try {
+        const user = auth.currentUser;
+        if(!user) throw new Error('Session lost — please refresh.');
+        await user.sendEmailVerification();
+        status.style.color = '#34d399';
+        status.textContent = 'Verification email resent!';
+    } catch(e) {
+        status.style.color = '#f87171';
+        status.textContent = e.code === 'auth/too-many-requests'
+            ? 'Too many requests — wait a moment and try again.'
+            : e.message;
     }
 };
 
