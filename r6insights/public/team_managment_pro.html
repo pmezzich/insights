@@ -984,112 +984,80 @@ window.confirmRemove = function(uid, name){
     openModal('confirmModal');
 };
 
-// ── Generates a new XXXX-XXXX-XXXX-XXXX subscription code ──────────
-function generateSubscriptionCode(){
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    const seg = () => Array.from({length:4}, ()=>chars[Math.floor(Math.random()*chars.length)]).join('');
-    return `${seg()}-${seg()}-${seg()}-${seg()}`;
-}
-
-// ── Sends the re-issued code to the captain via the Cloudflare Worker ──
-async function sendReissuedCodeEmail(toEmail, newCode, remainingDays, plan){
-    try {
-        await fetch('https://wandering-butterfly-2324.pmezzich.workers.dev/send-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                type: 'code_reissued',
-                to: toEmail,
-                code: newCode,
-                days: remainingDays,
-                plan,
-                teamName
-            })
-        });
-    } catch(e) {
-        console.warn('Reissued-code email failed:', e.message);
-        toast('New code saved, but email delivery failed — check your profile for the code.','error');
-    }
-}
-
 async function removePlayer(uid){
     try{
-        // Check if their subscription is team-owned (captain can revoke) or solo (untouchable)
         const subSnap = await db.ref(`users/${uid}/subscription`).once('value');
         const sub = subSnap.val() || {};
 
-        const updates = {};
-        updates[`teams/${teamId}/players/${uid}`] = null;
-        updates[`users/${uid}/teamId`] = null;
-
-        // If team-owned code — revoke it and reissue a NEW code with remaining time
+        // If team-owned code — route through worker (admin-only subscription_codes writes)
         if (sub.ownedByTeam && sub.codeUsed) {
-            const codeRef = db.ref(`subscription_codes/${sub.codeUsed}`);
+            const codeRef  = db.ref(`subscription_codes/${sub.codeUsed}`);
             const codeSnap = await codeRef.once('value');
             const codeData = codeSnap.val();
             if (codeData) {
                 // Check monthly revocation limit (4 per team per month)
-                const monthKey = new Date().toISOString().slice(0,7); // "2026-03"
-                const revSnap = await db.ref(`teams/${teamId}/revocationLog/${monthKey}`).once('value');
+                const monthKey = new Date().toISOString().slice(0,7);
+                const revSnap  = await db.ref(`teams/${teamId}/revocationLog/${monthKey}`).once('value');
                 const revCount = revSnap.val() || 0;
                 if (revCount >= 4) {
-                    toast('Monthly revocation limit reached (4/month). Cannot revoke this code until next month.','error');
+                    toast('Monthly revocation limit reached (4/month). Cannot revoke until next month.','error');
                     closeModal('confirmModal');
                     return;
                 }
 
-                // Calculate remaining time
-                const remaining   = Math.max(0, (sub.expiresAt || 0) - Date.now());
-                const remainingDays = Math.ceil(remaining / (1000*60*60*24));
-
-                // Generate a brand-new code so the removed player cannot reuse the old one
-                const newCode = generateSubscriptionCode();
-
-                // Write new code to Firebase
-                updates[`subscription_codes/${newCode}`] = {
-                    plan:        codeData.plan,
-                    durationDays: remainingDays,
-                    maxUses:     1,
-                    usedCount:   0,
-                    createdAt:   Date.now(),
-                    reissuedFrom: sub.codeUsed,
-                    ownedByTeam: true,
-                    teamId:      teamId,
-                };
-
-                // Fully invalidate the old code (mark used so it can't be redeemed again)
-                updates[`subscription_codes/${sub.codeUsed}/usedCount`] = codeData.maxUses === 'unlimited'
-                    ? (codeData.usedCount || 1)
-                    : (codeData.maxUses || 1);
-                updates[`subscription_codes/${sub.codeUsed}/usedBy/${uid}`] = null;
-
-                // Clear subscription from removed user
-                updates[`users/${uid}/subscription`] = null;
-
-                // Increment revocation counter
-                updates[`teams/${teamId}/revocationLog/${monthKey}`] = revCount + 1;
-
-                // Apply DB changes first, then fire email (non-blocking)
-                await db.ref().update(updates);
-                closeModal('confirmModal');
-                toast('Player removed. Sending new code to your email…', 'success');
-
-                if (remainingDays > 0) {
-                    const captainEmail = auth.currentUser?.email;
-                    if (captainEmail) {
-                        await sendReissuedCodeEmail(captainEmail, newCode, remainingDays, codeData.plan);
+                // ── Step 1: worker handles subscription_codes (admin-only path) ──
+                const workerRes = await fetch(
+                    'https://wandering-butterfly-2324.pmezzich.workers.dev/revoke-player',
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            codeUsed:     sub.codeUsed,
+                            expiresAt:    sub.expiresAt || 0,
+                            uid,
+                            captainEmail: auth.currentUser?.email || '',
+                            plan:         codeData.plan || 'team',
+                            teamName,
+                            codeUsedCount: codeData.usedCount || 1,
+                            codeMaxUses:   codeData.maxUses   || 1,
+                        })
                     }
-                } else {
-                    toast('No remaining days on that code — nothing to reissue.', 'success');
+                );
+                const workerJson = await workerRes.json();
+                if (!workerJson.ok) {
+                    toast('Revoke failed (worker): ' + (workerJson.error || 'Unknown error'), 'error');
+                    closeModal('confirmModal');
+                    return;
                 }
-                return; // updates already applied above
+
+                // ── Step 2: client writes to paths it IS allowed to touch ──
+                const updates = {};
+                updates[`teams/${teamId}/players/${uid}`]          = null;
+                updates[`users/${uid}/teamId`]                     = null;
+                updates[`users/${uid}/subscription`]               = null;
+                updates[`teams/${teamId}/revocationLog/${monthKey}`] = revCount + 1;
+                await db.ref().update(updates);
+
+                closeModal('confirmModal');
+                const days = workerJson.remainingDays;
+                toast(
+                    days > 0
+                        ? `Player removed. New code (${days}d) sent to your email.`
+                        : 'Player removed. No remaining days to reissue.',
+                    'success'
+                );
+                return;
             }
         }
 
-        // Solo sub users: just remove from team, keep their subscription intact
+        // Solo sub or no sub — just remove from team/user nodes
+        const updates = {};
+        updates[`teams/${teamId}/players/${uid}`] = null;
+        updates[`users/${uid}/teamId`]            = null;
         await db.ref().update(updates);
         closeModal('confirmModal');
         toast('Player removed from team.', 'success');
+
     }catch(e){ toast('Remove failed: '+e.message,'error'); }
 }
 
