@@ -853,13 +853,6 @@ window.addEventListener('unhandledrejection', (e) => {
                     </div>
                     
                     <div class="form-group">
-                        <label class="form-label">Recording Team <span style="font-size:11px;color:var(--gray);font-weight:400;">(which team was recording?)</span></label>
-                        <select id="recordingTeamSelect" class="form-input">
-                            <option value="">Loading teams…</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
                         <label class="form-label">Opponent Team</label>
                         <input type="text" id="opponentInput" class="form-input" placeholder="Enter opponent team name">
                     </div>
@@ -1073,9 +1066,6 @@ window.addEventListener('unhandledrejection', (e) => {
                 userTeamName = teamNameSnapshot.val();
                 document.getElementById('teamName').textContent = userTeamName;
 
-                // Populate Recording Team selector
-                await populateTeamSelector(user.uid, teamId, userTeamName);
-
                 addMapUpload();
             } catch (error) {
                 showError(`Authentication error: ${error.message}`);
@@ -1083,44 +1073,6 @@ window.addEventListener('unhandledrejection', (e) => {
                 window.location.href = 'index_pro.html';
             }
         });
-
-        // Populate the recording team dropdown
-        async function populateTeamSelector(uid, primaryTeamId, primaryTeamName) {
-            const sel = document.getElementById('recordingTeamSelect');
-            if (!sel) return;
-
-            const options = [];
-
-            // Always include the user's own team first
-            if (primaryTeamId) {
-                options.push({ id: primaryTeamId, name: primaryTeamName || primaryTeamId });
-            }
-
-            // Admins get all teams
-            try {
-                const adminSnap = await db.ref(`admins/${uid}`).once('value');
-                if (adminSnap.exists()) {
-                    const allTeamsSnap = await db.ref('teams').once('value');
-                    const allTeams = allTeamsSnap.val() || {};
-                    Object.entries(allTeams).forEach(([tid, tdata]) => {
-                        if (tid !== primaryTeamId) {
-                            options.push({ id: tid, name: tdata?.info?.teamName || tid });
-                        }
-                    });
-                }
-            } catch(e) {}
-
-            sel.innerHTML = options.map(o =>
-                `<option value="${o.id}"${o.id === primaryTeamId ? ' selected' : ''}>${o.name}</option>`
-            ).join('');
-
-            // When selection changes, update teamId and userTeamName
-            sel.onchange = function() {
-                teamId = this.value;
-                userTeamName = this.options[this.selectedIndex].text;
-                document.getElementById('teamName').textContent = userTeamName;
-            };
-        }
 
         // Add a new map upload field
         function addMapUpload() {
@@ -1262,18 +1214,43 @@ window.addEventListener('unhandledrejection', (e) => {
                 const modal = document.getElementById('teamPickerModal');
                 const cards = document.getElementById('teamPickerCards');
 
+                // Try to find which team name best matches the user's Firebase team
+                function nameSim(a, b) {
+                    const n = s => (s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+                    const na = n(a), nb = n(b);
+                    return na === nb || na.includes(nb) || nb.includes(na);
+                }
+                let suggestedIdx = -1;
+                if (userTeamName) {
+                    for (let i = 0; i < teams.length; i++) {
+                        if (nameSim(teams[i]?.name || '', userTeamName)) {
+                            suggestedIdx = i;
+                            break;
+                        }
+                    }
+                }
+
                 cards.innerHTML = teams.map((team, idx) => {
                     const name     = team.name || `Team ${idx + 1}`;
                     const players  = (playersByTeamIndex[idx] || []);
+                    const isSuggested = idx === suggestedIdx;
                     const playerList = players.length
                         ? players.map(p => `<div style="font-size:11px;color:#94a3b8;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.04);display:flex;align-items:center;gap:6px;">
                               <i class="fas fa-user" style="font-size:9px;color:#64748b;"></i> ${p}
                           </div>`).join('')
                         : '<div style="font-size:11px;color:#475569;padding:4px 0;">No player data available</div>';
 
-                    const accent = idx === 0 ? '#a78bfa' : '#34d399';
-                    const accentBg = idx === 0 ? 'rgba(167,139,250,0.12)' : 'rgba(52,211,153,0.08)';
-                    const accentBorder = idx === 0 ? 'rgba(167,139,250,0.4)' : 'rgba(52,211,153,0.35)';
+                    const accent       = idx === 0 ? '#a78bfa' : '#34d399';
+                    const accentBg     = idx === 0 ? 'rgba(167,139,250,0.12)' : 'rgba(52,211,153,0.08)';
+                    const accentBorder = isSuggested
+                        ? (idx === 0 ? 'rgba(167,139,250,0.9)' : 'rgba(52,211,153,0.9)')
+                        : (idx === 0 ? 'rgba(167,139,250,0.4)' : 'rgba(52,211,153,0.35)');
+
+                    const suggestedBadge = isSuggested
+                        ? `<div style="font-size:10px;font-weight:700;color:#fbbf24;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);border-radius:5px;padding:2px 8px;display:inline-flex;align-items:center;gap:4px;margin-bottom:6px;">
+                               <i class="fas fa-star" style="font-size:9px;"></i> Matches "${userTeamName}"
+                           </div>`
+                        : '';
 
                     return `
                     <div onclick="pickTeam(${idx})" style="
@@ -1283,9 +1260,11 @@ window.addEventListener('unhandledrejection', (e) => {
                         border-radius:12px; padding:18px;
                         transition:all .18s;
                         display:flex; flex-direction:column; gap:10px;
+                        ${isSuggested ? 'box-shadow:0 0 0 3px rgba(251,191,36,0.15);' : ''}
                     "
                     onmouseenter="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,0.4)'"
-                    onmouseleave="this.style.transform='';this.style.boxShadow=''">
+                    onmouseleave="this.style.transform='';this.style.boxShadow='${isSuggested?'0 0 0 3px rgba(251,191,36,0.15)':''}'">
+                        ${suggestedBadge}
                         <div style="display:flex;align-items:center;gap:8px;">
                             <div style="width:32px;height:32px;border-radius:8px;background:${accentBg};border:1px solid ${accentBorder};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:${accent};">
                                 ${name[0]?.toUpperCase() || '?'}
@@ -1341,13 +1320,6 @@ window.addEventListener('unhandledrejection', (e) => {
             }
             
             // Initialize match data
-            // Re-sync teamId from selector in case user changed it
-            const recSel = document.getElementById('recordingTeamSelect');
-            if (recSel && recSel.value) {
-                teamId = recSel.value;
-                userTeamName = recSel.options[recSel.selectedIndex]?.text || userTeamName;
-            }
-
             const matchTypeEl = document.querySelector('input[name="matchType"]:checked');
             const matchType = matchTypeEl ? matchTypeEl.value : 'scrim';
             matchData = {
