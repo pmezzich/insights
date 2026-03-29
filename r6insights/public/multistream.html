@@ -107,7 +107,6 @@ body { background-color: var(--darker); min-height: 100vh; overflow: hidden; pad
     box-shadow: 0 4px 24px rgba(0,0,0,0.5);
     transition: border-color .15s, box-shadow .15s;
     user-select: none;
-    backdrop-filter: blur(10px);
 }
 .sw:hover { border-color: rgba(124,58,237,0.3); }
 .sw.focused {
@@ -243,6 +242,16 @@ body { background-color: var(--darker); min-height: 100vh; overflow: hidden; pad
     transition: all .22s; z-index: 9999; pointer-events: none;
 }
 #toast.show { opacity: 1; transform: translateY(0); }
+
+/* ── FULLSCREEN ─────────────────────────────────────────────────── */
+#canvas:fullscreen,
+#canvas:-webkit-full-screen,
+#canvas:-moz-full-screen,
+#canvas:-ms-fullscreen {
+    top: 0 !important;
+    background: #000;
+}
+.arr-btn.fs-active { color: #a78bfa; border-color: rgba(124,58,237,0.5); background: rgba(124,58,237,0.1); }
 </style>
 </head>
 <body>
@@ -311,6 +320,8 @@ body { background-color: var(--darker); min-height: 100vh; overflow: hidden; pad
     <button class="arr-btn" onclick="tileStack()"><i class="fas fa-bars"></i> Stack</button>
     <div class="arr-sep"></div>
     <button class="arr-btn" onclick="resetSizes()"><i class="fas fa-rotate-left"></i> Reset</button>
+    <div class="arr-sep"></div>
+    <button class="arr-btn" id="fsBtn" onclick="toggleFullscreen()"><i class="fas fa-expand"></i> Fullscreen</button>
 </div>
 
 <div id="toast"></div>
@@ -653,6 +664,39 @@ function toast(msg){
     const t=document.getElementById('toast');
     t.textContent=msg; t.classList.add('show');
     clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2400);
+}
+
+// ── Fullscreen ────────────────────────────────────────────────────
+window.toggleFullscreen = function(){
+    const canvas = document.getElementById('canvas');
+    const btn    = document.getElementById('fsBtn');
+    if (!document.fullscreenElement) {
+        const req = canvas.requestFullscreen
+            || canvas.webkitRequestFullscreen
+            || canvas.mozRequestFullScreen
+            || canvas.msRequestFullscreen;
+        if (req) req.call(canvas);
+    } else {
+        const exit = document.exitFullscreen
+            || document.webkitExitFullscreen
+            || document.mozCancelFullScreen
+            || document.msExitFullscreen;
+        if (exit) exit.call(document);
+    }
+};
+
+// Update button state when fullscreen changes
+document.addEventListener('fullscreenchange',       updateFsBtn);
+document.addEventListener('webkitfullscreenchange', updateFsBtn);
+document.addEventListener('mozfullscreenchange',    updateFsBtn);
+function updateFsBtn(){
+    const active = !!document.fullscreenElement;
+    const btn = document.getElementById('fsBtn');
+    if (!btn) return;
+    btn.classList.toggle('fs-active', active);
+    btn.innerHTML = active
+        ? '<i class="fas fa-compress"></i> Exit Fullscreen'
+        : '<i class="fas fa-expand"></i> Fullscreen';
 }
 
 // Init canvas height
