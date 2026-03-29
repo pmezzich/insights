@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Partners — R6 Insights</title>
+<link rel="stylesheet" href="../styles/pro-global.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+<script src="../scripts/firebase-config.js"></script>
+<script>if(localStorage.getItem('r6_theme')==='light')document.documentElement.classList.add('light-mode');</script>
+<script src="../scripts/theme.js"></script>
+<style>
+body {
+    background-color: var(--darker);
+    background-image: url('https://images.contentstack.io/v3/assets/bltb6530b271fddd0b1/blt6577b1f58530e6b2/5eb7cdc165eec876c4b5d0d8/rainbow6siege_bloodmoon_splash.jpg');
+    background-size: cover; background-position: center; background-attachment: fixed;
+    min-height: 100vh; padding-bottom: 60px;
+}
+
+/* ── HERO ── */
+.partners-hero {
+    text-align: center;
+    padding: 56px 28px 40px;
+    border-bottom: 1px solid var(--card-border);
+}
+.partners-hero h1 {
+    font-size: 36px; font-weight: 900;
+    background: linear-gradient(to right, #a78bfa, #818cf8);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 10px;
+}
+.partners-hero p { font-size: 15px; color: var(--gray); max-width: 520px; margin: 0 auto; line-height: 1.6; }
+
+/* ── PARTNER GRID ── */
+.partners-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
+    padding: 36px 28px;
+}
+.partner-card {
+    background: rgba(30,41,59,0.7);
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    padding: 28px 20px;
+    display: flex; align-items: center; justify-content: center;
+    text-decoration: none;
+    transition: all .2s;
+    aspect-ratio: 2/1;
+    position: relative;
+    overflow: hidden;
+}
+.partner-card:hover {
+    border-color: rgba(124,58,237,0.5);
+    transform: translateY(-3px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    background: rgba(30,41,59,0.9);
+}
+.partner-card img {
+    max-width: 100%; max-height: 100%;
+    object-fit: contain;
+    filter: brightness(0.85) saturate(0.9);
+    transition: filter .2s;
+}
+.partner-card:hover img { filter: brightness(1) saturate(1); }
+
+/* Remove button (admin only) */
+.partner-remove {
+    position: absolute; top: 8px; right: 8px;
+    background: rgba(239,68,68,0.85); border: none;
+    color: white; border-radius: 6px;
+    width: 26px; height: 26px;
+    font-size: 11px; cursor: pointer;
+    display: none; align-items: center; justify-content: center;
+    transition: background .15s;
+}
+.partner-remove:hover { background: rgba(239,68,68,1); }
+.admin-mode .partner-remove { display: flex; }
+
+.no-partners {
+    grid-column: 1 / -1;
+    text-align: center; padding: 60px 20px;
+    color: var(--gray); font-size: 14px;
+}
+.no-partners i { font-size: 36px; opacity: .15; display: block; margin-bottom: 14px; }
+
+/* ── ADMIN PANEL ── */
+#adminPanel {
+    display: none;
+    margin: 0 28px 28px;
+    background: rgba(124,58,237,0.06);
+    border: 1px solid rgba(124,58,237,0.3);
+    border-radius: 14px;
+    overflow: hidden;
+}
+#adminPanel.visible { display: block; }
+
+.admin-hdr {
+    padding: 14px 20px;
+    background: rgba(124,58,237,0.12);
+    border-bottom: 1px solid rgba(124,58,237,0.25);
+    font-size: 12px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .5px;
+    color: #a78bfa;
+    display: flex; align-items: center; gap: 8px;
+}
+.admin-body { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+
+.upload-zone {
+    border: 2px dashed rgba(124,58,237,0.35);
+    border-radius: 10px;
+    padding: 32px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .2s;
+    background: rgba(124,58,237,0.04);
+    position: relative;
+}
+.upload-zone:hover, .upload-zone.drag-over {
+    border-color: rgba(124,58,237,0.7);
+    background: rgba(124,58,237,0.1);
+}
+.upload-zone input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+.upload-zone-icon { font-size: 28px; color: #a78bfa; margin-bottom: 10px; }
+.upload-zone p { font-size: 13px; color: var(--gray); margin: 0; }
+.upload-zone strong { color: #a78bfa; }
+
+.preview-wrap {
+    display: none;
+    align-items: center; gap: 16px;
+    padding: 14px 16px;
+    background: rgba(52,211,153,0.06);
+    border: 1px solid rgba(52,211,153,0.25);
+    border-radius: 10px;
+}
+.preview-wrap.show { display: flex; }
+.preview-wrap img { height: 50px; max-width: 120px; object-fit: contain; border-radius: 6px; }
+.preview-name { font-size: 13px; font-weight: 600; color: #34d399; flex: 1; }
+
+.form-row { display: flex; flex-direction: column; gap: 5px; }
+.form-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--gray); }
+.form-input {
+    padding: 11px 13px; border-radius: 8px;
+    border: 1px solid var(--card-border);
+    background: rgba(10,16,28,0.9);
+    color: var(--light); font-size: 14px; font-family: inherit;
+    transition: border-color .2s; width: 100%;
+}
+.form-input:focus { outline: none; border-color: var(--primary); }
+.form-input::placeholder { color: rgba(148,163,184,0.3); }
+
+.btn-add {
+    padding: 12px 24px; border-radius: 9px;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: white; border: none; font-family: inherit;
+    font-size: 14px; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+    transition: opacity .18s; align-self: flex-start;
+}
+.btn-add:hover:not(:disabled) { opacity: .9; }
+.btn-add:disabled { opacity: .45; cursor: not-allowed; }
+
+.admin-err { font-size: 12px; color: #f87171; display: none; }
+.admin-err.show { display: block; }
+
+/* ── TOAST ── */
+.toast {
+    position: fixed; bottom: 22px; right: 22px;
+    padding: 11px 17px; border-radius: 10px;
+    font-size: 13px; font-weight: 600; z-index: 9999;
+    display: flex; align-items: center; gap: 7px;
+    animation: tin .2s ease; box-shadow: 0 4px 20px rgba(0,0,0,.5); color: white;
+}
+.toast.success { background: rgba(16,185,129,0.95); }
+.toast.error   { background: rgba(239,68,68,0.95); }
+@keyframes tin { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+@media(max-width:600px) {
+    .partners-grid { grid-template-columns: repeat(2,1fr); padding: 20px 14px; }
+    #adminPanel { margin: 0 14px 20px; }
+    .partners-hero { padding: 36px 20px 28px; }
+    .partners-hero h1 { font-size: 26px; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+    <!-- Nav -->
+    <div class="nav-header">
+        <a href="index_pro.html" class="logo" style="text-decoration:none;">
+            <img src="../styles/r6_insights.png" class="logo-img" alt="R6 Insights">
+            <div class="logo-text">R6 INSIGHTS</div>
+        </a>
+        <div class="nav-right">
+            <a href="index_pro.html" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Hub</a>
+            <a href="profile.html" id="navAvatar" class="nav-avatar-btn" title="Profile">?</a>
+        </div>
+    </div>
+
+    <!-- Hero -->
+    <div class="partners-hero">
+        <h1>Our Partners</h1>
+        <p>R6 Insights works with organisations and teams across the competitive Siege community.</p>
+    </div>
+
+    <!-- Admin Panel (Peter's UID only) -->
+    <div id="adminPanel">
+        <div class="admin-hdr"><i class="fas fa-shield-halved"></i> Partner Admin — Add Partner</div>
+        <div class="admin-body">
+
+            <!-- Upload zone -->
+            <div class="upload-zone" id="uploadZone"
+                 ondragover="event.preventDefault();this.classList.add('drag-over')"
+                 ondragleave="this.classList.remove('drag-over')"
+                 ondrop="handleDrop(event)">
+                <input type="file" id="logoFile" accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                       onchange="handleFile(this.files[0])">
+                <div class="upload-zone-icon"><i class="fas fa-cloud-arrow-up"></i></div>
+                <p><strong>Click to upload</strong> or drag &amp; drop<br>PNG, JPG, WebP or SVG · Max 500 KB</p>
+            </div>
+
+            <!-- Preview -->
+            <div class="preview-wrap" id="previewWrap">
+                <img id="previewImg" src="" alt="preview">
+                <span class="preview-name" id="previewName">—</span>
+                <button onclick="clearFile()"
+                    style="background:transparent;border:none;color:var(--gray);cursor:pointer;font-size:15px;padding:4px;"
+                    title="Remove"><i class="fas fa-xmark"></i></button>
+            </div>
+
+            <!-- Partner name -->
+            <div class="form-row">
+                <label class="form-label">Partner Name</label>
+                <input type="text" id="partnerName" class="form-input" placeholder="e.g. NAVI, Team Liquid…" maxlength="60">
+            </div>
+
+            <!-- Link -->
+            <div class="form-row">
+                <label class="form-label">Link URL</label>
+                <input type="url" id="partnerLink" class="form-input" placeholder="https://example.com">
+            </div>
+
+            <div class="admin-err" id="adminErr"></div>
+
+            <button class="btn-add" id="addBtn" onclick="addPartner()">
+                <i class="fas fa-plus"></i> Add Partner
+            </button>
+        </div>
+    </div>
+
+    <!-- Partner grid -->
+    <div class="partners-grid" id="partnersGrid">
+        <div class="no-partners"><i class="fas fa-handshake"></i><p>Loading partners…</p></div>
+    </div>
+
+    <div style="text-align:center;padding:14px 20px;font-size:12px;color:rgba(148,163,184,0.5);">
+        © 2026 R6 Insights. All rights reserved.
+    </div>
+
+</div>
+
+<script src="../scripts/profile-loader.js"></script>
+<script>
+(function(){
+'use strict';
+
+const ADMIN_UID = 'Q6eppdUwJBPoifc9rSsImF3HYkj1';
+
+if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db   = firebase.database();
+
+const $ = id => document.getElementById(id);
+const x = s  => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+let isAdmin     = false;
+let pendingImg  = null;   // { base64, fileName }
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+auth.onAuthStateChanged(user => {
+    if (user && user.uid === ADMIN_UID) {
+        isAdmin = true;
+        $('adminPanel').classList.add('visible');
+        document.querySelector('.partners-grid').classList.add('admin-mode');
+        if(typeof R6Theme !== 'undefined') R6Theme.init(user.uid, db);
+    }
+    loadPartners();
+});
+
+// ── Load & render partners ────────────────────────────────────────────────────
+function loadPartners() {
+    db.ref('partners').orderByChild('createdAt').on('value', snap => {
+        const grid = $('partnersGrid');
+        const data = snap.val();
+        if (!data) {
+            grid.innerHTML = `<div class="no-partners"><i class="fas fa-handshake"></i><p>No partners yet${isAdmin ? ' — add one above!' : '.'}</p></div>`;
+            return;
+        }
+
+        const partners = Object.entries(data)
+            .map(([key, val]) => ({ key, ...val }))
+            .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+
+        grid.innerHTML = partners.map(p => `
+            <a href="${x(p.link||'#')}" target="_blank" rel="noopener" class="partner-card">
+                <img src="${p.imageBase64}" alt="${x(p.name||'Partner')}">
+                ${isAdmin ? `<button class="partner-remove" onclick="removePartner(event,'${p.key}')" title="Remove partner"><i class="fas fa-xmark"></i></button>` : ''}
+            </a>`).join('');
+
+        if (isAdmin) grid.classList.add('admin-mode');
+    });
+}
+
+// ── File handling ─────────────────────────────────────────────────────────────
+window.handleDrop = function(e) {
+    e.preventDefault();
+    $('uploadZone').classList.remove('drag-over');
+    const file = e.dataTransfer?.files?.[0];
+    if (file) handleFile(file);
+};
+
+window.handleFile = function(file) {
+    if (!file) return;
+    if (file.size > 500 * 1024) {
+        showAdminErr('Image must be under 500 KB. Please compress it first.');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = e => {
+        const base64 = e.target.result;
+
+        // Resize to max 400px wide using canvas to keep Firebase payload small
+        const img = new Image();
+        img.onload = () => {
+            const maxW = 400;
+            const scale = img.width > maxW ? maxW / img.width : 1;
+            const canvas = document.createElement('canvas');
+            canvas.width  = Math.round(img.width  * scale);
+            canvas.height = Math.round(img.height * scale);
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            const resized = canvas.toDataURL('image/png', 0.92);
+            pendingImg = { base64: resized, fileName: file.name };
+            $('previewImg').src   = resized;
+            $('previewName').textContent = file.name;
+            $('previewWrap').classList.add('show');
+            hideAdminErr();
+        };
+        img.src = base64;
+    };
+    reader.readAsDataURL(file);
+};
+
+window.clearFile = function() {
+    pendingImg = null;
+    $('logoFile').value = '';
+    $('previewImg').src = '';
+    $('previewName').textContent = '—';
+    $('previewWrap').classList.remove('show');
+};
+
+// ── Add partner ───────────────────────────────────────────────────────────────
+window.addPartner = async function() {
+    const name = ($('partnerName').value || '').trim();
+    const link = ($('partnerLink').value  || '').trim();
+
+    if (!pendingImg)  return showAdminErr('Please upload a logo image.');
+    if (!name)        return showAdminErr('Please enter a partner name.');
+    if (!link)        return showAdminErr('Please enter a link URL.');
+    try { new URL(link); } catch(_) { return showAdminErr('Please enter a valid URL (include https://).'); }
+
+    const btn = $('addBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…';
+
+    try {
+        await db.ref('partners').push({
+            name,
+            link,
+            imageBase64: pendingImg.base64,
+            createdAt:   Date.now(),
+        });
+
+        // Reset form
+        $('partnerName').value = '';
+        $('partnerLink').value = '';
+        clearFile();
+        hideAdminErr();
+        toast('Partner added!', 'success');
+    } catch(e) {
+        showAdminErr('Save failed: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-plus"></i> Add Partner';
+    }
+};
+
+// ── Remove partner ────────────────────────────────────────────────────────────
+window.removePartner = async function(e, key) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm('Remove this partner?')) return;
+    try {
+        await db.ref(`partners/${key}`).remove();
+        toast('Partner removed.', 'success');
+    } catch(err) {
+        toast('Remove failed: ' + err.message, 'error');
+    }
+};
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function showAdminErr(msg) {
+    const el = $('adminErr');
+    el.textContent = msg;
+    el.classList.add('show');
+}
+function hideAdminErr() {
+    $('adminErr').classList.remove('show');
+}
+function toast(msg, type = 'success') {
+    const t = document.createElement('div');
+    t.className = `toast ${type}`;
+    t.innerHTML = `<i class="fas ${type==='error'?'fa-circle-xmark':'fa-circle-check'}"></i>${msg}`;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 3500);
+}
+
+})();
+</script>
+</body>
+</html>
