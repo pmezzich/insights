@@ -164,12 +164,8 @@ function mergeRosters(mapObj, playersList, teams){
   const our = new Set(mapObj.rosters['YOUR TEAM']);
   const opp = new Set(mapObj.rosters['OPPONENTS']);
   
-  // Determine which teamIndex is "YOUR TEAM" based on team names
-  let yourIndex = 0;
-  if (Array.isArray(teams) && teams.length >= 2) {
-    if (/your/i.test(teams[1]?.name || '')) yourIndex = 1;
-    else if (/enemy|opponent/i.test(teams[0]?.name || '')) yourIndex = 1;
-  }
+  // Determine which teamIndex is "YOUR TEAM" — use the global player choice
+  let yourIndex = (typeof chosenYourTeamIndex !== 'undefined') ? chosenYourTeamIndex : 0;
   
   for (const p of (playersList||[])){
     if (p.teamIndex === yourIndex) our.add(p.name);
@@ -782,6 +778,24 @@ window.addEventListener('unhandledrejection', (e) => {
     </style>
 </head>
 <body>
+<!-- Team Picker Modal — shown after first parse to identify your team -->
+<div id="teamPickerModal" style="position:fixed;inset:0;background:rgba(5,10,20,0.92);display:none;align-items:center;justify-content:center;z-index:9100;backdrop-filter:blur(6px);padding:20px;">
+    <div style="background:rgba(15,23,42,0.99);border:1px solid rgba(255,255,255,0.12);border-radius:18px;width:100%;max-width:620px;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,0.8);">
+        <div style="padding:22px 26px;border-bottom:1px solid rgba(255,255,255,0.08);">
+            <div style="font-size:17px;font-weight:800;color:#f8fafc;margin-bottom:4px;display:flex;align-items:center;gap:10px;">
+                <i class="fas fa-shield-halved" style="color:#a78bfa;"></i> Which team is yours?
+            </div>
+            <div style="font-size:12px;color:#64748b;line-height:1.5;">
+                Two teams were found in the replay. Select the one that belongs to you so stats are stored correctly.
+            </div>
+        </div>
+        <div style="padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:14px;" id="teamPickerCards"></div>
+        <div style="padding:14px 22px;border-top:1px solid rgba(255,255,255,0.08);font-size:11px;color:#475569;text-align:center;">
+            This choice affects who gets labelled "YOUR TEAM" in all stats and round records.
+        </div>
+    </div>
+</div>
+
 <!-- Clear All Confirm Modal -->
 <div id="clearConfirmModal" style="position:fixed;inset:0;background:rgba(5,10,20,0.85);display:none;align-items:center;justify-content:center;z-index:9001;backdrop-filter:blur(4px);">
     <div style="background:rgba(15,23,42,0.98);border:1px solid rgba(255,255,255,0.1);border-radius:16px;width:100%;max-width:420px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.7);margin:20px;">
@@ -979,6 +993,7 @@ window.addEventListener('unhandledrejection', (e) => {
         let teamId = null;
         let userTeamName = "";
         let rawReplayData = {};
+        let chosenYourTeamIndex = 0;  // set by team picker modal before processing
         let matchData = {
             opponent: "",
             teamId: "",
@@ -1241,6 +1256,71 @@ window.addEventListener('unhandledrejection', (e) => {
             auth.signOut();
         }
 
+        // ── Team picker: parse first file, show modal, return chosen yourTeamIndex ──
+        function askTeamChoice(teams, playersByTeamIndex) {
+            return new Promise(resolve => {
+                const modal = document.getElementById('teamPickerModal');
+                const cards = document.getElementById('teamPickerCards');
+
+                cards.innerHTML = teams.map((team, idx) => {
+                    const name     = team.name || `Team ${idx + 1}`;
+                    const players  = (playersByTeamIndex[idx] || []);
+                    const playerList = players.length
+                        ? players.map(p => `<div style="font-size:11px;color:#94a3b8;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.04);display:flex;align-items:center;gap:6px;">
+                              <i class="fas fa-user" style="font-size:9px;color:#64748b;"></i> ${p}
+                          </div>`).join('')
+                        : '<div style="font-size:11px;color:#475569;padding:4px 0;">No player data available</div>';
+
+                    const accent = idx === 0 ? '#a78bfa' : '#34d399';
+                    const accentBg = idx === 0 ? 'rgba(167,139,250,0.12)' : 'rgba(52,211,153,0.08)';
+                    const accentBorder = idx === 0 ? 'rgba(167,139,250,0.4)' : 'rgba(52,211,153,0.35)';
+
+                    return `
+                    <div onclick="pickTeam(${idx})" style="
+                        cursor:pointer;
+                        background:${accentBg};
+                        border:2px solid ${accentBorder};
+                        border-radius:12px; padding:18px;
+                        transition:all .18s;
+                        display:flex; flex-direction:column; gap:10px;
+                    "
+                    onmouseenter="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,0.4)'"
+                    onmouseleave="this.style.transform='';this.style.boxShadow=''">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <div style="width:32px;height:32px;border-radius:8px;background:${accentBg};border:1px solid ${accentBorder};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:${accent};">
+                                ${name[0]?.toUpperCase() || '?'}
+                            </div>
+                            <div>
+                                <div style="font-size:14px;font-weight:800;color:#f8fafc;">${name}</div>
+                                <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">Team ${idx + 1} · ${players.length} players</div>
+                            </div>
+                        </div>
+                        <div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:10px;max-height:160px;overflow-y:auto;">
+                            ${playerList}
+                        </div>
+                        <div style="text-align:center;padding:8px;border-radius:8px;background:${accentBg};border:1px solid ${accentBorder};font-size:12px;font-weight:700;color:${accent};margin-top:4px;">
+                            <i class="fas fa-check-circle"></i> This is MY team
+                        </div>
+                    </div>`;
+                }).join('');
+
+                // Expose resolver so onclick can call it
+                window._teamPickerResolve = (idx) => {
+                    modal.style.display = 'none';
+                    resolve(idx);
+                };
+
+                modal.style.display = 'flex';
+            });
+        }
+
+        window.pickTeam = function(idx) {
+            if (typeof window._teamPickerResolve === 'function') {
+                window._teamPickerResolve(idx);
+                window._teamPickerResolve = null;
+            }
+        };
+
         // Processing functions
         async function processFiles() {
     // expose rounds to autoscore
@@ -1296,6 +1376,47 @@ window.addEventListener('unhandledrejection', (e) => {
                     showError("Please add at least one map folder");
                     return;
                 }
+
+                // ── Step 0: Parse first file to identify teams, show picker ──────────────
+                let firstRecFile = null;
+                outer: for (const mapUpload of mapUploads) {
+                    for (const input of mapUpload.querySelectorAll('input[type="file"]')) {
+                        const rec = Array.from(input.files||[]).find(f => f.name.endsWith('.rec'));
+                        if (rec) { firstRecFile = rec; break outer; }
+                    }
+                }
+
+                if (firstRecFile) {
+                    outputLog.textContent += '\n🔍 Reading team data from first replay…';
+                    try {
+                        const firstBuf    = await firstRecFile.arrayBuffer();
+                        const firstParsed = await parseRec(firstBuf);
+                        const firstHeader = firstParsed?.processedData?.header || firstParsed?.header || firstParsed || {};
+                        const firstTeams  = firstHeader.teams || firstParsed?.teams || [];
+                        const firstPlayers= firstHeader.players || firstParsed?.players || [];
+
+                        if (Array.isArray(firstTeams) && firstTeams.length >= 2) {
+                            // Group players by teamIndex
+                            const playersByTeam = { 0: [], 1: [] };
+                            for (const p of firstPlayers) {
+                                const ti = (p?.teamIndex !== undefined) ? Number(p.teamIndex) : null;
+                                if (ti === 0 || ti === 1) {
+                                    playersByTeam[ti].push(p?.username || p?.name || '');
+                                }
+                            }
+                            outputLog.textContent += `\n👥 Found teams: "${firstTeams[0]?.name || 'Team 1'}" vs "${firstTeams[1]?.name || 'Team 2'}" — choose yours in the modal.`;
+                            chosenYourTeamIndex = await askTeamChoice(firstTeams, playersByTeam);
+                            outputLog.textContent += `\n✅ Your team: "${firstTeams[chosenYourTeamIndex]?.name || `Team ${chosenYourTeamIndex+1}`}" (index ${chosenYourTeamIndex})`;
+                        } else {
+                            outputLog.textContent += '\n⚠️ Could not extract team data — defaulting to team index 0.';
+                            chosenYourTeamIndex = 0;
+                        }
+                    } catch(e) {
+                        outputLog.textContent += '\n⚠️ Team detection failed — defaulting to team index 0.';
+                        chosenYourTeamIndex = 0;
+                    }
+                }
+                // ─────────────────────────────────────────────────────────────────────────
                 
                 let totalFiles = 0;
                 let processedFiles = 0;
@@ -1411,12 +1532,8 @@ if (parsedMap && parsedMap.name && matchData.maps[mapId].mapName === folderName)
 const _eventsRaw = parsed?.processedData?.matchFeedback || parsed?.matchFeedback || parsed?.events || [];
 const events = (_eventsRaw || []).map(normalizeEventRecord).sort((a,b)=>a.timestamp-b.timestamp);
 
-// Determine which team is ours based on names
-let yourIdx = 0;
-if (Array.isArray(teams) && teams.length >= 2) {
-    if (/your/i.test(teams[1]?.name || '')) yourIdx = 1;
-    else if (/enemy|opponent/i.test(teams[0]?.name || '')) yourIdx = 1;
-}
+// Determine which team is ours — use the player's explicit choice
+let yourIdx = chosenYourTeamIndex;
 const ourTeam = Array.isArray(teams) && teams.length > yourIdx ? teams[yourIdx] : null;
 
 // Determine round result
@@ -1467,15 +1584,10 @@ if (ourTeam) {
                             const roundSite = parsedSite || computeRoundSite(header, events, roundPlayers);
                             const winTeam = headerWinningTeam(header);
 
-                            // Build playerTeams mapping using team names
+                            // Build playerTeams mapping using the player's chosen team index
                             const playerTeams = {};
                             const playerTeamsAlias = {};
-                            // Determine which teamIndex is "YOUR TEAM"
-                            let yourTeamIndex = 0;
-                            if (Array.isArray(teams) && teams.length >= 2) {
-                                if (/your/i.test(teams[1]?.name || '')) yourTeamIndex = 1;
-                                else if (/enemy|opponent/i.test(teams[0]?.name || '')) yourTeamIndex = 1;
-                            }
+                            const yourTeamIndex = chosenYourTeamIndex;
                             for (const p of roundPlayers) {
                                 const key = _sanitizeFirebaseKey(p.name);
                                 playerTeamsAlias[key] = p.name;
