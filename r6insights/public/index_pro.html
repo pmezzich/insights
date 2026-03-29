@@ -506,6 +506,13 @@
                 <i class="fas fa-right-to-bracket"></i> Sign In
             </button>
             <div id="loginError"></div>
+            <div style="height:1px;background:rgba(255,255,255,0.07);margin:20px 0;"></div>
+            <a href="create_account.html"
+               style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;border-radius:9px;border:1px solid rgba(124,58,237,0.4);background:rgba(124,58,237,0.1);color:#a78bfa;font-size:14px;font-weight:700;text-decoration:none;font-family:inherit;transition:all .18s;"
+               onmouseenter="this.style.background='rgba(124,58,237,0.2)'" onmouseleave="this.style.background='rgba(124,58,237,0.1)'">
+                <i class="fas fa-user-plus"></i> Create Account
+            </a>
+            <div style="text-align:center;margin-top:14px;font-size:12px;color:rgba(148,163,184,0.4);">Need a subscription code? <a href="overview.html#pricing" style="color:#a78bfa;text-decoration:none;font-weight:600;">View plans</a></div>
         </div>
     </div>
 
@@ -634,15 +641,15 @@
             </a>
 
             <!-- Compare -->
-            <a href="compare_pro.html" data-gate="team" class="tool-card theme-orange">
-                <div class="card-icon-wrap">
+            <a href="compare_pro.html" data-gate="team" class="tool-card" style="--card-accent:#f472b6;">
+                <div class="card-icon-wrap" style="background:rgba(244,114,182,0.12);border:1px solid rgba(244,114,182,0.2);color:#f472b6;">
                     <i class="fas fa-code-compare"></i>
                 </div>
                 <div class="card-body">
-                    <div class="card-title">Compare Players</div>
-                    <div class="card-desc">Side-by-side comparison of two players across any stat category to identify strengths and weaknesses.</div>
+                    <div class="card-title" style="color:#f472b6;">Compare Players</div>
+                    <div class="card-desc">Compare players, matches, or opponents side by side. Up to 10 at once with AI coaching reports.</div>
                 </div>
-                <div class="card-arrow">
+                <div class="card-arrow" style="color:#f472b6;">
                     Open Module <i class="fas fa-arrow-right"></i>
                 </div>
             </a>

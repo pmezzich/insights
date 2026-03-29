@@ -283,6 +283,11 @@ input:checked + .lft-slider::before{transform:translateX(24px);background:#34d39
                     </select>
                     <div class="form-hint">Your role on the team — shown on player cards and LFT listings.</div>
                 </div>
+                <div class="form-row">
+                    <label class="form-label">Discord <span style="color:rgba(148,163,184,0.3);font-weight:400;">(optional)</span></label>
+                    <input type="text" id="discordInput" class="form-input" placeholder="e.g. mezz#1234 or mezz" maxlength="64">
+                    <div class="form-hint">Shown on your public stats page under your name.</div>
+                </div>
             </div>
         </div>
 
@@ -334,6 +339,28 @@ input:checked + .lft-slider::before{transform:translateX(24px);background:#34d39
                     </label>
                 </div>
                 <div id="lftStatus" style="margin-top:12px;font-size:12px;color:var(--gray);display:none;"></div>
+            </div>
+        </div>
+
+        <!-- ── VOD Links ──────────────────────────────────────────────────── -->
+        <div class="panel">
+            <div class="panel-hdr">
+                <i class="fas fa-film" style="color:#22d3ee;"></i> My VOD Links
+                <span style="margin-left:auto;font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0;">Visible on your public stats page</span>
+            </div>
+            <div class="panel-body">
+                <div style="font-size:12px;color:var(--gray);margin-bottom:14px;line-height:1.6;">
+                    Add links to your POV footage (YouTube, Twitch clips, etc.). These will be shown on your public stats page so teams can review your gameplay.
+                </div>
+                <div id="vodList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>
+                <div style="display:flex;gap:8px;">
+                    <input type="url" id="vodUrlInput" class="form-input" placeholder="https://youtube.com/watch?v=..." style="flex:1;">
+                    <input type="text" id="vodLabelInput" class="form-input" placeholder="Label (e.g. Emerald Cup)" style="flex:1;max-width:220px;">
+                    <button class="btn btn-primary btn-sm" onclick="addVod()" style="flex-shrink:0;padding:10px 16px;">
+                        <i class="fas fa-plus"></i> Add
+                    </button>
+                </div>
+                <div style="font-size:11px;color:rgba(148,163,184,0.4);margin-top:6px;">Max 10 links. YouTube, Twitch, or any direct video URL.</div>
             </div>
         </div>
 
@@ -468,6 +495,12 @@ async function loadProfile() {
 
         // Username
         $('usernameInput').value = userData.username || profileData.username || '';
+
+        // Discord
+        if ($('discordInput')) $('discordInput').value = profileData.discord || '';
+
+        // VODs
+        await loadVods();
 
         // Avatar
         renderAvatarPreview(profileData.avatar, activeName || userData.email || '?');
@@ -631,11 +664,13 @@ window.saveAccountInfo = async function() {
     const username = ($('usernameInput').value || '').trim();
     if (!username) { toast('Username cannot be empty.', 'error'); return; }
     const playRole = $('playRoleSelect').value || null;
+    const discord  = ($('discordInput')?.value || '').trim() || null;
 
     const updates = {};
-    updates[`users/${currentUid}/username`]         = username;
-    updates[`users/${currentUid}/profile/username`] = username;
-    updates[`users/${currentUid}/playRole`]         = playRole;
+    updates[`users/${currentUid}/username`]          = username;
+    updates[`users/${currentUid}/profile/username`]  = username;
+    updates[`users/${currentUid}/playRole`]          = playRole;
+    updates[`users/${currentUid}/profile/discord`]   = discord;
     // Sync to team player record
     if (teamId) {
         updates[`teams/${teamId}/players/${currentUid}/username`] = username;
@@ -645,6 +680,65 @@ window.saveAccountInfo = async function() {
     await db.ref().update(updates);
     toast('Account info saved!', 'success');
 };
+
+// ── VOD Links ─────────────────────────────────────────────────────────────────
+let vodLinks = [];  // [{url, label}]
+
+async function loadVods() {
+    const snap = await db.ref(`users/${currentUid}/profile/vods`).once('value');
+    vodLinks = snap.val() ? Object.values(snap.val()) : [];
+    renderVods();
+}
+
+function renderVods() {
+    const list = $('vodList');
+    if (!list) return;
+    if (!vodLinks.length) {
+        list.innerHTML = '<div style="font-size:12px;color:rgba(148,163,184,0.35);padding:4px 0;">No VODs added yet.</div>';
+        return;
+    }
+    list.innerHTML = vodLinks.map((v, i) => `
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 13px;background:rgba(6,182,212,0.06);border:1px solid rgba(6,182,212,0.2);border-radius:8px;">
+            <i class="fas fa-film" style="color:#22d3ee;font-size:12px;flex-shrink:0;"></i>
+            <a href="${escHtml(v.url)}" target="_blank" rel="noopener"
+               style="flex:1;font-size:13px;font-weight:600;color:#22d3ee;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+               title="${escHtml(v.url)}">${escHtml(v.label || v.url)}</a>
+            <button onclick="removeVod(${i})"
+                style="background:transparent;border:none;color:rgba(148,163,184,0.4);cursor:pointer;font-size:13px;padding:2px;flex-shrink:0;transition:color .15s;"
+                onmouseenter="this.style.color='#f87171'" onmouseleave="this.style.color='rgba(148,163,184,0.4)'"
+                title="Remove">
+                <i class="fas fa-xmark"></i>
+            </button>
+        </div>`).join('');
+}
+
+window.addVod = async function() {
+    const url   = ($('vodUrlInput')?.value  || '').trim();
+    const label = ($('vodLabelInput')?.value || '').trim();
+    if (!url) { toast('Please enter a URL.', 'error'); return; }
+    if (vodLinks.length >= 10) { toast('Maximum 10 VOD links reached.', 'error'); return; }
+    try { new URL(url); } catch(_) { toast('Please enter a valid URL.', 'error'); return; }
+    vodLinks.push({ url, label: label || url });
+    await saveVods();
+    if ($('vodUrlInput'))   $('vodUrlInput').value   = '';
+    if ($('vodLabelInput')) $('vodLabelInput').value = '';
+    renderVods();
+    toast('VOD added!', 'success');
+};
+
+window.removeVod = async function(idx) {
+    vodLinks.splice(idx, 1);
+    await saveVods();
+    renderVods();
+    toast('VOD removed.', 'success');
+};
+
+async function saveVods() {
+    // Store as indexed object (Firebase doesn't like arrays directly)
+    const obj = {};
+    vodLinks.forEach((v, i) => { obj[i] = v; });
+    await db.ref(`users/${currentUid}/profile/vods`).set(vodLinks.length ? obj : null);
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : '—'; }

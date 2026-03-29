@@ -160,13 +160,12 @@
         </div>
     </div>
 
-    <!-- Access denied msg (shown if non-coach tries to access) -->
-    <div id="accessDenied" class="panel" style="border-color:rgba(239,68,68,0.3);background:rgba(239,68,68,0.06);">
+    <!-- Access denied msg (shown if somehow a non-verified user gets here) -->
+    <div id="accessDenied" class="panel" style="border-color:rgba(239,68,68,0.3);background:rgba(239,68,68,0.06);display:none;">
         <div style="padding:20px;display:flex;align-items:center;gap:12px;color:#fca5a5;font-size:13px;">
             <i class="fas fa-lock" style="font-size:18px;opacity:.7;"></i>
             <div>
-                <strong>Restricted access</strong> — Coach Suite is available to coaches, analysts, and captains only.
-                If you think this is an error, contact your captain.
+                <strong>Restricted access</strong> — Please sign in to access the Coach Suite.
             </div>
         </div>
     </div>
@@ -269,12 +268,6 @@
                 <div class="card-arrow">Open <i class="fas fa-arrow-right" style="font-size:10px;"></i></div>
             </a>
 
-        </div>
-
-        <!-- ── Prep ── -->
-        <div class="section-label"><i class="fas fa-clipboard-list"></i> Prep & Planning</div>
-        <div class="tool-grid">
-
             <a href="trial.html" class="coach-card" style="--card-accent:#38bdf8;">
                 <div class="card-icon-wrap" style="background:rgba(56,189,248,0.12);border-color:rgba(56,189,248,0.25);color:#38bdf8;">
                     <i class="fas fa-flask"></i>
@@ -282,6 +275,23 @@
                 <div>
                     <div class="card-title">Trial Scrim</div>
                     <div class="card-desc">Analyse a tryout replay without writing to the database. Get full stats for a player without affecting team records.</div>
+                </div>
+                <div class="card-arrow">Open <i class="fas fa-arrow-right" style="font-size:10px;"></i></div>
+            </a>
+
+        </div>
+
+        <!-- ── Prep ── -->
+        <div class="section-label"><i class="fas fa-clipboard-list"></i> Prep & Planning</div>
+        <div class="tool-grid">
+
+            <a href="replay_library.html" class="coach-card" style="--card-accent:#a78bfa;">
+                <div class="card-icon-wrap" style="background:rgba(167,139,250,0.12);border-color:rgba(167,139,250,0.25);color:#a78bfa;">
+                    <i class="fas fa-download"></i>
+                </div>
+                <div>
+                    <div class="card-title">Replay Library</div>
+                    <div class="card-desc">Browse all matches your team has analysed. Find and re-download the original .rec replay files by match date, opponent, and map.</div>
                 </div>
                 <div class="card-arrow">Open <i class="fas fa-arrow-right" style="font-size:10px;"></i></div>
             </a>
@@ -343,72 +353,43 @@ auth.onAuthStateChanged(async user => {
     }
     R6Theme.init(user.uid, db);
 
-    // Check role
+    document.getElementById('mainContent').style.display = 'block';
+
+    // Load quick stats
     try {
-        const [userSnap, adminSnap] = await Promise.all([
-            db.ref(`users/${user.uid}`).once('value'),
-            db.ref(`admins/${user.uid}`).once('value'),
-        ]);
+        const userSnap = await db.ref(`users/${user.uid}`).once('value');
         const userData = userSnap.val() || {};
-        const isAdmin  = adminSnap.exists();
-        // userData.role may be stale — always cross-check the team player record
-        const userRole  = (userData.role || '').toLowerCase();
-        const teamId    = userData.teamId;
+        const teamId   = userData.teamId;
 
-        // Fetch the authoritative role from the team players node
-        let teamRole = userRole;
         if (teamId) {
-            try {
-                const teamRoleSnap = await db.ref(`teams/${teamId}/players/${user.uid}/role`).once('value');
-                if (teamRoleSnap.exists()) teamRole = (teamRoleSnap.val() || '').toLowerCase();
-            } catch(_) {}
-        }
-        const role = teamRole || userRole;
+            const [matchSnap, playerSnap] = await Promise.all([
+                db.ref(`teams/${teamId}/matches_pro`).once('value'),
+                db.ref(`teams/${teamId}/players`).once('value'),
+            ]);
+            const matches = matchSnap.val() || {};
+            const players = playerSnap.val() || {};
 
-        const hasAccess = isAdmin || ALLOWED_ROLES.includes(role);
-
-        if(!hasAccess){
-            document.getElementById('accessDenied').style.display = 'block';
-            return;
-        }
-
-        document.getElementById('mainContent').style.display = 'block';
-
-        // Load quick stats
-        if(teamId){
-            try {
-                const [matchSnap, playerSnap] = await Promise.all([
-                    db.ref(`teams/${teamId}/matches_pro`).once('value'),
-                    db.ref(`teams/${teamId}/players`).once('value'),
-                ]);
-                const matches = matchSnap.val() || {};
-                const players = playerSnap.val() || {};
-
-                let totalRounds = 0, roundWins = 0;
-                Object.values(matches).forEach(m => {
-                    Object.values(m.maps || {}).forEach(mp => {
-                        Object.values(mp.rounds || {}).forEach(r => {
-                            totalRounds++;
-                            if((r.outcome||'').toLowerCase() === 'win') roundWins++;
-                        });
+            let totalRounds = 0, roundWins = 0;
+            Object.values(matches).forEach(m => {
+                Object.values(m.maps || {}).forEach(mp => {
+                    Object.values(mp.rounds || {}).forEach(r => {
+                        totalRounds++;
+                        if((r.outcome||'').toLowerCase() === 'win') roundWins++;
                     });
                 });
+            });
 
-                const rosterCount = Object.values(players).filter(p => {
-                    const r = (p.role||'').toLowerCase();
-                    return r !== 'coach' && r !== 'analyst' && p.inRoster !== false;
-                }).length;
+            const rosterCount = Object.values(players).filter(p => {
+                const r = (p.role||'').toLowerCase();
+                return r !== 'coach' && r !== 'analyst' && p.inRoster !== false;
+            }).length;
 
-                document.getElementById('qsMatches').textContent  = Object.keys(matches).length;
-                document.getElementById('qsRounds').textContent   = totalRounds;
-                document.getElementById('qsPlayers').textContent  = rosterCount;
-                document.getElementById('qsWr').textContent       = totalRounds > 0 ? (roundWins/totalRounds*100).toFixed(0)+'%' : '—';
-            } catch(e) {}
+            document.getElementById('qsMatches').textContent = Object.keys(matches).length;
+            document.getElementById('qsRounds').textContent  = totalRounds;
+            document.getElementById('qsPlayers').textContent = rosterCount;
+            document.getElementById('qsWr').textContent      = totalRounds > 0 ? (roundWins/totalRounds*100).toFixed(0)+'%' : '—';
         }
-
-    } catch(e) {
-        document.getElementById('mainContent').style.display = 'block';
-    }
+    } catch(e) { console.warn('Quick stats load failed:', e.message); }
 });
 
 })();

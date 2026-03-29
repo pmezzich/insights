@@ -330,6 +330,8 @@ function buildHero(uid, profile) {
     const activeName   = profile.activeDisplayName || '—';
     const displayNames = profile.displayNames || [];
     const otherNames   = displayNames.filter(n => n !== activeName);
+    const discord      = profile.discord || null;
+    const vods         = profile.vods ? Object.values(profile.vods) : [];
 
     const av = $('heroAvatar');
     if (avatar) {
@@ -339,7 +341,18 @@ function buildHero(uid, profile) {
     }
 
     $('heroName').textContent = activeName;
-    $('heroAliases').textContent = otherNames.length ? 'Also known as: ' + otherNames.join(', ') : '';
+
+    // Aliases line + Discord below it
+    let aliasHtml = '';
+    if (otherNames.length) {
+        aliasHtml += `<div style="font-size:12px;color:var(--gray);margin-bottom:4px;">Also known as: ${otherNames.map(n=>x(n)).join(', ')}</div>`;
+    }
+    if (discord) {
+        aliasHtml += `<div style="font-size:12px;color:#7289da;display:flex;align-items:center;gap:5px;margin-bottom:4px;">
+            <i class="fab fa-discord" style="font-size:13px;"></i> ${x(discord)}
+        </div>`;
+    }
+    $('heroAliases').innerHTML = aliasHtml;
 
     // Count scrims/gamedays
     const scrims   = allMatches.filter(m=>(m.matchType||'scrim')==='scrim').length;
@@ -355,6 +368,34 @@ function buildHero(uid, profile) {
     // Hide share button on public view (they already have the link)
     if (!isOwnPage) $('shareBtn').style.display = 'none';
     $('playerHero').style.display = 'flex';
+
+    // VOD section — injected just before statsBody
+    const existingVods = document.getElementById('vodSection');
+    if (existingVods) existingVods.remove();
+
+    if (vods.length) {
+        const vodEl = document.createElement('div');
+        vodEl.id = 'vodSection';
+        vodEl.innerHTML = `
+        <div class="panel" style="margin:0 24px;">
+            <div class="panel-hdr">
+                <i class="fas fa-film" style="color:#22d3ee;"></i> POV Footage
+            </div>
+            <div class="panel-body" style="display:flex;flex-direction:column;gap:8px;">
+                ${vods.map(v => `
+                <a href="${x(v.url)}" target="_blank" rel="noopener"
+                   style="display:flex;align-items:center;gap:10px;padding:10px 13px;background:rgba(6,182,212,0.06);border:1px solid rgba(6,182,212,0.2);border-radius:8px;text-decoration:none;transition:border-color .15s;"
+                   onmouseenter="this.style.borderColor='rgba(6,182,212,0.5)'" onmouseleave="this.style.borderColor='rgba(6,182,212,0.2)'">
+                    <i class="fas fa-play-circle" style="color:#22d3ee;font-size:16px;flex-shrink:0;"></i>
+                    <span style="font-size:13px;font-weight:600;color:#22d3ee;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${x(v.label || v.url)}</span>
+                    <i class="fas fa-arrow-up-right-from-square" style="color:rgba(34,211,238,0.4);font-size:11px;margin-left:auto;flex-shrink:0;"></i>
+                </a>`).join('')}
+            </div>
+        </div>`;
+        // Insert before .content div
+        const content = document.querySelector('.content');
+        if (content) content.parentNode.insertBefore(vodEl, content);
+    }
 }
 
 // ── Filters ───────────────────────────────────────────────────────────────────
