@@ -14,173 +14,159 @@
 <script src="../scripts/theme.js"></script>
 <style>
 body { background-color:var(--darker); min-height:100vh; padding-bottom:60px; }
-
-.info-banner {
-    display:flex; align-items:flex-start; gap:12px;
-    background:rgba(167,139,250,0.08); border:1px solid rgba(167,139,250,0.25);
-    border-radius:10px; padding:14px 18px; font-size:13px; color:rgba(200,200,220,0.85); line-height:1.6;
-}
-.info-banner i { color:#a78bfa; font-size:16px; margin-top:1px; flex-shrink:0; }
-
-.filter-bar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-.fi-sel {
-    padding:9px 12px; border-radius:8px; border:1px solid var(--card-border);
-    background:rgba(10,16,28,0.85); color:var(--light); font-size:13px; font-family:inherit;
-}
-.fi-sel:focus { outline:none; border-color:var(--primary); }
-.fi-input {
-    padding:9px 12px; border-radius:8px; border:1px solid var(--card-border);
-    background:rgba(10,16,28,0.85); color:var(--light); font-size:13px; font-family:inherit; flex:1; min-width:160px;
-}
-.fi-input:focus { outline:none; border-color:var(--primary); }
-.fi-input::placeholder { color:rgba(148,163,184,0.3); }
-
-.match-list { display:flex; flex-direction:column; gap:10px; }
-.match-row {
-    background:rgba(15,23,42,0.6); border:1px solid var(--card-border); border-radius:10px;
-    padding:14px 18px; display:flex; align-items:center; gap:16px; transition:border-color .15s;
-}
-.match-row:hover { border-color:rgba(167,139,250,0.35); }
-.match-row.win  { border-left:3px solid #10B981; }
-.match-row.loss { border-left:3px solid #EF4444; }
-.mr-result { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; min-width:36px; }
-.win  .mr-result { color:#34d399; }
-.loss .mr-result { color:#f87171; }
-.mr-info { flex:1; min-width:0; }
-.mr-title { font-size:14px; font-weight:700; color:var(--light); margin-bottom:3px; }
-.mr-sub   { font-size:11px; color:var(--gray); }
-.mr-maps  { display:flex; gap:6px; flex-wrap:wrap; flex-shrink:0; }
-.map-pill {
-    padding:3px 9px; border-radius:5px; font-size:11px; font-weight:700;
-    background:rgba(124,58,237,0.12); border:1px solid rgba(124,58,237,0.25); color:#a78bfa;
-}
-.mr-actions { display:flex; gap:6px; flex-shrink:0; }
-
-.path-guide {
-    background:rgba(10,16,28,0.7); border:1px solid rgba(255,255,255,0.07);
-    border-radius:8px; padding:12px 16px; font-family:monospace; font-size:12px;
-    color:#94a3b8; line-height:1.7; overflow-x:auto; white-space:nowrap;
-}
-.path-guide span { color:#a78bfa; }
-
-.empty-state { text-align:center; padding:60px 20px; color:var(--gray); }
-.empty-state i { font-size:40px; opacity:.15; display:block; margin-bottom:14px; }
-.empty-state p { font-size:13px; }
-
-.panel { background:var(--card-bg); border:1px solid var(--card-border); border-radius:12px; overflow:hidden; margin-bottom:0; }
+.content-area { padding:20px 24px; display:flex; flex-direction:column; gap:16px; }
+.panel { background:var(--card-bg); border:1px solid var(--card-border); border-radius:12px; overflow:hidden; }
 .panel-hdr { padding:13px 18px; border-bottom:1px solid var(--card-border); font-size:12px; font-weight:700; display:flex; align-items:center; gap:8px; color:var(--gray); text-transform:uppercase; letter-spacing:.5px; }
 .panel-body { padding:18px; }
-.content-area { padding:20px 24px; display:flex; flex-direction:column; gap:16px; }
+.filter-bar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+.fi-sel { padding:9px 12px; border-radius:8px; border:1px solid var(--card-border); background:rgba(10,16,28,0.85); color:var(--light); font-size:13px; font-family:inherit; }
+.fi-sel:focus { outline:none; border-color:var(--primary); }
+.fi-input { padding:9px 12px; border-radius:8px; border:1px solid var(--card-border); background:rgba(10,16,28,0.85); color:var(--light); font-size:13px; font-family:inherit; flex:1; min-width:160px; }
+.fi-input:focus { outline:none; border-color:var(--primary); }
+.fi-input::placeholder { color:rgba(148,163,184,0.3); }
+.match-card { border:1px solid var(--card-border); border-radius:10px; overflow:hidden; margin-bottom:10px; background:rgba(15,23,42,0.6); transition:border-color .15s; }
+.match-card:hover { border-color:rgba(124,58,237,0.3); }
+.match-card.win-card  { border-left:3px solid #10B981; }
+.match-card.loss-card { border-left:3px solid #EF4444; }
+.match-card.draw-card { border-left:3px solid #F59E0B; }
+.match-header { display:flex; align-items:center; gap:14px; padding:14px 18px; cursor:pointer; user-select:none; }
+.match-header:hover { background:rgba(124,58,237,0.04); }
+.mh-result { font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.6px; min-width:40px; }
+.win-card  .mh-result { color:#34d399; }
+.loss-card .mh-result { color:#f87171; }
+.draw-card .mh-result { color:#fbbf24; }
+.mh-info { flex:1; min-width:0; }
+.mh-title { font-size:15px; font-weight:800; color:var(--light); margin-bottom:3px; }
+.mh-sub   { font-size:11px; color:var(--gray); }
+.mh-kpis  { display:flex; gap:18px; flex-shrink:0; }
+.mh-kpi   { text-align:center; }
+.mh-kpi-val { font-size:14px; font-weight:800; color:var(--light); }
+.mh-kpi-lbl { font-size:9px; color:var(--gray); text-transform:uppercase; letter-spacing:.3px; }
+.mh-toggle { color:var(--gray); font-size:13px; flex-shrink:0; transition:transform .2s; }
+.match-card.expanded .mh-toggle { transform:rotate(180deg); }
+.match-body { display:none; border-top:1px solid var(--card-border); }
+.match-card.expanded .match-body { display:block; }
+.stat-strip { display:grid; grid-template-columns:repeat(auto-fit,minmax(80px,1fr)); gap:1px; background:var(--card-border); border-bottom:1px solid var(--card-border); }
+.stat-cell { background:rgba(10,16,28,0.6); padding:12px 8px; text-align:center; }
+.stat-cell-val { font-size:17px; font-weight:800; color:var(--light); }
+.stat-cell-lbl { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--gray); margin-top:3px; }
+.c-green{color:#34d399;}.c-red{color:#f87171;}.c-blue{color:#60a5fa;}.c-amber{color:#fbbf24;}.c-purple{color:#a78bfa;}.c-cyan{color:#22d3ee;}
+.map-section { padding:16px 18px; border-bottom:1px solid var(--card-border); }
+.map-section:last-child { border-bottom:none; }
+.map-title { display:flex; align-items:center; gap:10px; font-size:13px; font-weight:800; color:var(--light); margin-bottom:12px; }
+.map-badge { padding:2px 10px; border-radius:5px; font-size:10px; font-weight:700; background:rgba(124,58,237,0.15); border:1px solid rgba(124,58,237,0.3); color:#a78bfa; }
+.map-score { font-size:11px; color:var(--gray); margin-left:auto; }
+.round-tbl { width:100%; border-collapse:collapse; font-size:12px; }
+.round-tbl th { padding:7px 10px; border-bottom:1px solid var(--card-border); text-align:center; font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:rgba(148,163,184,0.4); }
+.round-tbl th:first-child { text-align:left; }
+.round-tbl td { padding:7px 10px; border-bottom:1px solid rgba(255,255,255,0.03); text-align:center; vertical-align:middle; }
+.round-tbl td:first-child { text-align:left; }
+.round-tbl tr:last-child td { border-bottom:none; }
+.round-tbl tr:hover td { background:rgba(124,58,237,0.04); }
+.side-badge { display:inline-flex; align-items:center; padding:2px 7px; border-radius:4px; font-size:10px; font-weight:700; }
+.side-atk { background:rgba(239,68,68,0.12); color:#f87171; border:1px solid rgba(239,68,68,0.25); }
+.side-def { background:rgba(59,130,246,0.12); color:#60a5fa; border:1px solid rgba(59,130,246,0.25); }
+.outcome-win  { color:#34d399; font-weight:800; font-size:10px; text-transform:uppercase; }
+.outcome-loss { color:#f87171; font-weight:800; font-size:10px; text-transform:uppercase; }
+.path-guide { background:rgba(10,16,28,0.7); border:1px solid rgba(255,255,255,0.07); border-radius:8px; padding:11px 15px; font-family:monospace; font-size:12px; color:#94a3b8; overflow-x:auto; white-space:nowrap; }
+.path-guide span { color:#a78bfa; }
+.empty-state { text-align:center; padding:60px 20px; color:var(--gray); }
+.empty-state i { font-size:40px; opacity:.15; display:block; margin-bottom:14px; }
+@media(max-width:640px){ .mh-kpis{display:none;} .stat-strip{grid-template-columns:repeat(3,1fr);} }
 </style>
 </head>
 <body>
 <div class="container">
 
-    <!-- Nav -->
-    <div class="nav-header">
-        <a href="index_pro.html" class="logo" style="text-decoration:none;">
-            <img src="../styles/r6_insights.png" class="logo-img" alt="R6 Insights">
-            <div class="logo-text">R6 INSIGHTS</div>
-        </a>
-        <div class="nav-right">
-            <a href="coach_suite.html" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Coach Suite</a>
-            <a href="profile.html" id="navAvatar" class="nav-avatar-btn" title="Profile">?</a>
-            <button class="btn-logout" onclick="firebase.auth().signOut().then(()=>window.location.href='index_pro.html')">
-                <i class="fas fa-right-from-bracket"></i> Logout
-            </button>
+<div class="nav-header">
+    <a href="index_pro.html" class="logo" style="text-decoration:none;">
+        <img src="../styles/r6_insights.png" class="logo-img" alt="R6 Insights">
+        <div class="logo-text">R6 INSIGHTS</div>
+    </a>
+    <div class="nav-right">
+        <a href="coach_suite.html" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Coach Suite</a>
+        <a href="profile.html" id="navAvatar" class="nav-avatar-btn" title="Profile">?</a>
+        <button class="btn-logout" onclick="firebase.auth().signOut().then(()=>window.location.href='index_pro.html')">
+            <i class="fas fa-right-from-bracket"></i> Logout
+        </button>
+    </div>
+</div>
+
+<div class="page-title">
+    <div class="page-title-icon" style="background:rgba(167,139,250,0.15);border:1px solid rgba(167,139,250,0.3);color:#a78bfa;">
+        <i class="fas fa-film"></i>
+    </div>
+    <div><h2>Replay Library</h2><p id="pageSubtitle">Loading…</p></div>
+</div>
+
+<div class="content-area">
+
+    <div class="panel">
+        <div class="panel-hdr"><i class="fas fa-circle-info" style="color:#a78bfa;"></i> Finding your .rec files</div>
+        <div class="panel-body" style="display:flex;flex-direction:column;gap:10px;">
+            <p style="font-size:13px;color:var(--gray);line-height:1.7;">Replay files are stored locally by Siege — not uploaded here. Use the match data below to find the matching file on your PC.</p>
+            <div class="path-guide"><span>Windows:</span> C:\Users\[Name]\Documents\My Games\Rainbow Six - Siege\[ProfileID]\Match Replays\</div>
+            <div class="path-guide"><span>Ubisoft Connect:</span> Open → Rainbow Six Siege → Play → Replays</div>
+            <p style="font-size:11px;color:rgba(148,163,184,0.4);">Siege keeps the last ~30 replays. Match by date, opponent and map.</p>
         </div>
     </div>
 
-    <!-- Page Title -->
-    <div class="page-title">
-        <div class="page-title-icon" style="background:rgba(167,139,250,0.15);border:1px solid rgba(167,139,250,0.3);color:#a78bfa;">
-            <i class="fas fa-download"></i>
-        </div>
-        <div>
-            <h2>Replay Library</h2>
-            <p id="pageSubtitle">Loading your team's analysed matches…</p>
+    <div class="panel">
+        <div class="panel-hdr"><i class="fas fa-filter"></i> Filter</div>
+        <div class="panel-body">
+            <div class="filter-bar">
+                <input type="text" id="searchInput" class="fi-input" placeholder="Search opponent…" oninput="applyFilters()">
+                <select id="fType" class="fi-sel" onchange="applyFilters()">
+                    <option value="">All Types</option>
+                    <option value="scrim">Scrim</option>
+                    <option value="gameday">Game Day</option>
+                </select>
+                <select id="fResult" class="fi-sel" onchange="applyFilters()">
+                    <option value="">All Results</option>
+                    <option value="win">Win</option>
+                    <option value="loss">Loss</option>
+                </select>
+                <select id="fMap" class="fi-sel" onchange="applyFilters()">
+                    <option value="">All Maps</option>
+                </select>
+                <span id="matchCountLabel" style="font-size:12px;color:var(--gray);"></span>
+            </div>
         </div>
     </div>
 
-    <div class="content-area">
-
-        <!-- How to find .rec files -->
-        <div class="panel">
-            <div class="panel-hdr"><i class="fas fa-circle-info" style="color:#a78bfa;"></i> How to find your .rec files</div>
-            <div class="panel-body" style="display:flex;flex-direction:column;gap:12px;">
-                <p style="font-size:13px;color:var(--gray);line-height:1.7;">
-                    Replay files are stored locally on your PC by Rainbow Six Siege — they are not uploaded to R6 Insights.
-                    Use the match metadata below to identify the correct file, then locate it at this path on your machine:
-                </p>
-                <div class="path-guide">
-                    <span>Windows:</span> C:\Users\[YourName]\Documents\My Games\Rainbow Six - Siege\[ProfileID]\<span>Match Replays\</span>
-                </div>
-                <div class="path-guide">
-                    <span>Ubisoft Connect:</span> Open Ubisoft Connect → Rainbow Six Siege → Play → Replays
-                </div>
-                <div style="font-size:12px;color:rgba(148,163,184,0.5);margin-top:2px;">
-                    Files are named by match ID and date. Match them using the date, opponent, and maps shown below.
-                    Note: Siege only keeps the last ~30 replays before overwriting old ones.
-                </div>
+    <div class="panel">
+        <div class="panel-hdr">
+            <i class="fas fa-film" style="color:#a78bfa;"></i> Analysed Matches
+            <span style="margin-left:auto;font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0;">Click a match to expand full stats</span>
+        </div>
+        <div class="panel-body" style="padding:12px;">
+            <div id="matchList">
+                <div class="empty-state"><i class="fas fa-spinner fa-spin" style="opacity:.6;"></i><p>Loading…</p></div>
             </div>
         </div>
-
-        <!-- Filters -->
-        <div class="panel">
-            <div class="panel-hdr"><i class="fas fa-filter"></i> Filter Matches</div>
-            <div class="panel-body">
-                <div class="filter-bar">
-                    <input type="text" id="searchInput" class="fi-input" placeholder="Search opponent…" oninput="applyFilters()">
-                    <select id="fType" class="fi-sel" onchange="applyFilters()">
-                        <option value="">All Types</option>
-                        <option value="scrim">Scrim</option>
-                        <option value="gameday">Game Day</option>
-                    </select>
-                    <select id="fMap" class="fi-sel" onchange="applyFilters()">
-                        <option value="">All Maps</option>
-                    </select>
-                    <span id="matchCountLabel" style="font-size:12px;color:var(--gray);margin-left:4px;"></span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Match list -->
-        <div class="panel">
-            <div class="panel-hdr"><i class="fas fa-film" style="color:#a78bfa;"></i> Analysed Matches</div>
-            <div class="panel-body">
-                <div id="matchList">
-                    <div class="empty-state"><i class="fas fa-spinner fa-spin" style="opacity:.6;"></i><p>Loading…</p></div>
-                </div>
-            </div>
-        </div>
-
     </div>
+
+</div>
 </div>
 
 <script src="../scripts/profile-loader.js"></script>
 <script>
 (function(){
 'use strict';
-
 if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db   = firebase.database();
-
-const $ = id => document.getElementById(id);
-const x = s  => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const $    = id => document.getElementById(id);
+const x    = s  => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
 let allMatches = [];
-let teamId     = null;
-let teamName   = '';
 
 auth.onAuthStateChanged(async user => {
     if (!user || !user.emailVerified) return window.location.href = 'index_pro.html';
     R6Theme.init(user.uid, db);
 
     const uSnap  = await db.ref(`users/${user.uid}`).once('value');
-    const userData = uSnap.val() || {};
-    teamId = userData.teamId;
-
+    const teamId = uSnap.val()?.teamId || null;
     if (!teamId) {
         $('pageSubtitle').textContent = 'You are not on a team.';
         $('matchList').innerHTML = '<div class="empty-state"><i class="fas fa-users-slash"></i><p>Join a team to view replay history.</p></div>';
@@ -191,94 +177,156 @@ auth.onAuthStateChanged(async user => {
         db.ref(`teams/${teamId}/info/teamName`).once('value'),
         db.ref(`teams/${teamId}/matches_pro`).once('value'),
     ]);
-
-    teamName = tnSnap.val() || teamId;
-    $('pageSubtitle').textContent = teamName;
+    const teamName = tnSnap.val() || teamId;
 
     allMatches = [];
-    matchSnap.forEach(child => {
-        const m = child.val();
-        if (m) allMatches.push({ id: child.key, ...m });
-    });
+    matchSnap.forEach(c => { if(c.val()) allMatches.push({ _id:c.key, ...c.val() }); });
+    allMatches.sort((a,b) => new Date(b.date||0) - new Date(a.date||0));
 
-    // Sort by date descending
-    allMatches.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
-
-    // Populate map filter
-    const maps = [...new Set(
-        allMatches.flatMap(m => Object.keys(m.maps || {}))
-    )].sort();
-    maps.forEach(mp => {
+    const allMaps = [...new Set(allMatches.flatMap(m => Object.keys(m.maps||{})))].sort();
+    allMaps.forEach(mp => {
         const o = document.createElement('option');
         o.value = o.textContent = mp;
         $('fMap').appendChild(o);
     });
 
-    $('pageSubtitle').textContent = `${teamName} · ${allMatches.length} matches analysed`;
+    $('pageSubtitle').textContent = `${teamName} · ${allMatches.length} match${allMatches.length!==1?'es':''} logged`;
     applyFilters();
 });
 
+function getRounds(m) {
+    return Object.values(m.maps||{}).flatMap(mp => Object.values(mp.rounds||{}));
+}
+function result(m) {
+    const r = getRounds(m);
+    const w = r.filter(r=>(r.outcome||'').toLowerCase()==='win').length;
+    return w > r.length-w ? 'win' : r.length-w > w ? 'loss' : 'draw';
+}
+
 window.applyFilters = function() {
-    const search = ($('searchInput')?.value || '').toLowerCase();
-    const fType  = $('fType')?.value  || '';
-    const fMap   = $('fMap')?.value   || '';
-
-    let filtered = allMatches;
-    if (search) filtered = filtered.filter(m => (m.opponent||'').toLowerCase().includes(search));
-    if (fType)  filtered = filtered.filter(m => (m.matchType || 'scrim') === fType);
-    if (fMap)   filtered = filtered.filter(m => Object.keys(m.maps || {}).includes(fMap));
-
-    $('matchCountLabel').textContent = `${filtered.length} match${filtered.length !== 1 ? 'es' : ''}`;
-    renderMatches(filtered);
+    const search  = ($('searchInput')?.value||'').toLowerCase();
+    const fType   = $('fType')?.value  ||'';
+    const fResult = $('fResult')?.value||'';
+    const fMap    = $('fMap')?.value   ||'';
+    let f = allMatches;
+    if(search)  f = f.filter(m=>(m.opponent||'').toLowerCase().includes(search));
+    if(fType)   f = f.filter(m=>(m.matchType||'scrim')===fType);
+    if(fResult) f = f.filter(m=>result(m)===fResult);
+    if(fMap)    f = f.filter(m=>Object.keys(m.maps||{}).includes(fMap));
+    $('matchCountLabel').textContent = `${f.length} match${f.length!==1?'es':''}`;
+    $('matchList').innerHTML = f.length
+        ? f.map(buildCard).join('')
+        : '<div class="empty-state"><i class="fas fa-magnifying-glass"></i><p>No matches match the filters.</p></div>';
 };
 
-function renderMatches(matches) {
-    const list = $('matchList');
-    if (!matches.length) {
-        list.innerHTML = '<div class="empty-state"><i class="fas fa-magnifying-glass"></i><p>No matches match the current filters.</p></div>';
-        return;
-    }
+function buildCard(m) {
+    const rounds = getRounds(m);
+    const total  = rounds.length;
+    const wins   = rounds.filter(r=>(r.outcome||'').toLowerCase()==='win').length;
+    const losses = total - wins;
+    const res    = wins>losses?'win':losses>wins?'loss':'draw';
+    const kills  = rounds.reduce((s,r)=>s+(r.kills||0),0);
+    const deaths = rounds.reduce((s,r)=>s+(r.deaths||0),0);
+    const hs     = rounds.reduce((s,r)=>s+(r.headshots||0),0);
+    const plants = rounds.reduce((s,r)=>s+(r.plants||0),0);
+    const defuses= rounds.reduce((s,r)=>s+(r.defuses||0),0);
+    const eKills = rounds.reduce((s,r)=>s+(r.entryKill||0),0);
+    const eDeaths= rounds.reduce((s,r)=>s+(r.entryDeath||0),0);
+    const kostR  = rounds.filter(r=>r.kost).length;
+    const kd     = deaths?(kills/deaths).toFixed(2):kills+'.0';
+    const winPct = total?(wins/total*100).toFixed(0):0;
+    const kostPct= total?(kostR/total*100).toFixed(0):0;
+    const hsPct  = kills?(hs/kills*100).toFixed(0):0;
+    const atkR   = rounds.filter(r=>r.side==='atk');
+    const defR   = rounds.filter(r=>r.side==='def');
+    const atkW   = atkR.filter(r=>(r.outcome||'').toLowerCase()==='win').length;
+    const defW   = defR.filter(r=>(r.outcome||'').toLowerCase()==='win').length;
+    const maps   = Object.keys(m.maps||{});
+    const typeLabel = m.matchType==='gameday'?'🏆 Game Day':'🎯 Scrim';
 
-    list.innerHTML = `<div class="match-list">${matches.map(m => {
-        const maps    = Object.keys(m.maps || {});
-        const rounds  = Object.values(m.maps || {}).flatMap(mp => Object.values(mp.rounds || {}));
-        const wins    = rounds.filter(r => (r.outcome||'').toLowerCase() === 'win').length;
-        const isWin   = wins > rounds.length / 2;
-        const typeIcon = m.matchType === 'gameday' ? '🏆' : '🎯';
-        const typeLabel = m.matchType === 'gameday' ? 'Game Day' : 'Scrim';
-        const mapPills = maps.map(mp => `<span class="map-pill">${x(mp)}</span>`).join('');
-
+    const mapSections = maps.map(mapName => {
+        const mp        = (m.maps||{})[mapName]||{};
+        const mapRounds = Object.values(mp.rounds||{});
+        const mW = mapRounds.filter(r=>(r.outcome||'').toLowerCase()==='win').length;
+        const rows = mapRounds.map((r,i) => `
+            <tr>
+                <td style="font-size:11px;color:var(--gray);font-weight:700;">R${i+1}</td>
+                <td>${r.side==='atk'?'<span class="side-badge side-atk">ATK</span>':'<span class="side-badge side-def">DEF</span>'}</td>
+                <td>${(r.outcome||'').toLowerCase()==='win'?'<span class="outcome-win">Win</span>':'<span class="outcome-loss">Loss</span>'}</td>
+                <td>${r.operator?`<span style="font-size:11px;font-weight:700;color:#a78bfa;">${x(r.operator)}</span>`:'<span style="color:rgba(148,163,184,.3);">—</span>'}</td>
+                <td style="font-weight:700;">${r.kills||0}/${r.deaths||0}</td>
+                <td>${r.headshots||0}</td>
+                <td>${kills?(((r.headshots||0)/(r.kills||1))*100).toFixed(0):0}%</td>
+                <td>${r.entryKill||0}</td>
+                <td>${r.entryDeath||0}</td>
+                <td>${r.plants||0}</td>
+                <td>${r.defuses||0}</td>
+                <td>${r.kost?'<i class="fas fa-circle-check" style="color:#34d399;"></i>':'<i class="fas fa-circle-xmark" style="color:rgba(148,163,184,0.2);"></i>'}</td>
+            </tr>`).join('');
         return `
-        <div class="match-row ${isWin ? 'win' : 'loss'}">
-            <div class="mr-result">${isWin ? 'WIN' : 'LOSS'}</div>
-            <div class="mr-info">
-                <div class="mr-title">vs ${x(m.opponent || 'Unknown')}</div>
-                <div class="mr-sub">${x(m.date || '—')} · ${typeIcon} ${typeLabel} · ${rounds.length} rounds · ${wins}W ${rounds.length - wins}L</div>
+        <div class="map-section">
+            <div class="map-title">
+                <i class="fas fa-map" style="color:#a78bfa;font-size:12px;"></i>
+                ${x(mapName)}
+                <span class="map-badge">${mapRounds.length} rounds</span>
+                <span class="map-score">${mW}W · ${mapRounds.length-mW}L</span>
             </div>
-            <div class="mr-maps">${mapPills}</div>
-            <div class="mr-actions">
-                <button onclick="copyMatchInfo(${JSON.stringify(x(m.date||'')).replace(/"/g,"'")}, ${JSON.stringify(x(m.opponent||'')).replace(/"/g,"'")})"
-                    class="btn btn-secondary" style="font-size:12px;padding:6px 12px;" title="Copy match info to clipboard">
-                    <i class="fas fa-copy"></i> Copy Info
-                </button>
-            </div>
+            ${mapRounds.length?`
+            <div style="overflow-x:auto;">
+                <table class="round-tbl">
+                    <thead><tr>
+                        <th style="text-align:left;">Rnd</th>
+                        <th>Side</th><th>Result</th><th>Operator</th>
+                        <th>K/D</th><th>HS</th><th>HS%</th><th>EK</th><th>ED</th>
+                        <th>Plant</th><th>Defuse</th><th>KOST</th>
+                    </tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>`:'<p style="font-size:12px;color:var(--gray);">No round data.</p>'}
         </div>`;
-    }).join('')}</div>`;
+    }).join('');
+
+    return `
+    <div class="match-card ${res}-card" id="mc_${m._id}">
+        <div class="match-header" onclick="toggleMatch('${m._id}')">
+            <div class="mh-result">${res.toUpperCase()}</div>
+            <div class="mh-info">
+                <div class="mh-title">vs ${x(m.opponent||'Unknown')}</div>
+                <div class="mh-sub">${x(m.date||'—')} · ${typeLabel} · ${maps.map(n=>x(n)).join(', ')} · ${total} rounds (${wins}W ${losses}L)</div>
+            </div>
+            <div class="mh-kpis">
+                <div class="mh-kpi"><div class="mh-kpi-val">${kd}</div><div class="mh-kpi-lbl">K/D</div></div>
+                <div class="mh-kpi"><div class="mh-kpi-val">${winPct}%</div><div class="mh-kpi-lbl">Win%</div></div>
+                <div class="mh-kpi"><div class="mh-kpi-val">${kostPct}%</div><div class="mh-kpi-lbl">KOST</div></div>
+                <div class="mh-kpi"><div class="mh-kpi-val">${hsPct}%</div><div class="mh-kpi-lbl">HS%</div></div>
+            </div>
+            <i class="fas fa-chevron-down mh-toggle"></i>
+        </div>
+        <div class="match-body">
+            <div class="stat-strip">
+                <div class="stat-cell"><div class="stat-cell-val c-green">${wins}</div><div class="stat-cell-lbl">Rnds Won</div></div>
+                <div class="stat-cell"><div class="stat-cell-val c-red">${losses}</div><div class="stat-cell-lbl">Rnds Lost</div></div>
+                <div class="stat-cell"><div class="stat-cell-val">${kills}</div><div class="stat-cell-lbl">Kills</div></div>
+                <div class="stat-cell"><div class="stat-cell-val">${deaths}</div><div class="stat-cell-lbl">Deaths</div></div>
+                <div class="stat-cell"><div class="stat-cell-val c-purple">${kd}</div><div class="stat-cell-lbl">K/D</div></div>
+                <div class="stat-cell"><div class="stat-cell-val c-amber">${hsPct}%</div><div class="stat-cell-lbl">HS%</div></div>
+                <div class="stat-cell"><div class="stat-cell-val c-cyan">${kostPct}%</div><div class="stat-cell-lbl">KOST%</div></div>
+                <div class="stat-cell"><div class="stat-cell-val c-blue">${atkR.length?(atkW/atkR.length*100).toFixed(0):0}%</div><div class="stat-cell-lbl">ATK Win%</div></div>
+                <div class="stat-cell"><div class="stat-cell-val c-blue">${defR.length?(defW/defR.length*100).toFixed(0):0}%</div><div class="stat-cell-lbl">DEF Win%</div></div>
+                <div class="stat-cell"><div class="stat-cell-val">${plants}</div><div class="stat-cell-lbl">Plants</div></div>
+                <div class="stat-cell"><div class="stat-cell-val">${defuses}</div><div class="stat-cell-lbl">Defuses</div></div>
+                <div class="stat-cell"><div class="stat-cell-val c-red">${eKills}</div><div class="stat-cell-lbl">Entry K</div></div>
+                <div class="stat-cell"><div class="stat-cell-val">${eDeaths}</div><div class="stat-cell-lbl">Entry D</div></div>
+            </div>
+            ${mapSections||'<div style="padding:20px;font-size:13px;color:var(--gray);text-align:center;">No map data.</div>'}
+        </div>
+    </div>`;
 }
 
-window.copyMatchInfo = function(date, opponent) {
-    const text = `Date: ${date}\nOpponent: ${opponent}\nTeam: ${teamName}`;
-    navigator.clipboard.writeText(text).then(() => toast('Match info copied!'))
-        .catch(() => toast('Copy failed', 'error'));
+window.toggleMatch = function(id) {
+    const c = document.getElementById('mc_'+id);
+    if(c) c.classList.toggle('expanded');
 };
-
-function toast(msg, type = 'success') {
-    const t = document.createElement('div');
-    t.style.cssText = `position:fixed;bottom:22px;right:22px;padding:11px 17px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999;display:flex;align-items:center;gap:7px;animation:tin .2s ease;box-shadow:0 4px 20px rgba(0,0,0,.5);color:white;background:${type==='error'?'rgba(239,68,68,0.95)':'rgba(16,185,129,0.95)'};`;
-    t.innerHTML = `<i class="fas ${type==='error'?'fa-circle-xmark':'fa-circle-check'}"></i>${msg}`;
-    document.body.appendChild(t);
-    setTimeout(() => t.remove(), 3000);
-}
 
 })();
 </script>
