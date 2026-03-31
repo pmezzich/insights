@@ -608,26 +608,37 @@ function renderNotesPanel(m, notes) {
 
     // POV links
     const povLinks = notes.povLinks || {};
+    function sanitizeKey(k) {
+        return String(k||'')
+            .replace(/\./g,'(dot)').replace(/\#/g,'(hash)')
+            .replace(/\$/g,'(dollar)').replace(/\//g,'(slash)')
+            .replace(/\[/g,'(lbracket)').replace(/\]/g,'(rbracket)');
+    }
     const povRows = rosterPlayers.map(player => {
-        const link = povLinks[player.displayName] || '';
+        const safeKey = sanitizeKey(player.displayName);
+        // Support both sanitized keys (new) and raw displayName keys (legacy)
+        const link = povLinks[safeKey] || povLinks[player.displayName] || '';
         const hasLink = !!link;
         const esc_name = player.displayName.replace(/'/g,"\\'");
         return `<div class="pov-row">
             <div class="pov-avatar">${player.displayName.slice(0,2).toUpperCase()}</div>
             <div class="pov-name" title="${x(player.displayName)}">${x(player.displayName)}</div>
             <input class="pov-input${hasLink?' has-val':''}" type="text"
-                id="pov_${CSS.escape(player.displayName)}"
+                id="pov_${safeKey}"
                 placeholder="YouTube URL\u2026"
                 value="${x(link)}"
                 ${canEdit?'':'readonly'}
                 oninput="onPovInput(this,'${esc_name}')">
-            <a class="pov-open-btn${hasLink?'':' disabled'}" id="povbtn_${CSS.escape(player.displayName)}"
+            <a class="pov-open-btn${hasLink?'':' disabled'}" id="povbtn_${safeKey}"
                 href="${link||'#'}" target="_blank" title="Open in new tab">
                 <i class="fas fa-arrow-up-right-from-square"></i>
             </a>
         </div>`;
     }).join('');
-    const povCount = rosterPlayers.filter(p => povLinks[p.displayName]).length;
+    const povCount = rosterPlayers.filter(p => {
+        const sk = sanitizeKey(p.displayName);
+        return povLinks[sk] || povLinks[p.displayName];
+    }).length;
 
     // General notes
     const general = notes.general || {};
@@ -761,8 +772,12 @@ window.switchNoteTab = function(tab) {
 window.onPovInput = function(inp, player) {
     const hasVal = inp.value.trim().length > 0;
     inp.classList.toggle('has-val', hasVal);
-    // Update the open button
-    const btn = document.getElementById('povbtn_' + CSS.escape(player));
+    // Update the open button — use sanitized key matching the element ID
+    const safeKey = String(player||'')
+        .replace(/\./g,'(dot)').replace(/\#/g,'(hash)')
+        .replace(/\$/g,'(dollar)').replace(/\//g,'(slash)')
+        .replace(/\[/g,'(lbracket)').replace(/\]/g,'(rbracket)');
+    const btn = document.getElementById('povbtn_' + safeKey);
     if(btn) {
         btn.href = hasVal ? inp.value.trim() : '#';
         btn.classList.toggle('disabled', !hasVal);
@@ -839,12 +854,21 @@ window.saveAllPlayerNotes = async function() {
 };
 
 // ── Save POV links ────────────────────────────────────────────────
+function sanitizeKey(k) {
+    return String(k||'')
+        .replace(/\./g,'(dot)').replace(/\#/g,'(hash)')
+        .replace(/\$/g,'(dollar)').replace(/\//g,'(slash)')
+        .replace(/\[/g,'(lbracket)').replace(/\]/g,'(rbracket)');
+}
+
 window.savePovLinks = async function() {
     if(!activeMatchId||!teamId) return;
     const povLinks = {};
     rosterPlayers.forEach(player => {
-        const inp = document.getElementById('pov_'+CSS.escape(player.displayName));
-        if(inp&&inp.value.trim()) povLinks[player.displayName] = inp.value.trim();
+        // Use sanitized key for Firebase — input ID also uses sanitized key
+        const safeKey = sanitizeKey(player.displayName);
+        const inp = document.getElementById('pov_' + safeKey);
+        if(inp && inp.value.trim()) povLinks[safeKey] = inp.value.trim();
     });
     try {
         await db.ref(`teams/${teamId}/matches_pro/${activeMatchId}/notes/povLinks`).set(povLinks);

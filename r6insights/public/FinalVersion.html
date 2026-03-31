@@ -157,15 +157,15 @@ function buildRoundPlayers(header, events){
   }
   return { playersList: arr, playerTeams, playerTeamsAlias: alias };
 }
-function mergeRosters(mapObj, playersList, teams){
+function mergeRosters(mapObj, playersList, teams, yourTeamIndex){
   if (!mapObj.rosters) mapObj.rosters = {};
   if (!Array.isArray(mapObj.rosters['YOUR TEAM'])) mapObj.rosters['YOUR TEAM'] = [];
   if (!Array.isArray(mapObj.rosters['OPPONENTS'])) mapObj.rosters['OPPONENTS'] = [];
   const our = new Set(mapObj.rosters['YOUR TEAM']);
   const opp = new Set(mapObj.rosters['OPPONENTS']);
-  
-  // Determine which teamIndex is "YOUR TEAM" — use the global player choice
-  let yourIndex = (typeof chosenYourTeamIndex !== 'undefined') ? chosenYourTeamIndex : 0;
+
+  // Use the yourTeamIndex passed from the call site (set by team picker modal)
+  const yourIndex = (typeof yourTeamIndex === 'number') ? yourTeamIndex : 0;
   
   for (const p of (playersList||[])){
     if (p.teamIndex === yourIndex) our.add(p.name);
@@ -1582,7 +1582,7 @@ if (ourTeam) {
                             };
 
                             // Build and merge rosters at map level
-                            mergeRosters(matchData.maps[mapId], roundPlayers, teams);
+                            mergeRosters(matchData.maps[mapId], roundPlayers, teams, yourTeamIndex);
                             
                             // Store raw data for display
                             rawReplayData[fileName] = {

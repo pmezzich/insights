@@ -70,7 +70,7 @@ body{color:var(--light);min-height:100vh;padding:20px;}
 .player-card:not(.our-team) .pc-team{color:var(--gray);}
 
 /* ── STATS DISPLAY ── */
-.kpi-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;}
+.kpi-strip{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;}
 .kpi{background:var(--card-bg);border:1px solid var(--card-border);border-radius:10px;padding:14px 12px;text-align:center;position:relative;overflow:hidden;}
 .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
 .kpi-blue::before{background:linear-gradient(to right,#3B82F6,#60a5fa);}
@@ -446,12 +446,27 @@ function buildPlayerList(){
 
             const roundResult = isOurs ? (teamWon?'Win':'Loss') : (oppWon?'Win':'Loss');
 
+            // KOST: Kill, Objective, Survive, or Traded
+            const died     = events.some(e => e.type==='kill' && mpMatch(e.target, name));
+            const survived = !died;
+            const traded   = died && (() => {
+                const deathEvt = events.find(e => e.type==='kill' && mpMatch(e.target, name));
+                if (!deathEvt) return false;
+                return events.some(e =>
+                    e.type==='kill' &&
+                    mpMatch(e.target, deathEvt.username) &&
+                    Math.abs(e.timestamp - deathEvt.timestamp) <= 10 &&
+                    !mpMatch(e.username, name)
+                );
+            })();
+            const kost = !!(myKills || myPlants || myDefuses || survived || traded);
+
             pRef.rounds.push({
                 roundNum: allRounds.indexOf(parsed)+1,
                 outcome: roundResult,
                 kills: myKills, deaths: myDeaths, hs: myHS,
                 plants: myPlants, defuses: myDefuses,
-                entryKill, entryDeath,
+                entryKill, entryDeath, kost,
                 operator: opName,
                 side: ourRole.toLowerCase().includes('attack')?'atk':ourRole.toLowerCase().includes('defen')?'def':'unknown',
             });
@@ -524,6 +539,8 @@ function selectPlayer(name){
     const winPct = total?(wins/total*100):0;
     const hsPct  = kills?(hs/kills*100):0;
     const survPct= total?((total-deaths)/total*100):0;
+    const kostR  = rounds.filter(r=>r.kost).length;
+    const kostPct= total?(kostR/total*100):0;
 
     // ATK/DEF split
     const atkR = rounds.filter(r=>r.side==='atk');
@@ -535,11 +552,12 @@ function selectPlayer(name){
 
     // ── KPI strip ─────────────────────────────────────────────
     document.getElementById('kpiStrip').innerHTML = [
-        {c:'kpi-blue',  icon:'fa-skull-crossbones', val:kills,              lbl:'Total Kills'},
-        {c:'kpi-red',   icon:'fa-heart-crack',      val:deaths,             lbl:'Total Deaths'},
-        {c:'kpi-green', icon:'fa-chart-line',        val:kd.toFixed(2),     lbl:'K/D Ratio'},
-        {c:'kpi-amber', icon:'fa-crosshairs',        val:kpr.toFixed(2),    lbl:'Kills/Round'},
+        {c:'kpi-blue',  icon:'fa-skull-crossbones', val:kills,                  lbl:'Total Kills'},
+        {c:'kpi-red',   icon:'fa-heart-crack',      val:deaths,                 lbl:'Total Deaths'},
+        {c:'kpi-green', icon:'fa-chart-line',        val:kd.toFixed(2),         lbl:'K/D Ratio'},
+        {c:'kpi-amber', icon:'fa-crosshairs',        val:kpr.toFixed(2),        lbl:'Kills/Round'},
         {c:'kpi-purple',icon:'fa-trophy',             val:winPct.toFixed(0)+'%', lbl:'Win Rate'},
+        {c:'kpi-green', icon:'fa-circle-check',      val:kostPct.toFixed(0)+'%',lbl:'KOST%'},
     ].map(k=>`<div class="kpi ${k.c}"><i class="fas ${k.icon}" style="font-size:12px;color:currentColor;margin-bottom:4px;display:block;"></i><div class="kpi-val">${k.val}</div><div class="kpi-lbl">${k.lbl}</div></div>`).join('');
 
     // ── ATK/DEF split ─────────────────────────────────────────
