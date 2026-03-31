@@ -506,6 +506,12 @@
                 <i class="fas fa-right-to-bracket"></i> Sign In
             </button>
             <div id="loginError"></div>
+            <div style="text-align:center;margin-top:12px;">
+                <button onclick="forgotPassword()" style="background:none;border:none;color:rgba(148,163,184,0.5);font-size:12px;cursor:pointer;font-family:inherit;transition:color .15s;"
+                    onmouseenter="this.style.color='#a78bfa'" onmouseleave="this.style.color='rgba(148,163,184,0.5)'">
+                    Forgot password?
+                </button>
+            </div>
             <div style="height:1px;background:rgba(255,255,255,0.07);margin:20px 0;"></div>
             <a href="create_account.html"
                style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;border-radius:9px;border:1px solid rgba(124,58,237,0.4);background:rgba(124,58,237,0.1);color:#a78bfa;font-size:14px;font-weight:700;text-decoration:none;font-family:inherit;transition:all .18s;margin-bottom:10px;"
@@ -869,6 +875,34 @@
         ['loginEmail', 'loginPassword'].forEach(id => {
             $(id).addEventListener('keydown', e => { if (e.key === 'Enter') window.doLogin(); });
         });
+
+        // ── Forgot password ───────────────────────────────────────────────
+        window.forgotPassword = async function() {
+            const email = $('loginEmail').value.trim();
+            const err   = $('loginError');
+            if (!email) {
+                showError('Enter your email address above first.');
+                return;
+            }
+            try {
+                await auth.sendPasswordResetEmail(email);
+                err.textContent = '✓ Reset email sent — check your inbox.';
+                err.style.background = 'rgba(16,185,129,0.12)';
+                err.style.borderColor = 'rgba(16,185,129,0.35)';
+                err.style.color = '#34d399';
+                err.className = 'show';
+                setTimeout(() => {
+                    err.className = '';
+                    err.style.background = '';
+                    err.style.borderColor = '';
+                    err.style.color = '';
+                }, 6000);
+            } catch(e) {
+                showError(e.code === 'auth/user-not-found'
+                    ? 'No account found with that email.'
+                    : 'Failed to send reset email: ' + e.message);
+            }
+        };
 
         // ── Logout ────────────────────────────────────────────────────────────
         window.doLogout = function () {

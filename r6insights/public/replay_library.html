@@ -183,7 +183,10 @@ auth.onAuthStateChanged(async user => {
     matchSnap.forEach(c => { if(c.val()) allMatches.push({ _id:c.key, ...c.val() }); });
     allMatches.sort((a,b) => new Date(b.date||0) - new Date(a.date||0));
 
-    const allMaps = [...new Set(allMatches.flatMap(m => Object.keys(m.maps||{})))].sort();
+    // Populate map filter using real map names (mp.mapName), not storage keys
+    const allMaps = [...new Set(
+        allMatches.flatMap(m => Object.values(m.maps||{}).map(mp => mp.mapName || '').filter(Boolean))
+    )].sort();
     allMaps.forEach(mp => {
         const o = document.createElement('option');
         o.value = o.textContent = mp;
@@ -194,8 +197,60 @@ auth.onAuthStateChanged(async user => {
     applyFilters();
 });
 
+// Sanitize name the same way FinalVersion.html does for playerTeams keys
+function sanKey(k) {
+    return String(k||'')
+        .replace(/\./g,'(dot)').replace(/\#/g,'(hash)')
+        .replace(/\$/g,'(dollar)').replace(/\//g,'(slash)')
+        .replace(/\[/g,'(lbracket)').replace(/\]/g,'(rbracket)');
+}
+
+// Check if a raw event username belongs to YOUR TEAM in a round
+function isYours(name, playerTeams) {
+    return (playerTeams || {})[sanKey(name)] === 'YOUR TEAM';
+}
+
+// Compute team-aggregate stats from a round's events + playerTeams
+function computeRoundStats(round) {
+    const events      = round.events || [];
+    const playerTeams = round.playerTeams || {};
+    const side = (round.yourRole||'').toLowerCase().includes('attack') ? 'atk'
+               : (round.yourRole||'').toLowerCase().includes('defen')  ? 'def'
+               : 'unknown';
+
+    const kills   = events.filter(e => e.type==='kill'   && isYours(e.username, playerTeams)).length;
+    const deaths  = events.filter(e => e.type==='kill'   && isYours(e.target,   playerTeams)).length;
+    const hs      = events.filter(e => e.type==='kill'   && isYours(e.username, playerTeams) && e.headshot).length;
+    const plants  = events.filter(e => e.type==='plant'  && isYours(e.username, playerTeams)).length;
+    const defuses = events.filter(e => e.type==='defuse' && isYours(e.username, playerTeams)).length;
+
+    const sortedKills = events.filter(e=>e.type==='kill').sort((a,b)=>a.timestamp-b.timestamp);
+    const firstKill   = sortedKills[0];
+    const entryKill   = firstKill && isYours(firstKill.username, playerTeams) ? 1 : 0;
+    const entryDeath  = firstKill && isYours(firstKill.target,   playerTeams) ? 1 : 0;
+
+    // KOST: any YOUR TEAM player who killed, planted, defused, survived, or traded
+    const yourPlayers = Object.entries(playerTeams)
+        .filter(([,v]) => v === 'YOUR TEAM').map(([k]) => k);
+    const kost = yourPlayers.some(sk => {
+        const rawNames = Object.entries(round.playerTeamsAlias || {})
+            .filter(([k]) => k === sk).map(([,v]) => v);
+        const n = rawNames[0] || sk;
+        const killed   = events.some(e => e.type==='kill' && sanKey(e.username)===sk);
+        const planted  = events.some(e => e.type==='plant'  && sanKey(e.username)===sk);
+        const defused  = events.some(e => e.type==='defuse' && sanKey(e.username)===sk);
+        const died     = events.some(e => e.type==='kill' && sanKey(e.target)===sk);
+        return killed || planted || defused || !died;
+    });
+
+    return { kills, deaths, hs, plants, defuses, entryKill, entryDeath, side, kost,
+             outcome: round.outcome || '' };
+}
+
 function getRounds(m) {
-    return Object.values(m.maps||{}).flatMap(mp => Object.values(mp.rounds||{}));
+    return Object.values(m.maps||{}).flatMap(mp =>
+        Object.values(mp.rounds||{}).map(r => computeRoundStats(r))
+    );
 }
 function result(m) {
     const r = getRounds(m);
@@ -212,7 +267,10 @@ window.applyFilters = function() {
     if(search)  f = f.filter(m=>(m.opponent||'').toLowerCase().includes(search));
     if(fType)   f = f.filter(m=>(m.matchType||'scrim')===fType);
     if(fResult) f = f.filter(m=>result(m)===fResult);
-    if(fMap)    f = f.filter(m=>Object.keys(m.maps||{}).includes(fMap));
+    if(fMap)    f = f.filter(m=>Object.keys(m.maps||{}).some(k => {
+        const mp = (m.maps||{})[k];
+        return (mp.mapName||k) === fMap || k === fMap;
+    }));
     $('matchCountLabel').textContent = `${f.length} match${f.length!==1?'es':''}`;
     $('matchList').innerHTML = f.length
         ? f.map(buildCard).join('')
@@ -220,65 +278,75 @@ window.applyFilters = function() {
 };
 
 function buildCard(m) {
-    const rounds = getRounds(m);
-    const total  = rounds.length;
-    const wins   = rounds.filter(r=>(r.outcome||'').toLowerCase()==='win').length;
-    const losses = total - wins;
-    const res    = wins>losses?'win':losses>wins?'loss':'draw';
-    const kills  = rounds.reduce((s,r)=>s+(r.kills||0),0);
-    const deaths = rounds.reduce((s,r)=>s+(r.deaths||0),0);
-    const hs     = rounds.reduce((s,r)=>s+(r.headshots||0),0);
-    const plants = rounds.reduce((s,r)=>s+(r.plants||0),0);
-    const defuses= rounds.reduce((s,r)=>s+(r.defuses||0),0);
-    const eKills = rounds.reduce((s,r)=>s+(r.entryKill||0),0);
-    const eDeaths= rounds.reduce((s,r)=>s+(r.entryDeath||0),0);
-    const kostR  = rounds.filter(r=>r.kost).length;
-    const kd     = deaths?(kills/deaths).toFixed(2):kills+'.0';
-    const winPct = total?(wins/total*100).toFixed(0):0;
-    const kostPct= total?(kostR/total*100).toFixed(0):0;
-    const hsPct  = kills?(hs/kills*100).toFixed(0):0;
-    const atkR   = rounds.filter(r=>r.side==='atk');
-    const defR   = rounds.filter(r=>r.side==='def');
-    const atkW   = atkR.filter(r=>(r.outcome||'').toLowerCase()==='win').length;
-    const defW   = defR.filter(r=>(r.outcome||'').toLowerCase()==='win').length;
-    const maps   = Object.keys(m.maps||{});
+    const rounds  = getRounds(m);
+    const total   = rounds.length;
+    const wins    = rounds.filter(r=>(r.outcome||'').toLowerCase()==='win').length;
+    const losses  = total - wins;
+    const res     = wins>losses?'win':losses>wins?'loss':'draw';
+    const kills   = rounds.reduce((s,r)=>s+r.kills,0);
+    const deaths  = rounds.reduce((s,r)=>s+r.deaths,0);
+    const hs      = rounds.reduce((s,r)=>s+r.hs,0);
+    const plants  = rounds.reduce((s,r)=>s+r.plants,0);
+    const defuses = rounds.reduce((s,r)=>s+r.defuses,0);
+    const eKills  = rounds.reduce((s,r)=>s+r.entryKill,0);
+    const eDeaths = rounds.reduce((s,r)=>s+r.entryDeath,0);
+    const kostR   = rounds.filter(r=>r.kost).length;
+    const kd      = deaths?(kills/deaths).toFixed(2):kills+'.0';
+    const winPct  = total?(wins/total*100).toFixed(0):0;
+    const kostPct = total?(kostR/total*100).toFixed(0):0;
+    const hsPct   = kills?(hs/kills*100).toFixed(0):0;
+    const atkR    = rounds.filter(r=>r.side==='atk');
+    const defR    = rounds.filter(r=>r.side==='def');
+    const atkW    = atkR.filter(r=>(r.outcome||'').toLowerCase()==='win').length;
+    const defW    = defR.filter(r=>(r.outcome||'').toLowerCase()==='win').length;
+    const mapKeys = Object.keys(m.maps||{});
     const typeLabel = m.matchType==='gameday'?'🏆 Game Day':'🎯 Scrim';
 
-    const mapSections = maps.map(mapName => {
-        const mp        = (m.maps||{})[mapName]||{};
-        const mapRounds = Object.values(mp.rounds||{});
+    // Map display names (use mp.mapName not the storage key)
+    const mapDisplayNames = mapKeys.map(k => x((m.maps||{})[k]?.mapName || k));
+
+    const mapSections = mapKeys.map(mapKey => {
+        const mp        = (m.maps||{})[mapKey]||{};
+        const displayName = mp.mapName || mapKey;
+        const rawRounds = Object.values(mp.rounds||{});
+        const mapRounds = rawRounds.map(r => computeRoundStats(r));
         const mW = mapRounds.filter(r=>(r.outcome||'').toLowerCase()==='win').length;
-        const rows = mapRounds.map((r,i) => `
+
+        const rows = rawRounds.map((raw, i) => {
+            const r = computeRoundStats(raw);
+            const hsPctR = r.kills ? ((r.hs/r.kills)*100).toFixed(0) : 0;
+            return `
             <tr>
                 <td style="font-size:11px;color:var(--gray);font-weight:700;">R${i+1}</td>
                 <td>${r.side==='atk'?'<span class="side-badge side-atk">ATK</span>':'<span class="side-badge side-def">DEF</span>'}</td>
                 <td>${(r.outcome||'').toLowerCase()==='win'?'<span class="outcome-win">Win</span>':'<span class="outcome-loss">Loss</span>'}</td>
-                <td>${r.operator?`<span style="font-size:11px;font-weight:700;color:#a78bfa;">${x(r.operator)}</span>`:'<span style="color:rgba(148,163,184,.3);">—</span>'}</td>
-                <td style="font-weight:700;">${r.kills||0}/${r.deaths||0}</td>
-                <td>${r.headshots||0}</td>
-                <td>${kills?(((r.headshots||0)/(r.kills||1))*100).toFixed(0):0}%</td>
-                <td>${r.entryKill||0}</td>
-                <td>${r.entryDeath||0}</td>
-                <td>${r.plants||0}</td>
-                <td>${r.defuses||0}</td>
+                <td style="font-weight:700;">${r.kills}/${r.deaths}</td>
+                <td>${r.hs}</td>
+                <td>${hsPctR}%</td>
+                <td>${r.entryKill}</td>
+                <td>${r.entryDeath}</td>
+                <td>${r.plants}</td>
+                <td>${r.defuses}</td>
                 <td>${r.kost?'<i class="fas fa-circle-check" style="color:#34d399;"></i>':'<i class="fas fa-circle-xmark" style="color:rgba(148,163,184,0.2);"></i>'}</td>
-            </tr>`).join('');
+            </tr>`;
+        }).join('');
+
         return `
         <div class="map-section">
             <div class="map-title">
                 <i class="fas fa-map" style="color:#a78bfa;font-size:12px;"></i>
-                ${x(mapName)}
+                ${x(displayName)}
                 <span class="map-badge">${mapRounds.length} rounds</span>
                 <span class="map-score">${mW}W · ${mapRounds.length-mW}L</span>
             </div>
-            ${mapRounds.length?`
+            ${rawRounds.length?`
             <div style="overflow-x:auto;">
                 <table class="round-tbl">
                     <thead><tr>
                         <th style="text-align:left;">Rnd</th>
-                        <th>Side</th><th>Result</th><th>Operator</th>
-                        <th>K/D</th><th>HS</th><th>HS%</th><th>EK</th><th>ED</th>
-                        <th>Plant</th><th>Defuse</th><th>KOST</th>
+                        <th>Side</th><th>Result</th>
+                        <th>K/D</th><th>HS</th><th>HS%</th>
+                        <th>EK</th><th>ED</th><th>Plant</th><th>Defuse</th><th>KOST</th>
                     </tr></thead>
                     <tbody>${rows}</tbody>
                 </table>
@@ -292,7 +360,7 @@ function buildCard(m) {
             <div class="mh-result">${res.toUpperCase()}</div>
             <div class="mh-info">
                 <div class="mh-title">vs ${x(m.opponent||'Unknown')}</div>
-                <div class="mh-sub">${x(m.date||'—')} · ${typeLabel} · ${maps.map(n=>x(n)).join(', ')} · ${total} rounds (${wins}W ${losses}L)</div>
+                <div class="mh-sub">${x(m.date||'—')} · ${typeLabel} · ${mapDisplayNames.join(', ')} · ${total} rounds (${wins}W ${losses}L)</div>
             </div>
             <div class="mh-kpis">
                 <div class="mh-kpi"><div class="mh-kpi-val">${kd}</div><div class="mh-kpi-lbl">K/D</div></div>
