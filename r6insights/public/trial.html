@@ -447,19 +447,14 @@ function buildPlayerList(){
             const roundResult = isOurs ? (teamWon?'Win':'Loss') : (oppWon?'Win':'Loss');
 
             // KOST: Kill, Objective, Survive, or Traded
-            const died     = events.some(e => e.type==='kill' && mpMatch(e.target, name));
+            const died     = events.some(e=>e.type==='kill'&&mpMatch(e.target,name));
             const survived = !died;
-            const traded   = died && (() => {
-                const deathEvt = events.find(e => e.type==='kill' && mpMatch(e.target, name));
-                if (!deathEvt) return false;
-                return events.some(e =>
-                    e.type==='kill' &&
-                    mpMatch(e.target, deathEvt.username) &&
-                    Math.abs(e.timestamp - deathEvt.timestamp) <= 10 &&
-                    !mpMatch(e.username, name)
-                );
+            const traded   = died && (()=>{
+                const deathEvt = events.find(e=>e.type==='kill'&&mpMatch(e.target,name));
+                if(!deathEvt) return false;
+                return events.some(e=>e.type==='kill'&&mpMatch(e.target,deathEvt.username)&&Math.abs(e.timestamp-deathEvt.timestamp)<=10&&!mpMatch(e.username,name));
             })();
-            const kost = !!(myKills || myPlants || myDefuses || survived || traded);
+            const kost = !!(myKills||myPlants||myDefuses||survived||traded);
 
             pRef.rounds.push({
                 roundNum: allRounds.indexOf(parsed)+1,
@@ -655,7 +650,7 @@ Write about: overall performance, strengths, operator diversity, aggression styl
 
     try{
         // ── Calls your Cloudflare Worker proxy — the OpenAI key never leaves the server ──
-        const res = await fetch('https://r6insights-ai.YOUR-SUBDOMAIN.workers.dev/ai', {
+        const res = await fetch('https://falling-mountain-6506.pmezzich.workers.dev/ai', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ prompt })
