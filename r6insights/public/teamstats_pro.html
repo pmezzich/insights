@@ -739,8 +739,10 @@ function compute(matches){
                 if(sd==='atk'){s.maps[mapName].atkR++;if(won)s.maps[mapName].atkW++;}
                 else          {s.maps[mapName].defR++;if(won)s.maps[mapName].defW++;}
 
-                // Drone destructions — defense only, deduplicated by timestamp
+                // Drone destructions — defense only, per round (all def rounds count),
+                // deduplicated by timestamp (same timestamp = one real event, not 5)
                 if(sd==='def'){
+                    s.defRoundsForDrones++; // count every defense round in denominator
                     const drones=Array.isArray(r.droneDestructions)?r.droneDestructions:[];
                     if(drones.length>0){
                         const seenTs=new Set();
@@ -748,7 +750,6 @@ function compute(matches){
                             const t=d.time??d.timeInSeconds??d.timestamp;
                             if(t!=null && !seenTs.has(t)){ seenTs.add(t); s.droneDestroyedDef++; }
                         });
-                        s.defRoundsForDrones++;
                     }
                 }
 
@@ -1103,7 +1104,7 @@ function buildKPIStrip(s){
             <i class="fas fa-satellite-dish kpi-icon" style="color:#22d3ee;"></i>
             <div class="kpi-val" style="color:#22d3ee;">${s.defRoundsForDrones>0?(s.droneDestroyedDef/s.defRoundsForDrones).toFixed(1):'—'}</div>
             <div class="kpi-lbl">Avg Drones Destroyed</div>
-            <div class="kpi-sub">Defense only · ${s.droneDestroyedDef} total · ${s.defRoundsForDrones} def rounds</div>
+            <div class="kpi-sub">Def only · ${s.droneDestroyedDef} destroyed · ${s.defRoundsForDrones} rounds · deduped</div>
         </div>
     </div>`;
 }
