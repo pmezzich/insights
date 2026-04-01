@@ -2006,22 +2006,28 @@ async function parseRec(buffer) {
         }
         const mod = window.dissectModule || {};
 
-        if (typeof mod.parseReplay !== "function") {
+        // Resolve parse function: prefer dissectModule.parseReplay,
+        // fall back to window.parseReplay directly (set by Go via syscall/js).
+        const parseFn = (typeof mod.parseReplay === "function")
+            ? mod.parseReplay
+            : (typeof window.parseReplay === "function" ? window.parseReplay : null);
+
+        if (typeof parseFn !== "function") {
             console.error("parseReplay not found on module. Ensure Go code registers it via syscall/js.");
             if (window.R6_DEBUG) debugLog('❌ parseRec returned null after attempts'); return null;
         }
 
-        // Normalize input as Uint8Array — exports.go expects a Uint8Array.
+        // Normalize input as Uint8Array — Go WASM expects Uint8Array.
         const u8 = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
         if (window.R6_DEBUG) debugLog('buffer len='+u8.length+' hex='+hexPreview(u8, 32));
         const len = u8.length;
 
         // Try a few safe call patterns, stop at the first string result.
         const attempts = [
-            () => mod.parseReplay(u8),
-            () => mod.parseReplay(u8, len),
-            () => mod.parseReplay(buffer),
-            () => mod.parseReplay(buffer, len),
+            () => parseFn(u8),
+            () => parseFn(u8, len),
+            () => parseFn(buffer),
+            () => parseFn(buffer, len),
         ];
 
         let jsonStr;
