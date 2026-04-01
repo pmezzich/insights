@@ -1620,7 +1620,10 @@ if (ourTeam) {
                                 teams: roundTeams,
                                 players: roundPlayers,
                                 playerTeams: playerTeams,
-                                playerTeamsAlias: playerTeamsAlias
+                                playerTeamsAlias: playerTeamsAlias,
+                                droneDestructions:  Array.isArray(parsed?.droneDestructions)  ? parsed.droneDestructions  : [],
+                                cameraDestructions: Array.isArray(parsed?.cameraDestructions) ? parsed.cameraDestructions : [],
+                                gadgetDeployments:  Array.isArray(parsed?.gadgetDeployments)  ? parsed.gadgetDeployments  : []
                             };
 
                             // Build and merge rosters at map level
