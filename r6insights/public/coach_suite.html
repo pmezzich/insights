@@ -11,7 +11,7 @@
 <script src="../scripts/theme.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+<script src="../scripts/db-client.js"></script>
 <style>
     body { background: var(--darker); min-height: 100vh; padding-bottom: 60px; }
 
@@ -341,7 +341,6 @@
 
 if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
-const db   = firebase.database();
 
 const ALLOWED_ROLES = ['coach','analyst','captain'];
 

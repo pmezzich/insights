@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../styles/pro-global.css">
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <script src="../scripts/db-client.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <script src="../scripts/firebase-config.js"></script>
     <script>if(localStorage.getItem('r6_theme')==='light')document.documentElement.classList.add('light-mode');</script>
@@ -416,7 +416,6 @@ const PRO_AVG = {
    ══════════════════════════════════════════════════════════ */
 firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
-const db   = firebase.database();
 
 
 /* ── Multi-select helper ── */

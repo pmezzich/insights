@@ -218,7 +218,7 @@ window.addEventListener('unhandledrejection', (e) => {
     <script src="../scripts/firebase-config.js"></script>
     <script>if(localStorage.getItem('r6_theme')==='light')document.documentElement.classList.add('light-mode');</script>
     <script src="../scripts/theme.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <script src="../scripts/db-client.js"></script>
     <style>
         :root {
             --primary: #7C3AED;
@@ -973,7 +973,6 @@ window.addEventListener('unhandledrejection', (e) => {
         // Initialize Firebase after SDK is loaded
         const app = firebase.initializeApp(FIREBASE_CONFIG);
         const auth = firebase.auth();
-        const db = firebase.database();
 
         // Use emulators in development
         if (window.location.hostname === "localhost") {
@@ -987,6 +986,7 @@ window.addEventListener('unhandledrejection', (e) => {
         let userTeamName = "";
         let rawReplayData = {};
         let chosenYourTeamIndex = 0;  // set by team picker modal before processing
+        let chosenTeamPlayerNames = new Set(); // normalised player names from chosen team
         let matchData = {
             opponent: "",
             teamId: "",
@@ -1052,7 +1052,7 @@ window.addEventListener('unhandledrejection', (e) => {
                 window.location.href = 'index_pro.html';
                 return;
             }
-            R6Theme.init(user.uid, firebase.database());
+            R6Theme.init(user.uid, window.db);
 
             try {
                 uploadSection.style.display = 'block';
@@ -1379,6 +1379,16 @@ window.addEventListener('unhandledrejection', (e) => {
                             outputLog.textContent += `\n👥 Found teams: "${firstTeams[0]?.name || 'Team 1'}" vs "${firstTeams[1]?.name || 'Team 2'}" — choose yours in the modal.`;
                             chosenYourTeamIndex = await askTeamChoice(firstTeams, playersByTeam);
                             outputLog.textContent += `\n✅ Your team: "${firstTeams[chosenYourTeamIndex]?.name || `Team ${chosenYourTeamIndex+1}`}" (index ${chosenYourTeamIndex})`;
+                            // Store the chosen team's player names (normalised) so we can
+                            // re-resolve the correct teamIndex on every round, even if a
+                            // different player recorded map 2+ (dissect always puts the
+                            // RECORDING player's team as index 0, so the index can flip).
+                            chosenTeamPlayerNames = new Set(
+                                (playersByTeam[chosenYourTeamIndex] || [])
+                                    .map(n => n.toLowerCase().replace(/\s+/g, ''))
+                                    .filter(Boolean)
+                            );
+                            debugLog('chosenTeamPlayerNames=' + JSON.stringify([...chosenTeamPlayerNames]));
                         } else {
                             outputLog.textContent += '\n⚠️ Could not extract team data — defaulting to team index 0.';
                             chosenYourTeamIndex = 0;
@@ -1504,8 +1514,39 @@ if (parsedMap && parsedMap.name && matchData.maps[mapId].mapName === folderName)
 const _eventsRaw = parsed?.processedData?.matchFeedback || parsed?.matchFeedback || parsed?.events || [];
 const events = (_eventsRaw || []).map(normalizeEventRecord).sort((a,b)=>a.timestamp-b.timestamp);
 
-// Determine which team is ours — use the player's explicit choice
-let yourIdx = chosenYourTeamIndex;
+// Determine which team is ours — resolve by matching known player names so the
+// correct index is found even if a different player recorded this map
+// (dissect always places the RECORDING player's team at index 0, so the index
+// can flip between maps when the recorder changes or a sub was involved).
+function resolveYourTeamIndex(rPlayers, knownNames, fallback) {
+    if (!knownNames || knownNames.size === 0) return fallback;
+    const nm = s => (s || '').toLowerCase().replace(/\s+/g, '');
+    const tally = { 0: 0, 1: 0 };
+    for (const p of rPlayers) {
+        const ti = p.teamIndex;
+        if (ti !== 0 && ti !== 1) continue;
+        const pn = nm(p.name);
+        for (const known of knownNames) {
+            if (pn === known || pn.includes(known) || known.includes(pn)) {
+                tally[ti]++;
+                break;
+            }
+        }
+    }
+    debugLog(`resolveYourTeamIndex tally=${JSON.stringify(tally)} fallback=${fallback}`);
+    if (tally[0] > tally[1]) return 0;
+    if (tally[1] > tally[0]) return 1;
+    return fallback;  // tie or no matches — keep whatever the picker chose
+}
+let yourIdx = resolveYourTeamIndex(
+    (Array.isArray(parsedPlayers) ? parsedPlayers : []).map(p => ({
+        name: p?.username || p?.name || '',
+        teamIndex: p?.teamIndex !== undefined ? Number(p.teamIndex) : null
+    })),
+    chosenTeamPlayerNames,
+    chosenYourTeamIndex
+);
+debugLog(`yourIdx resolved to ${yourIdx} (chosenYourTeamIndex=${chosenYourTeamIndex})`);
 const ourTeam = Array.isArray(teams) && teams.length > yourIdx ? teams[yourIdx] : null;
 
 // Determine round result
@@ -1556,10 +1597,11 @@ if (ourTeam) {
                             const roundSite = parsedSite || computeRoundSite(header, events, roundPlayers);
                             const winTeam = headerWinningTeam(header);
 
-                            // Build playerTeams mapping using the player's chosen team index
+                            // Build playerTeams mapping using the resolved team index
+                            // (yourIdx already accounts for any recorder flip — see resolveYourTeamIndex above)
                             const playerTeams = {};
                             const playerTeamsAlias = {};
-                            const yourTeamIndex = chosenYourTeamIndex;
+                            const yourTeamIndex = yourIdx;
                             for (const p of roundPlayers) {
                                 const key = _sanitizeFirebaseKey(p.name);
                                 playerTeamsAlias[key] = p.name;

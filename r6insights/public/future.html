@@ -4,771 +4,961 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>R6 Insights — Future Preview</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="../styles/pro-global.css">
 <style>
-:root{--bg:#060810;--panel:rgba(13,17,28,0.92);--border:rgba(255,255,255,0.07);--primary:#63b3ed;--accent:#4299e1;--gold:#f6c90e;--red:#fc5c7d;--green:#43e97b;--text:#e2e8f0;--muted:#4a5568;--gray:#718096;}
-*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
-body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;overflow-x:hidden;}
-.bg-canvas{position:fixed;inset:0;z-index:0;pointer-events:none;
-  background:radial-gradient(ellipse 80% 50% at 20% -10%,rgba(66,153,225,0.07) 0%,transparent 60%),
-             radial-gradient(ellipse 60% 40% at 80% 110%,rgba(99,179,237,0.05) 0%,transparent 55%);}
-.grid-overlay{position:fixed;inset:0;z-index:0;pointer-events:none;
-  background-image:linear-gradient(rgba(99,179,237,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(99,179,237,0.025) 1px,transparent 1px);
-  background-size:48px 48px;mask-image:radial-gradient(ellipse 80% 80% at center,black 0%,transparent 100%);}
+:root {
+    --primary:#7C3AED;--primary-dark:#6D28D9;--secondary:#4F46E5;
+    --dark:#1E293B;--darker:#0F172A;--light:#F8FAFC;--gray:#94A3B8;
+    --success:#10B981;--danger:#EF4444;--warning:#F59E0B;
+    --card-bg:rgba(30,41,59,0.75);--card-border:rgba(255,255,255,0.1);
+}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;}
+body{background-color:var(--darker);background-image:url('https://images.contentstack.io/v3/assets/bltb6530b271fddd0b1/blt6577b1f58530e6b2/5eb7cdc165eec876c4b5d0d8/rainbow6siege_bloodmoon_splash.jpg');background-size:cover;background-position:center;background-attachment:fixed;color:var(--light);min-height:100vh;padding:20px;padding-bottom:60px;}
+.container{max-width:1280px;margin:0 auto;background:rgba(15,23,42,0.93);border-radius:16px;overflow:visible;box-shadow:0 10px 40px rgba(0,0,0,0.6);border:1px solid var(--card-border);backdrop-filter:blur(12px);}
 
-/* NAV */
-.nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;
-  padding:0 32px;height:60px;background:rgba(6,8,16,0.95);border-bottom:1px solid var(--border);backdrop-filter:blur(20px);}
-.nav-logo{display:flex;align-items:center;gap:10px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:18px;letter-spacing:2px;color:var(--text);text-decoration:none;}
-.nav-logo-icon{width:30px;height:30px;background:linear-gradient(135deg,var(--primary),var(--accent));border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;color:white;}
-.future-badge{font-family:'Space Mono',monospace;font-size:9px;font-weight:700;padding:3px 8px;border-radius:3px;background:rgba(246,201,14,0.12);border:1px solid rgba(246,201,14,0.3);color:var(--gold);letter-spacing:1.5px;}
-.nav-back{font-size:12px;font-weight:600;color:var(--gray);text-decoration:none;display:flex;align-items:center;gap:6px;transition:color .15s;}
-.nav-back:hover{color:var(--primary);}
+/* ── CONCEPT BADGE ── */
+.concept-badge{font-size:10px;font-weight:800;padding:3px 10px;border-radius:5px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);color:#fbbf24;letter-spacing:1px;text-transform:uppercase;}
 
-/* HERO */
-.hero{padding:80px 32px 28px;text-align:center;position:relative;z-index:1;}
-.hero-eyebrow{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:3px;color:var(--primary);text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:10px;}
-.hero-eyebrow::before,.hero-eyebrow::after{content:'';width:32px;height:1px;background:var(--primary);opacity:.4;}
-.hero-title{font-family:'Rajdhani',sans-serif;font-size:clamp(30px,5vw,52px);font-weight:700;line-height:1.05;letter-spacing:1px;background:linear-gradient(135deg,#fff 0%,var(--primary) 60%,#90cdf4 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:10px;}
-.hero-sub{font-size:14px;color:var(--gray);max-width:440px;margin:0 auto;line-height:1.7;}
-
-/* DEMO CARDS ROW */
-.demo-nav{max-width:1100px;margin:24px auto 0;padding:0 24px;position:relative;z-index:1;}
-.demo-cards-row{display:flex;gap:12px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;}
+/* ── DEMO CARDS ── */
+.demo-cards-row{display:flex;gap:10px;flex-wrap:nowrap;overflow-x:auto;padding:20px 24px 0;scrollbar-width:none;}
 .demo-cards-row::-webkit-scrollbar{display:none;}
-.demo-card{flex-shrink:0;min-width:175px;background:rgba(13,17,28,0.8);border:1px solid var(--border);border-radius:12px;padding:16px 18px;cursor:pointer;transition:all .18s;position:relative;overflow:hidden;user-select:none;}
+.demo-card{flex-shrink:0;min-width:170px;background:var(--card-bg);border:1px solid var(--card-border);border-radius:12px;padding:14px 16px;cursor:pointer;transition:all .18s;position:relative;overflow:hidden;user-select:none;}
 .demo-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;opacity:0;transition:opacity .2s;background:var(--primary);}
-.demo-card:hover{border-color:rgba(99,179,237,0.25);transform:translateY(-2px);}
-.demo-card:hover::before{opacity:.6;}
-.demo-card.active{border-color:rgba(99,179,237,0.45);background:rgba(66,153,225,0.06);}
+.demo-card:hover{border-color:rgba(124,58,237,0.3);transform:translateY(-2px);}
+.demo-card:hover::before{opacity:.7;}
+.demo-card.active{border-color:rgba(124,58,237,0.5);background:rgba(124,58,237,0.08);}
 .demo-card.active::before{opacity:1;}
-.demo-card.locked{cursor:not-allowed;opacity:.5;}
-.demo-card.locked:hover{transform:none;border-color:var(--border);}
-.dc-icon{font-size:18px;margin-bottom:10px;}
-.dc-title{font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;letter-spacing:.5px;margin-bottom:3px;}
-.dc-sub{font-size:10px;color:var(--muted);}
-.dc-tag{position:absolute;top:10px;right:10px;font-family:'Space Mono',monospace;font-size:8px;padding:2px 6px;border-radius:3px;letter-spacing:.5px;}
-.dc-tag.demo{background:rgba(67,233,123,0.1);border:1px solid rgba(67,233,123,0.3);color:var(--green);}
-.dc-tag.soon{background:rgba(246,201,14,0.08);border:1px solid rgba(246,201,14,0.2);color:var(--gold);}
-.dc-tag.planned{background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--muted);}
+.demo-card.locked{cursor:not-allowed;opacity:.45;}
+.demo-card.locked:hover{transform:none;border-color:var(--card-border);}
+.dc-icon{font-size:18px;margin-bottom:8px;}
+.dc-title{font-size:13px;font-weight:700;margin-bottom:3px;}
+.demo-card.active .dc-title{color:#a78bfa;}
+.dc-sub{font-size:10px;color:var(--gray);}
+.dc-tag{position:absolute;top:9px;right:9px;font-size:8px;font-weight:700;padding:2px 6px;border-radius:4px;letter-spacing:.5px;}
+.dc-tag.demo{background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);color:#34d399;}
+.dc-tag.soon{background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);color:#fbbf24;}
+.dc-tag.planned{background:rgba(255,255,255,0.04);border:1px solid var(--card-border);color:var(--gray);}
 
-/* DEMO PANELS */
-.demo-panels{max-width:1100px;margin:20px auto 0;padding:0 24px 80px;position:relative;z-index:1;}
-.demo-panel{display:none;animation:fadeUp .3s ease;}
+/* ── DEMO PANELS ── */
+.demo-panels{padding:16px 24px 24px;}
+.demo-panel{display:none;animation:fadeUp .25s ease;}
 .demo-panel.active{display:block;}
-@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-.panel-card{background:var(--panel);border:1px solid var(--border);border-radius:16px;overflow:hidden;backdrop-filter:blur(20px);}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 
-/* ─── SCRIM QUEUE ─── */
-.config-grid{display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid var(--border);}
-.config-cell{padding:20px 22px;border-right:1px solid var(--border);}
-.config-cell:last-child{border-right:none;}
-.config-label{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
-.config-label i{color:var(--primary);font-size:10px;}
-.q-select{width:100%;background:rgba(6,8,16,0.8);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;font-weight:500;padding:10px 12px;outline:none;cursor:pointer;transition:border-color .2s;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234a5568'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;}
-.q-select:focus{border-color:var(--primary);}
-.q-select option{background:#0d1117;}
-.bans-grid{display:flex;flex-wrap:wrap;gap:6px;}
-.ban-chip{padding:5px 11px;border-radius:5px;font-size:11px;font-weight:600;border:1px solid var(--border);background:rgba(255,255,255,0.03);color:var(--gray);cursor:pointer;transition:all .15s;user-select:none;}
-.ban-chip:hover{border-color:rgba(252,92,125,0.4);color:var(--text);}
-.ban-chip.banned{background:rgba(252,92,125,0.1);border-color:rgba(252,92,125,0.5);color:var(--red);text-decoration:line-through;}
-.queue-action{padding:20px 22px;display:flex;align-items:center;justify-content:space-between;gap:16px;}
-.queue-status{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted);}
-.status-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);transition:background .3s;}
-.status-dot.online{background:var(--green);box-shadow:0 0 8px rgba(67,233,123,0.5);}
-.status-dot.searching{background:var(--gold);box-shadow:0 0 8px rgba(246,201,14,0.5);animation:pulse-dot 1s ease-in-out infinite;}
+.panel{background:var(--card-bg);border:1px solid var(--card-border);border-radius:12px;overflow:hidden;}
+.panel-hdr{padding:12px 18px;border-bottom:1px solid var(--card-border);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);display:flex;align-items:center;gap:8px;}
+.panel-body{padding:18px;}
+
+/* ── FORM ELEMENTS ── */
+.form-label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--gray);margin-bottom:8px;}
+.form-input,.form-select{width:100%;padding:11px 13px;background:rgba(15,23,42,0.9);border:1px solid var(--card-border);border-radius:8px;color:var(--light);font-size:13px;font-family:inherit;outline:none;transition:border-color .2s;}
+.form-input:focus,.form-select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(124,58,237,0.15);}
+.form-input::placeholder{color:rgba(148,163,184,0.3);}
+.form-select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394A3B8'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;cursor:pointer;}
+.form-select option{background:#1e293b;}
+
+/* ── SCRIM QUEUE ── */
+.q-config-grid{display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid var(--card-border);}
+.q-cell{padding:20px;}
+.q-cell+.q-cell{border-left:1px solid var(--card-border);}
+.ban-chip{display:inline-flex;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:600;border:1px solid var(--card-border);background:rgba(255,255,255,0.03);color:var(--gray);cursor:pointer;transition:all .15s;user-select:none;margin:3px;}
+.ban-chip:hover{border-color:rgba(239,68,68,0.4);color:var(--light);}
+.ban-chip.banned{background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.45);color:#f87171;text-decoration:line-through;}
+.q-action{padding:18px 20px;display:flex;align-items:center;justify-content:space-between;gap:14px;}
+.q-status{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--gray);}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--gray);transition:background .3s;}
+.status-dot.online{background:#10b981;box-shadow:0 0 7px rgba(16,185,129,0.5);}
+.status-dot.searching{background:#f59e0b;box-shadow:0 0 7px rgba(245,158,11,0.5);animation:pulse-dot 1s ease-in-out infinite;}
 @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.3}}
-.queue-btn{display:flex;align-items:center;gap:10px;padding:12px 28px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--primary));border:none;color:white;font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all .2s;box-shadow:0 4px 20px rgba(66,153,225,0.25);}
-.queue-btn:hover{transform:translateY(-1px);box-shadow:0 8px 30px rgba(66,153,225,0.35);}
-.queue-btn.cancel-mode{background:rgba(252,92,125,0.15);border:1px solid rgba(252,92,125,0.4);color:var(--red);box-shadow:none;}
-.queue-btn.cancel-mode:hover{background:rgba(252,92,125,0.25);}
-#queueOverlay{display:none;padding:28px 22px;border-top:1px solid var(--border);flex-direction:column;align-items:center;gap:18px;}
-#queueOverlay.active{display:flex;}
-.queue-ring{position:relative;width:90px;height:90px;}
-.queue-ring svg{transform:rotate(-90deg);}
-.ring-track{fill:none;stroke:rgba(255,255,255,0.05);stroke-width:3;}
-.ring-fill{fill:none;stroke:var(--primary);stroke-width:3;stroke-linecap:round;stroke-dasharray:283;stroke-dashoffset:283;transition:stroke-dashoffset 1s linear;filter:drop-shadow(0 0 4px rgba(99,179,237,0.6));}
-.ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;}
-.ring-time{font-family:'Space Mono',monospace;font-size:20px;font-weight:700;color:var(--primary);line-height:1;}
-.ring-lbl{font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
-.queue-searching-text{font-family:'Rajdhani',sans-serif;font-size:19px;font-weight:700;letter-spacing:1px;color:var(--text);}
-.queue-dots span{display:inline-block;animation:blink-dot .9s ease-in-out infinite;opacity:0;}
-.queue-dots span:nth-child(2){animation-delay:.2s;}.queue-dots span:nth-child(3){animation-delay:.4s;}
-@keyframes blink-dot{0%,100%{opacity:0}50%{opacity:1}}
-.queue-meta{display:flex;gap:22px;font-size:11px;color:var(--muted);font-family:'Space Mono',monospace;}
-.queue-meta span{display:flex;align-items:center;gap:5px;}.queue-meta i{color:var(--primary);}
-#matchFound{display:none;padding:24px 22px;border-top:1px solid var(--border);flex-direction:column;gap:20px;animation:fadeUp .4s ease;}
-#matchFound.active{display:flex;}
-.match-found-banner{text-align:center;padding:13px;background:rgba(67,233,123,0.06);border:1px solid rgba(67,233,123,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;gap:10px;}
-.match-found-banner i{color:var(--green);font-size:16px;}
-.match-found-banner span{font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;letter-spacing:1px;color:var(--green);}
-.match-found-banner small{font-size:11px;color:var(--gray);margin-left:6px;}
-.teams-row{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:center;}
-.team-card{background:rgba(6,8,16,0.6);border:1px solid var(--border);border-radius:12px;padding:18px;}
-.team-card.your-team{border-color:rgba(66,153,225,0.3);}
-.team-card.opp-team{border-color:rgba(252,92,125,0.2);}
-.team-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
-.team-avatar{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;}
-.your-team .team-avatar{background:rgba(66,153,225,0.15);color:var(--primary);border:1px solid rgba(66,153,225,0.3);}
-.opp-team .team-avatar{background:rgba(252,92,125,0.1);color:var(--red);border:1px solid rgba(252,92,125,0.25);}
-.team-name{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;letter-spacing:.5px;}
-.team-you-badge{margin-left:auto;font-family:'Space Mono',monospace;font-size:8px;letter-spacing:1px;padding:2px 7px;border-radius:3px;background:rgba(66,153,225,0.1);border:1px solid rgba(66,153,225,0.3);color:var(--primary);}
-.rank-display{display:flex;align-items:baseline;gap:6px;margin-bottom:10px;}
-.rank-value{font-family:'Space Mono',monospace;font-size:26px;font-weight:700;line-height:1;}
-.your-team .rank-value{color:var(--primary);}.opp-team .rank-value{color:#e2e8f0;}
-.rank-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
-.rank-tier{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:4px;margin-bottom:12px;}
-.team-players{display:flex;flex-direction:column;gap:4px;}
-.player-row{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--gray);padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.03);}
-.player-row:last-child{border-bottom:none;}
-.player-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
-.your-team .player-dot{background:var(--primary);}.opp-team .player-dot{background:var(--red);opacity:.6;}
-.player-name{font-weight:500;flex:1;}
-.player-rating{font-family:'Space Mono',monospace;font-size:10px;}
-.vs-divider{display:flex;flex-direction:column;align-items:center;gap:6px;}
-.vs-text{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:var(--muted);}
-.vs-dot{width:4px;height:4px;border-radius:50%;background:var(--border);}
-.match-actions{display:flex;gap:10px;justify-content:center;}
-.match-btn{padding:10px 26px;border-radius:9px;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;letter-spacing:.5px;cursor:pointer;border:none;transition:all .18s;display:flex;align-items:center;gap:8px;}
-.match-btn-accept{background:linear-gradient(135deg,#38a169,var(--green));color:white;box-shadow:0 4px 20px rgba(67,233,123,0.25);}
-.match-btn-accept:hover{transform:translateY(-1px);}
-.match-btn-decline{background:rgba(252,92,125,0.1);border:1px solid rgba(252,92,125,0.3);color:var(--red);}
-.match-btn-decline:hover{background:rgba(252,92,125,0.2);}
-.accepted-state{display:none;text-align:center;padding:24px;flex-direction:column;align-items:center;gap:10px;animation:fadeUp .3s ease;}
-.accepted-state.active{display:flex;}
-.accepted-icon{font-size:38px;color:var(--green);}
-.accepted-title{font-family:'Rajdhani',sans-serif;font-size:21px;font-weight:700;letter-spacing:1px;}
-.accepted-sub{font-size:12px;color:var(--gray);}
+.find-btn{display:inline-flex;align-items:center;gap:8px;padding:12px 26px;border-radius:9px;background:linear-gradient(135deg,var(--primary),var(--secondary));border:none;color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;box-shadow:0 4px 18px rgba(124,58,237,0.3);}
+.find-btn:hover{transform:translateY(-1px);box-shadow:0 7px 24px rgba(124,58,237,0.4);}
+.find-btn.cancel{background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);color:#f87171;box-shadow:none;}
+.find-btn.cancel:hover{background:rgba(239,68,68,0.2);}
+/* queue ring */
+.q-overlay{display:none;padding:28px 20px;border-top:1px solid var(--card-border);flex-direction:column;align-items:center;gap:16px;}
+.q-overlay.show{display:flex;}
+.ring-wrap{position:relative;width:88px;height:88px;}
+.ring-wrap svg{transform:rotate(-90deg);}
+.ring-bg{fill:none;stroke:rgba(255,255,255,0.05);stroke-width:3;}
+.ring-fg{fill:none;stroke:var(--primary);stroke-width:3;stroke-linecap:round;stroke-dasharray:251;stroke-dashoffset:251;transition:stroke-dashoffset 1s linear;filter:drop-shadow(0 0 4px rgba(124,58,237,0.5));}
+.ring-inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;}
+.ring-num{font-size:20px;font-weight:800;color:#a78bfa;}
+.ring-lbl{font-size:9px;color:var(--gray);letter-spacing:1px;text-transform:uppercase;}
+.q-dots span{display:inline-block;animation:qdot .9s ease-in-out infinite;opacity:0;}
+.q-dots span:nth-child(2){animation-delay:.2s;}.q-dots span:nth-child(3){animation-delay:.4s;}
+@keyframes qdot{0%,100%{opacity:0}50%{opacity:1}}
+/* match found */
+.match-found{display:none;padding:22px 20px;border-top:1px solid var(--card-border);flex-direction:column;gap:18px;animation:fadeUp .4s ease;}
+.match-found.show{display:flex;}
+.mf-banner{display:flex;align-items:center;justify-content:center;gap:10px;padding:12px;background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:10px;}
+.mf-banner i{color:#10b981;font-size:15px;}
+.mf-banner span{font-size:16px;font-weight:800;letter-spacing:1px;color:#34d399;}
+.mf-banner small{font-size:11px;color:var(--gray);margin-left:4px;}
+.teams-grid{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:center;}
+.team-tile{background:rgba(15,23,42,0.7);border:1px solid var(--card-border);border-radius:10px;padding:16px;}
+.team-tile.yours{border-color:rgba(124,58,237,0.35);}
+.team-tile.opp{border-color:rgba(239,68,68,0.2);}
+.tt-head{display:flex;align-items:center;gap:9px;margin-bottom:10px;}
+.tt-av{width:32px;height:32px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;}
+.yours .tt-av{background:rgba(124,58,237,0.15);color:#a78bfa;border:1px solid rgba(124,58,237,0.3);}
+.opp   .tt-av{background:rgba(239,68,68,0.1);color:#f87171;border:1px solid rgba(239,68,68,0.25);}
+.tt-name{font-size:14px;font-weight:800;letter-spacing:.3px;}
+.tt-you{margin-left:auto;font-size:8px;font-weight:800;padding:2px 7px;border-radius:3px;background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.3);color:#a78bfa;letter-spacing:.5px;}
+.tt-mmr{font-size:24px;font-weight:800;margin-bottom:4px;}
+.yours .tt-mmr{color:#a78bfa;}.opp .tt-mmr{color:var(--light);}
+.tt-tier{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;padding:2px 8px;border-radius:4px;margin-bottom:10px;}
+.tt-players{display:flex;flex-direction:column;gap:4px;}
+.tt-player{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--gray);padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.03);}
+.tt-player:last-child{border-bottom:none;}
+.tt-pdot{width:4px;height:4px;border-radius:50%;}
+.yours .tt-pdot{background:#a78bfa;}.opp .tt-pdot{background:#f87171;opacity:.6;}
+.vs-col{display:flex;flex-direction:column;align-items:center;gap:5px;}
+.vs-txt{font-size:20px;font-weight:800;color:var(--gray);}
+.vs-dot{width:4px;height:4px;border-radius:50%;background:var(--card-border);}
+.accept-row{display:flex;gap:10px;justify-content:center;}
+.accept-btn{padding:10px 26px;border-radius:8px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;border:none;transition:all .18s;display:inline-flex;align-items:center;gap:7px;}
+.accept-btn.yes{background:linear-gradient(135deg,#059669,#10b981);color:#fff;box-shadow:0 4px 18px rgba(16,185,129,0.25);}
+.accept-btn.yes:hover{transform:translateY(-1px);}
+.accept-btn.no{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#f87171;}
+.accept-btn.no:hover{background:rgba(239,68,68,0.18);}
+.accepted{display:none;text-align:center;padding:22px;flex-direction:column;align-items:center;gap:8px;animation:fadeUp .3s ease;}
+.accepted.show{display:flex;}
 
-/* ─── VOD REVIEW PARK ─── */
-.vod-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:rgba(6,8,16,0.7);flex-wrap:wrap;}
-.vod-sep{width:1px;height:18px;background:var(--border);flex-shrink:0;}
-.vod-match-sel{display:flex;align-items:center;gap:8px;}
-.vod-match-sel select{background:rgba(6,8,16,0.9);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:'Inter',sans-serif;font-size:12px;font-weight:500;padding:6px 24px 6px 10px;outline:none;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%234a5568'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;}
-.vod-match-sel select:focus{border-color:var(--primary);}
-.vod-match-sel select option{background:#0d1117;}
-.sync-badge{display:flex;align-items:center;gap:5px;font-family:'Space Mono',monospace;font-size:9px;padding:3px 8px;border-radius:3px;letter-spacing:.5px;}
-.sync-badge.synced{background:rgba(67,233,123,0.1);border:1px solid rgba(67,233,123,0.3);color:var(--green);}
-.sync-dot{width:5px;height:5px;border-radius:50%;animation:pulse-dot 1.2s infinite;}
+/* ── VOD REVIEW ── */
+.vod-split{display:grid;grid-template-columns:1fr 1fr;min-height:460px;}
+.vod-left{position:relative;border-right:1px solid var(--card-border);overflow:hidden;background:#04060e;}
+.vod-right{display:flex;flex-direction:column;background:rgba(10,14,26,0.8);}
+.vod-url-bar{padding:10px 14px;border-bottom:1px solid var(--card-border);display:flex;align-items:center;gap:7px;flex-shrink:0;}
+.vod-url-bar input{flex:1;background:rgba(15,23,42,0.9);border:1px solid var(--card-border);border-radius:7px;color:var(--light);font-family:inherit;font-size:12px;padding:8px 11px;outline:none;transition:border-color .2s;}
+.vod-url-bar input:focus{border-color:var(--primary);}
+.vod-url-bar input::placeholder{color:rgba(148,163,184,0.3);}
+.vod-load-btn{padding:8px 14px;border-radius:7px;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.3);color:#a78bfa;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.vod-load-btn:hover{background:rgba(124,58,237,0.22);}
+.yt-frame{flex:1;position:relative;background:#000;}
+.yt-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:none;}
+.yt-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:rgba(10,14,26,0.95);}
+.yt-placeholder i{font-size:32px;color:rgba(124,58,237,0.2);}
+.yt-placeholder p{font-size:13px;color:var(--gray);text-align:center;max-width:200px;line-height:1.6;}
+/* HUD overlays on canvas */
+.sp-timer{position:absolute;top:10px;left:50%;transform:translateX(-50%);font-size:20px;font-weight:800;color:#fff;background:rgba(4,6,14,0.8);padding:5px 16px;border-radius:7px;border:1px solid rgba(255,255,255,0.1);letter-spacing:2px;min-width:72px;text-align:center;font-family:'Segoe UI',monospace;}
+.sp-phase{position:absolute;top:10px;left:10px;font-size:9px;letter-spacing:1.5px;color:#fbbf24;background:rgba(4,6,14,0.75);padding:3px 9px;border-radius:4px;border:1px solid rgba(245,158,11,0.25);text-transform:uppercase;}
+.sp-chips{position:absolute;bottom:52px;left:10px;display:flex;flex-direction:column;gap:5px;}
+.sp-chip{display:flex;align-items:center;gap:6px;background:rgba(4,6,14,0.85);padding:4px 9px;border-radius:6px;font-size:10px;}
+.sp-chip.atk{border:1px solid rgba(124,58,237,0.35);}
+.sp-chip.def{border:1px solid rgba(239,68,68,0.35);}
+.sp-chip img{width:18px;height:18px;border-radius:3px;object-fit:cover;}
+.sp-killfeed{position:absolute;top:48px;left:50%;transform:translateX(-50%) translateY(-10px);opacity:0;transition:all .35s ease;background:rgba(4,6,14,0.92);border:1px solid rgba(239,68,68,0.5);border-radius:8px;padding:7px 14px;display:flex;align-items:center;gap:7px;white-space:nowrap;pointer-events:none;}
+.sp-killfeed img{width:16px;height:16px;border-radius:3px;object-fit:cover;}
+.sp-win-overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(4,6,14,0.65);backdrop-filter:blur(4px);}
+.sp-win-text{font-size:42px;font-weight:800;letter-spacing:3px;background:linear-gradient(135deg,#fff,#10b981);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.sp-win-sub{font-size:11px;color:#34d399;letter-spacing:2px;margin-top:5px;font-family:monospace;}
+/* Sync timeline */
+.sync-bar{padding:10px 16px;border-top:1px solid var(--card-border);background:rgba(10,14,26,0.95);display:flex;align-items:center;gap:10px;}
+.sync-btn{display:inline-flex;align-items:center;gap:7px;padding:8px 18px;border-radius:8px;background:linear-gradient(135deg,var(--primary),var(--secondary));border:none;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all .18s;flex-shrink:0;}
+.sync-btn:hover{transform:translateY(-1px);}
+.tl-time-lbl{font-size:10px;color:#a78bfa;font-family:monospace;min-width:34px;}
+.tl-track-wrap{flex:1;height:18px;cursor:pointer;position:relative;}
+.tl-bg{position:absolute;left:0;right:0;height:3px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.07);border-radius:2px;}
+.tl-prog{position:absolute;left:0;height:3px;top:50%;transform:translateY(-50%);background:var(--primary);border-radius:2px;width:0%;}
+.tl-kill-mark{position:absolute;left:15.79%;top:50%;transform:translate(-50%,-50%);width:8px;height:8px;background:#ef4444;border-radius:50%;border:2px solid rgba(10,14,26,0.9);}
+.tl-head{position:absolute;width:12px;height:12px;background:var(--primary);border-radius:50%;top:50%;transform:translate(-50%,-50%);box-shadow:0 0 8px rgba(124,58,237,0.5);pointer-events:none;left:0%;}
+.tl-end-lbl{font-size:10px;color:var(--gray);font-family:monospace;}
 
-/* Split body */
-.vod-body{display:grid;grid-template-columns:1fr 1fr;min-height:480px;max-height:520px;}
-.vod-side{position:relative;overflow:hidden;}
-.vod-side-left{border-right:1px solid var(--border);}
+/* Stats sidebar (inside vod panel header) */
+.vod-stats-strip{padding:12px 18px;border-bottom:1px solid var(--card-border);display:grid;grid-template-columns:repeat(4,1fr);gap:0;}
+.vss-cell{text-align:center;padding:6px;}
+.vss-cell+.vss-cell{border-left:1px solid var(--card-border);}
+.vss-val{font-size:17px;font-weight:800;}
+.vss-lbl{font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:.4px;margin-top:2px;}
 
-/* Heatmap */
-.heatmap-wrap{position:absolute;inset:0;background:#06090f;}
-#heatmapCanvas{width:100%;height:100%;display:block;}
-.hm-label{position:absolute;top:11px;left:11px;font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1px;color:var(--primary);background:rgba(6,8,16,0.75);padding:3px 9px;border-radius:4px;border:1px solid rgba(99,179,237,0.2);}
-.hm-legend{position:absolute;bottom:11px;left:11px;display:flex;flex-direction:column;gap:4px;}
-.legend-row{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--gray);}
-.legend-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
-.alive-badge{position:absolute;top:11px;right:11px;display:flex;flex-direction:column;gap:3px;}
-.ab-row{display:flex;align-items:center;gap:5px;font-family:'Space Mono',monospace;font-size:9px;}
-.ab-dot{width:6px;height:6px;border-radius:50%;}
+/* toast */
+#toast{position:fixed;bottom:22px;right:22px;background:rgba(245,158,11,0.14);border:1px solid rgba(245,158,11,0.3);color:#fbbf24;padding:9px 16px;border-radius:8px;font-size:11px;z-index:9999;opacity:0;transition:opacity .2s;pointer-events:none;letter-spacing:.3px;}
 
-/* POV player */
-.pov-wrap{position:absolute;inset:0;display:flex;flex-direction:column;background:#02040a;}
-.pov-url-bar{padding:9px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:7px;background:rgba(6,8,16,0.85);flex-shrink:0;}
-.pov-url-input{flex:1;background:rgba(2,4,10,0.9);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Space Mono',monospace;font-size:11px;padding:7px 10px;outline:none;transition:border-color .2s;}
-.pov-url-input:focus{border-color:var(--primary);}
-.pov-url-input::placeholder{color:var(--muted);}
-.pov-load-btn{padding:7px 13px;border-radius:6px;background:rgba(66,153,225,0.12);border:1px solid rgba(66,153,225,0.3);color:var(--primary);font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;white-space:nowrap;letter-spacing:.3px;}
-.pov-load-btn:hover{background:rgba(66,153,225,0.22);}
-.pov-frame{flex:1;position:relative;background:#02040a;}
-.pov-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:none;}
-.pov-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:linear-gradient(160deg,#020408,#050915);}
-.pov-placeholder i{font-size:32px;color:rgba(99,179,237,0.18);}
-.pov-placeholder .pt{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;letter-spacing:.5px;color:rgba(255,255,255,0.25);}
-.pov-placeholder .ps{font-size:11px;color:var(--muted);text-align:center;max-width:200px;line-height:1.6;}
-.pov-hud{position:absolute;top:9px;left:9px;right:9px;display:flex;justify-content:space-between;pointer-events:none;}
-.pov-hud-chip{font-family:'Space Mono',monospace;font-size:9px;background:rgba(6,8,16,0.8);padding:3px 8px;border-radius:4px;border:1px solid rgba(255,255,255,0.07);color:var(--gray);}
-
-/* Timeline */
-.vod-timeline{border-top:1px solid var(--border);background:rgba(6,8,16,0.9);flex-shrink:0;}
-.tl-rounds{display:flex;padding:7px 14px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
-.tl-round{flex:1;text-align:center;font-family:'Space Mono',monospace;font-size:8px;padding:4px 2px;color:var(--muted);cursor:pointer;border-radius:3px;transition:all .12s;letter-spacing:.2px;position:relative;}
-.tl-round:hover{color:var(--text);background:rgba(255,255,255,0.04);}
-.tl-round.win{color:rgba(67,233,123,0.65);}
-.tl-round.loss{color:rgba(252,92,125,0.55);}
-.tl-round.cur{background:rgba(99,179,237,0.1);color:var(--primary);}
-.tl-round.cur::after{content:'';position:absolute;bottom:-1px;left:50%;transform:translateX(-50%);width:60%;height:2px;background:var(--primary);border-radius:1px;}
-.tl-bar{padding:9px 14px 12px;display:flex;align-items:center;gap:10px;}
-.tl-ctrl{display:flex;align-items:center;gap:5px;}
-.tl-btn{background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--gray);width:26px;height:26px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:10px;transition:all .13s;}
-.tl-btn:hover{border-color:rgba(99,179,237,0.3);color:var(--primary);}
-.tl-btn.play{background:rgba(66,153,225,0.1);border-color:rgba(66,153,225,0.3);color:var(--primary);}
-.tl-time{font-family:'Space Mono',monospace;font-size:10px;color:var(--primary);min-width:34px;}
-.tl-total{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);min-width:34px;}
-.tl-scrub{flex:1;height:18px;display:flex;align-items:center;cursor:pointer;position:relative;}
-.tl-track{position:absolute;left:0;right:0;height:3px;background:rgba(255,255,255,0.07);border-radius:2px;}
-.tl-fill{position:absolute;left:0;height:3px;background:var(--primary);border-radius:2px;pointer-events:none;width:0%;}
-.tl-head{position:absolute;width:11px;height:11px;background:var(--primary);border-radius:50%;top:50%;transform:translate(-50%,-50%);box-shadow:0 0 8px rgba(99,179,237,0.5);pointer-events:none;}
-.tl-rlbl{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);margin-left:4px;}
-
-.footer{text-align:center;padding:28px 24px 48px;font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:1px;position:relative;z-index:1;}
-.footer span{color:var(--primary);}
-#toast{position:fixed;bottom:22px;right:22px;background:rgba(246,201,14,0.14);border:1px solid rgba(246,201,14,0.3);color:var(--gold);padding:9px 16px;border-radius:8px;font-family:'Space Mono',monospace;font-size:11px;z-index:9999;opacity:0;transition:opacity .2s;pointer-events:none;letter-spacing:.4px;}
-
-@media(max-width:720px){
-  .config-grid{grid-template-columns:1fr;}
-  .config-cell{border-right:none;border-bottom:1px solid var(--border);}
-  .teams-row{grid-template-columns:1fr;}
-  .vs-divider{display:none;}
-  .vod-body{grid-template-columns:1fr;max-height:none;}
-  .vod-side{height:320px;}
-  .vod-side-left{border-right:none;border-bottom:1px solid var(--border);}
+@media(max-width:760px){
+  .q-config-grid{grid-template-columns:1fr;}
+  .q-cell+.q-cell{border-left:none;border-top:1px solid var(--card-border);}
+  .teams-grid{grid-template-columns:1fr;}.vs-col{display:none;}
+  .vod-split{grid-template-columns:1fr;}
+  .vod-left{min-height:280px;}
 }
 </style>
 </head>
 <body>
-<div class="bg-canvas"></div>
-<div class="grid-overlay"></div>
+<div class="container">
 
-<nav class="nav">
-    <a href="index_pro.html" class="nav-logo">
-        <div class="nav-logo-icon"><i class="fas fa-crosshairs"></i></div>
-        R6 INSIGHTS
+<!-- Nav -->
+<div class="nav-header">
+    <a href="index_pro.html" class="logo" style="text-decoration:none;">
+        <img src="../styles/r6_insights.png" class="logo-img" alt="R6 Insights">
+        <div class="logo-text">R6 INSIGHTS</div>
     </a>
-    <div style="display:flex;align-items:center;gap:12px;">
-        <span class="future-badge">CONCEPT PREVIEW</span>
-        <a href="index_pro.html" class="nav-back"><i class="fas fa-arrow-left"></i> Back to Hub</a>
+    <div class="nav-right">
+        <span class="concept-badge"><i class="fas fa-flask" style="font-size:9px;"></i> Concept Preview</span>
+        <a href="index_pro.html" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Hub</a>
     </div>
-</nav>
+</div>
 
-<div class="hero">
-    <div class="hero-eyebrow">What's Next</div>
-    <h1 class="hero-title">The Future of Siege Analytics</h1>
-    <p class="hero-sub">A preview of features in development — built to give competitive teams every edge possible.</p>
+<!-- Page title -->
+<div class="page-title">
+    <div class="page-title-icon" style="background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);color:#fbbf24;">
+        <i class="fas fa-rocket"></i>
+    </div>
+    <div>
+        <h2>Future Features</h2>
+        <p>A preview of what's coming to R6 Insights — live demos of features in development</p>
+    </div>
 </div>
 
 <!-- Demo card selector -->
-<div class="demo-nav">
-    <div class="demo-cards-row">
-        <div class="demo-card active" id="card-scrim" onclick="switchDemo('scrim')">
-            <div class="dc-tag demo">DEMO</div>
-            <div class="dc-icon" style="color:var(--primary);">⚔️</div>
-            <div class="dc-title" style="color:var(--primary);">Scrim Queue</div>
-            <div class="dc-sub">Auto-match against ranked teams</div>
-        </div>
-        <div class="demo-card" id="card-vod" onclick="switchDemo('vod')">
-            <div class="dc-tag demo">DEMO</div>
-            <div class="dc-icon" style="color:var(--gold);">🎬</div>
-            <div class="dc-title">VOD Review Park</div>
-            <div class="dc-sub">Heatmap + synced POV player</div>
-        </div>
-        <div class="demo-card locked" onclick="lockedToast()">
-            <div class="dc-tag soon">SOON</div>
-            <div class="dc-icon" style="color:var(--muted);">🏆</div>
-            <div class="dc-title" style="color:var(--muted);">Team Leaderboard</div>
-            <div class="dc-sub">Ranked ladder &amp; ELO</div>
-        </div>
-        <div class="demo-card locked" onclick="lockedToast()">
-            <div class="dc-tag soon">SOON</div>
-            <div class="dc-icon" style="color:var(--muted);">🧠</div>
-            <div class="dc-title" style="color:var(--muted);">Live Tactical AI</div>
-            <div class="dc-sub">Real-time callouts &amp; counters</div>
-        </div>
-        <div class="demo-card locked" onclick="lockedToast()">
-            <div class="dc-tag planned">PLANNED</div>
-            <div class="dc-icon" style="color:var(--muted);">🗺️</div>
-            <div class="dc-title" style="color:var(--muted);">Heatmap Studio</div>
-            <div class="dc-sub">Interactive floor plan overlays</div>
-        </div>
-        <div class="demo-card locked" onclick="lockedToast()">
-            <div class="dc-tag planned">PLANNED</div>
-            <div class="dc-icon" style="color:var(--muted);">📡</div>
-            <div class="dc-title" style="color:var(--muted);">Live Match Feed</div>
-            <div class="dc-sub">Stream stats during live scrims</div>
-        </div>
+<div class="demo-cards-row">
+    <div class="demo-card active" id="card-scrim" onclick="switchDemo('scrim')">
+        <span class="dc-tag demo">DEMO</span>
+        <div class="dc-icon">⚔️</div>
+        <div class="dc-title">Scrim Queue</div>
+        <div class="dc-sub">Auto-match against ranked teams</div>
+    </div>
+    <div class="demo-card" id="card-vod" onclick="switchDemo('vod')">
+        <span class="dc-tag demo">DEMO</span>
+        <div class="dc-icon">🎬</div>
+        <div class="dc-title">VOD Review</div>
+        <div class="dc-sub">Heatmap + synced POV replay</div>
+    </div>
+    <div class="demo-card locked" onclick="lockedToast()">
+        <span class="dc-tag soon">SOON</span>
+        <div class="dc-icon" style="opacity:.4;">🏆</div>
+        <div class="dc-title" style="color:var(--gray);">Team Leaderboard</div>
+        <div class="dc-sub">Ranked ladder &amp; ELO</div>
+    </div>
+    <div class="demo-card locked" onclick="lockedToast()">
+        <span class="dc-tag soon">SOON</span>
+        <div class="dc-icon" style="opacity:.4;">🧠</div>
+        <div class="dc-title" style="color:var(--gray);">Live Tactical AI</div>
+        <div class="dc-sub">Real-time callouts</div>
+    </div>
+    <div class="demo-card locked" onclick="lockedToast()">
+        <span class="dc-tag planned">PLANNED</span>
+        <div class="dc-icon" style="opacity:.4;">🗺️</div>
+        <div class="dc-title" style="color:var(--gray);">Heatmap Studio</div>
+        <div class="dc-sub">Floor plan overlays</div>
+    </div>
+    <div class="demo-card locked" onclick="lockedToast()">
+        <span class="dc-tag planned">PLANNED</span>
+        <div class="dc-icon" style="opacity:.4;">📡</div>
+        <div class="dc-title" style="color:var(--gray);">Live Match Feed</div>
+        <div class="dc-sub">Stream stats in-scrim</div>
     </div>
 </div>
 
-<!-- Demo content panels -->
+<!-- Demo panels -->
 <div class="demo-panels">
 
-    <!-- SCRIM QUEUE -->
+    <!-- ══ SCRIM QUEUE ══ -->
     <div class="demo-panel active" id="panel-scrim">
-        <div class="panel-card">
-            <div class="config-grid">
-                <div class="config-cell">
-                    <div class="config-label"><i class="fas fa-globe"></i> Region</div>
-                    <select class="q-select" id="regionSel">
+        <div class="panel">
+            <div class="panel-hdr"><i class="fas fa-swords" style="color:#a78bfa;"></i> Scrim Queue Configuration</div>
+            <div class="q-config-grid">
+                <div class="q-cell">
+                    <label class="form-label"><i class="fas fa-globe" style="color:#a78bfa;font-size:9px;"></i> Region</label>
+                    <select class="form-select" id="regionSel">
                         <option>🌎 NA East</option><option>🌎 NA West</option>
                         <option selected>🌍 EU West</option><option>🌍 EU North</option>
                         <option>🌍 EU East</option><option>🌏 APAC South</option><option>🌎 Brazil</option>
                     </select>
                 </div>
-                <div class="config-cell">
-                    <div class="config-label"><i class="fas fa-timer"></i> Format</div>
-                    <select class="q-select" id="formatSel">
+                <div class="q-cell">
+                    <label class="form-label"><i class="fas fa-timer" style="color:#a78bfa;font-size:9px;"></i> Format</label>
+                    <select class="form-select" id="formatSel">
                         <option>Best of 1</option><option selected>Best of 3</option>
                         <option>Best of 5</option><option>Ranked Match</option>
                     </select>
                 </div>
-                <div class="config-cell">
-                    <div class="config-label"><i class="fas fa-ban"></i> Map Bans <span style="color:var(--muted);font-size:8px;margin-left:4px;">(max 3)</span></div>
-                    <div class="bans-grid" id="bansGrid">
-                        <div class="ban-chip" onclick="toggleBan(this)">Bank</div>
-                        <div class="ban-chip" onclick="toggleBan(this)">Border</div>
-                        <div class="ban-chip banned" onclick="toggleBan(this)">Chalet</div>
-                        <div class="ban-chip" onclick="toggleBan(this)">Clubhouse</div>
-                        <div class="ban-chip" onclick="toggleBan(this)">Consulate</div>
-                        <div class="ban-chip" onclick="toggleBan(this)">Kafe</div>
-                        <div class="ban-chip banned" onclick="toggleBan(this)">Nighthaven</div>
-                        <div class="ban-chip" onclick="toggleBan(this)">Oregon</div>
-                        <div class="ban-chip" onclick="toggleBan(this)">Skyscraper</div>
-                        <div class="ban-chip" onclick="toggleBan(this)">Villa</div>
+                <div class="q-cell">
+                    <label class="form-label"><i class="fas fa-ban" style="color:#a78bfa;font-size:9px;"></i> Map Bans <span style="color:var(--gray);font-size:9px;font-weight:400;margin-left:4px;">(max 3)</span></label>
+                    <div id="bansGrid">
+                        <span class="ban-chip" onclick="toggleBan(this)">Bank</span>
+                        <span class="ban-chip" onclick="toggleBan(this)">Border</span>
+                        <span class="ban-chip banned" onclick="toggleBan(this)">Chalet</span>
+                        <span class="ban-chip" onclick="toggleBan(this)">Clubhouse</span>
+                        <span class="ban-chip" onclick="toggleBan(this)">Consulate</span>
+                        <span class="ban-chip" onclick="toggleBan(this)">Kafe</span>
+                        <span class="ban-chip banned" onclick="toggleBan(this)">Nighthaven</span>
+                        <span class="ban-chip" onclick="toggleBan(this)">Oregon</span>
+                        <span class="ban-chip" onclick="toggleBan(this)">Skyscraper</span>
+                        <span class="ban-chip" onclick="toggleBan(this)">Villa</span>
                     </div>
                 </div>
             </div>
-            <div class="queue-action">
-                <div class="queue-status">
-                    <div class="status-dot online" id="statusDot"></div>
-                    <span id="statusText">1,248 teams online — avg wait 23s</span>
+            <div class="q-action">
+                <div class="q-status">
+                    <div class="status-dot online" id="qDot"></div>
+                    <span id="qStatusTxt">1,248 teams online — avg wait 23s</span>
                 </div>
-                <button class="queue-btn" id="queueBtn" onclick="startQueue()">
+                <button class="find-btn" id="qBtn" onclick="startQueue()">
                     <i class="fas fa-magnifying-glass"></i> Find Scrim
                 </button>
             </div>
-            <div id="queueOverlay">
-                <div class="queue-ring">
-                    <svg width="90" height="90" viewBox="0 0 100 100">
-                        <circle class="ring-track" cx="50" cy="50" r="45"/>
-                        <circle class="ring-fill" id="ringFill" cx="50" cy="50" r="45"/>
+            <!-- Searching overlay -->
+            <div class="q-overlay" id="qOverlay">
+                <div class="ring-wrap">
+                    <svg width="88" height="88" viewBox="0 0 100 100">
+                        <circle class="ring-bg" cx="50" cy="50" r="40"/>
+                        <circle class="ring-fg" id="ringFg" cx="50" cy="50" r="40"/>
                     </svg>
-                    <div class="ring-center"><div class="ring-time" id="ringTime">7</div><div class="ring-lbl">searching</div></div>
+                    <div class="ring-inner"><div class="ring-num" id="ringNum">7</div><div class="ring-lbl">searching</div></div>
                 </div>
-                <div class="queue-searching-text">Finding match<span class="queue-dots"><span>.</span><span>.</span><span>.</span></span></div>
-                <div class="queue-meta">
-                    <span><i class="fas fa-globe"></i><span id="qRegion">EU West</span></span>
-                    <span><i class="fas fa-shield"></i><span id="qFormat">Best of 3</span></span>
-                    <span><i class="fas fa-users"></i>1,248 searching</span>
-                </div>
-            </div>
-            <div id="matchFound">
-                <div class="match-found-banner"><i class="fas fa-circle-check"></i><span>MATCH FOUND</span><small>— Accept within 30s</small></div>
-                <div class="teams-row" id="teamsRow"></div>
-                <div class="match-actions" id="matchActions">
-                    <button class="match-btn match-btn-accept" onclick="acceptMatch()"><i class="fas fa-check"></i> Accept</button>
-                    <button class="match-btn match-btn-decline" onclick="declineMatch()"><i class="fas fa-xmark"></i> Decline</button>
+                <div style="font-size:17px;font-weight:800;letter-spacing:.5px;">Finding match<span class="q-dots"><span>.</span><span>.</span><span>.</span></span></div>
+                <div style="display:flex;gap:18px;font-size:11px;color:var(--gray);">
+                    <span><i class="fas fa-globe" style="color:#a78bfa;"></i> <span id="qReg">EU West</span></span>
+                    <span><i class="fas fa-shield" style="color:#a78bfa;"></i> <span id="qFmt">Best of 3</span></span>
+                    <span><i class="fas fa-users" style="color:#a78bfa;"></i> 1,248 searching</span>
                 </div>
             </div>
-            <div class="accepted-state" id="acceptedState">
-                <i class="fas fa-trophy accepted-icon"></i>
-                <div class="accepted-title">MATCH ACCEPTED — GOOD LUCK!</div>
-                <div class="accepted-sub">Your team captain will receive server details in-game.</div>
+            <!-- Match found -->
+            <div class="match-found" id="matchFound">
+                <div class="mf-banner">
+                    <i class="fas fa-circle-check"></i><span>MATCH FOUND</span><small>— Accept within 30s</small>
+                </div>
+                <div class="teams-grid" id="teamsGrid"></div>
+                <div class="accept-row" id="acceptRow">
+                    <button class="accept-btn yes" onclick="acceptMatch()"><i class="fas fa-check"></i> Accept</button>
+                    <button class="accept-btn no"  onclick="declineMatch()"><i class="fas fa-xmark"></i> Decline</button>
+                </div>
+            </div>
+            <div class="accepted" id="acceptedState">
+                <i class="fas fa-trophy" style="font-size:36px;color:#10b981;"></i>
+                <div style="font-size:20px;font-weight:800;letter-spacing:1px;">MATCH ACCEPTED — GOOD LUCK!</div>
+                <div style="font-size:12px;color:var(--gray);">Your team captain will receive server details in-game.</div>
             </div>
         </div>
     </div>
 
-    <!-- VOD REVIEW PARK -->
+    <!-- ══ VOD REVIEW ══ -->
     <div class="demo-panel" id="panel-vod">
-        <div class="panel-card" style="display:flex;flex-direction:column;">
-            <!-- Header -->
-            <div class="vod-header">
-                <i class="fas fa-film" style="color:var(--gold);font-size:14px;flex-shrink:0;"></i>
-                <div class="vod-match-sel">
-                    <select id="vodMatchSel" onchange="onVodMatchChange()">
-                        <option value="clubhouse">vs SHADOW PROTOCOL · 2026-03-28 · Clubhouse</option>
-                        <option value="bank">vs IRON VEIL · 2026-03-25 · Bank</option>
-                        <option value="kafe">vs NULL SECTOR · 2026-03-21 · Kafe</option>
-                    </select>
-                </div>
-                <div class="vod-sep"></div>
-                <span style="font-size:11px;color:var(--muted);font-family:'Space Mono',monospace;letter-spacing:.3px;">8W · 4L · 12 Rounds</span>
-                <div style="margin-left:auto;"><span class="sync-badge synced" id="syncBadge"><span class="sync-dot" style="background:var(--green);"></span>SYNCED</span></div>
+        <div class="panel">
+            <!-- Match header -->
+            <div class="panel-hdr">
+                <i class="fas fa-film" style="color:#fbbf24;"></i>
+                VOD Review — Oregon R1 · vs JefeDaChud
+                <span style="margin-left:auto;font-size:10px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--gray);">Site: 2F Kids Dorms</span>
+                <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25);color:#34d399;margin-left:8px;">WIN</span>
             </div>
 
-            <!-- Heatmap + POV split -->
-            <div class="vod-body">
-                <!-- LEFT: heatmap -->
-                <div class="vod-side vod-side-left">
-                    <div class="heatmap-wrap">
-                        <canvas id="heatmapCanvas"></canvas>
-                        <div class="hm-label" id="hmLabel">TOP-DOWN · CLUBHOUSE</div>
-                        <div class="hm-legend">
-                            <div class="legend-row"><div class="legend-dot" style="background:var(--red);opacity:.8;"></div>Kill Event</div>
-                            <div class="legend-row"><div class="legend-dot" style="background:var(--gold);opacity:.8;"></div>Objective</div>
+            <!-- Stats strip -->
+            <div class="vod-stats-strip">
+                <div class="vss-cell"><div class="vss-val" style="color:#a78bfa;">1</div><div class="vss-lbl">Kills</div></div>
+                <div class="vss-cell"><div class="vss-val" style="color:#f87171;">0</div><div class="vss-lbl">Deaths</div></div>
+                <div class="vss-cell"><div class="vss-val" style="color:#fbbf24;">100%</div><div class="vss-lbl">HS%</div></div>
+                <div class="vss-cell"><div class="vss-val" style="color:#34d399;">1:20</div><div class="vss-lbl">Kill Time</div></div>
+            </div>
+
+            <!-- Split: heatmap left, YouTube right -->
+            <div class="vod-split">
+
+                <!-- LEFT: Spectator canvas -->
+                <div class="vod-left">
+                    <canvas id="spectatorCanvas" style="width:100%;height:100%;display:block;"></canvas>
+                    <div class="sp-timer" id="spTimer">1:35</div>
+                    <div class="sp-phase" id="spPhase">ATTACK · BOMB PLANT</div>
+                    <div class="sp-chips">
+                        <div class="sp-chip atk">
+                            <img src="../styles/ash.png" onerror="this.style.display='none'">
+                            <span style="color:#a78bfa;font-size:10px;font-weight:700;">mezz.HnH</span>
+                            <span style="color:#10b981;font-size:9px;font-weight:700;" id="ashStatus">ALIVE</span>
                         </div>
-                        <div class="alive-badge">
-                            <div class="ab-row"><div class="ab-dot" style="background:var(--primary);"></div><span style="color:var(--primary);" id="aliveBlue">5 alive</span></div>
-                            <div class="ab-row"><div class="ab-dot" style="background:var(--red);"></div><span style="color:var(--red);" id="aliveRed">5 alive</span></div>
+                        <div class="sp-chip def">
+                            <img src="../styles/bandit.png" onerror="this.style.display='none'">
+                            <span style="color:#f87171;font-size:10px;font-weight:700;">JefeDaChud</span>
+                            <span style="font-size:9px;font-weight:700;" id="banditStatus" style="color:#10b981;">ALIVE</span>
+                        </div>
+                    </div>
+                    <div class="sp-killfeed" id="killFeed">
+                        <img src="../styles/ash.png" onerror="this.style.display='none'">
+                        <span style="color:#a78bfa;font-size:12px;font-weight:700;">mezz.HnH</span>
+                        <i class="fas fa-skull" style="color:#ef4444;font-size:10px;"></i>
+                        <span style="color:#fbbf24;font-size:9px;font-weight:700;letter-spacing:.5px;">HEADSHOT</span>
+                        <img src="../styles/bandit.png" onerror="this.style.display='none'">
+                        <span style="color:#f87171;font-size:12px;font-weight:700;">JefeDaChud</span>
+                    </div>
+                    <div class="sp-win-overlay" id="winOverlay">
+                        <div style="text-align:center;">
+                            <div class="sp-win-text">ROUND WIN</div>
+                            <div class="sp-win-sub">KilledOpponents · 1:20 remaining</div>
                         </div>
                     </div>
                 </div>
-                <!-- RIGHT: POV -->
-                <div class="vod-side">
-                    <div class="pov-wrap">
-                        <div class="pov-url-bar">
-                            <i class="fas fa-link" style="color:var(--muted);font-size:11px;flex-shrink:0;"></i>
-                            <input class="pov-url-input" id="vodUrlInput" type="text"
-                                placeholder="Paste YouTube VOD URL…"
-                                onkeydown="if(event.key==='Enter')loadPov()">
-                            <button class="pov-load-btn" onclick="loadPov()"><i class="fas fa-play"></i> Load</button>
+
+                <!-- RIGHT: YouTube -->
+                <div class="vod-right">
+                    <div class="vod-url-bar">
+                        <i class="fas fa-link" style="color:var(--gray);font-size:11px;flex-shrink:0;"></i>
+                        <input type="text" id="ytUrlInput" placeholder="Paste YouTube VOD URL to sync with heatmap…"
+                               onkeydown="if(event.key==='Enter')loadYT()">
+                        <button class="vod-load-btn" onclick="loadYT()"><i class="fas fa-play"></i> Load</button>
+                    </div>
+                    <div class="yt-frame" id="ytFrame">
+                        <div class="yt-placeholder" id="ytPlaceholder">
+                            <i class="fab fa-youtube"></i>
+                            <p>Paste a YouTube URL above then use <strong>Sync Play</strong> to watch the VOD alongside the live heatmap.</p>
                         </div>
-                        <div class="pov-frame" id="povFrame">
-                            <div class="pov-placeholder" id="povPlaceholder">
-                                <i class="fas fa-film"></i>
-                                <div class="pt">No VOD Loaded</div>
-                                <div class="ps">Paste a YouTube URL above to sync the POV with the live heatmap.</div>
-                            </div>
-                            <div class="pov-hud" id="povHud" style="display:none;">
-                                <span class="pov-hud-chip" id="povRoundChip">ROUND 1</span>
-                                <span class="pov-hud-chip" id="povTimeChip">0:00</span>
-                            </div>
-                        </div>
+                        <div id="ytPlayerDiv"></div>
                     </div>
                 </div>
             </div>
 
-            <!-- Timeline -->
-            <div class="vod-timeline">
-                <div class="tl-rounds" id="tlRounds"></div>
-                <div class="tl-bar">
-                    <div class="tl-ctrl">
-                        <button class="tl-btn" onclick="tlStepBack()"><i class="fas fa-backward-step"></i></button>
-                        <button class="tl-btn play" id="playBtn" onclick="tlTogglePlay()"><i class="fas fa-play" id="playIcon"></i></button>
-                        <button class="tl-btn" onclick="tlStepFwd()"><i class="fas fa-forward-step"></i></button>
-                    </div>
-                    <div class="tl-time" id="tlTime">0:00</div>
-                    <div class="tl-scrub" id="tlScrub" onclick="tlScrubClick(event)">
-                        <div class="tl-track"></div>
-                        <div class="tl-fill" id="tlFill"></div>
-                        <div class="tl-head" id="tlHead" style="left:0%"></div>
-                    </div>
-                    <div class="tl-total">5:47</div>
-                    <div class="tl-rlbl" id="tlRlbl">R1</div>
+            <!-- Sync timeline -->
+            <div class="sync-bar">
+                <button class="sync-btn" id="syncPlayBtn" onclick="syncToggle()">
+                    <i class="fas fa-play" id="syncIcon"></i> Sync Play
+                </button>
+                <div class="tl-time-lbl" id="spTimeLbl">1:35</div>
+                <div class="tl-track-wrap" id="spScrub" onclick="spScrubClick(event)">
+                    <div class="tl-bg"></div>
+                    <div class="tl-prog" id="spProg"></div>
+                    <div class="tl-kill-mark" title="Kill @ 1:20"></div>
+                    <div class="tl-head" id="spHead"></div>
                 </div>
+                <div class="tl-end-lbl">0:00</div>
+                <div style="font-size:9px;color:var(--gray);margin-left:6px;font-family:monospace;" id="spPhaseLbl">PRE-KILL</div>
             </div>
         </div>
     </div>
-
 </div>
+</div><!-- /.container -->
 
-<div class="footer">© 2026 <span>R6 INSIGHTS</span> — CONCEPT PREVIEW — ALL FEATURES SUBJECT TO CHANGE</div>
+<div style="text-align:center;padding:20px;font-size:12px;color:rgba(148,163,184,0.35);">© 2026 R6 Insights — Concept Preview</div>
 <div id="toast">🔒 Coming soon</div>
 
+<!-- YouTube IFrame API -->
+<script src="https://www.youtube.com/iframe_api"></script>
+
 <script>
-// ─── Demo switcher ────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 window.switchDemo = function(key) {
     document.querySelectorAll('.demo-card').forEach(c=>c.classList.remove('active'));
     document.querySelectorAll('.demo-panel').forEach(p=>p.classList.remove('active'));
     document.getElementById('card-'+key).classList.add('active');
     document.getElementById('panel-'+key).classList.add('active');
-    if(key==='vod') initVOD();
+    if (key === 'vod') initSpectator();
 };
-window.lockedToast = function(){
-    const t=document.getElementById('toast');
+window.lockedToast = function() {
+    const t = document.getElementById('toast');
     t.style.opacity='1'; clearTimeout(t._t);
-    t._t=setTimeout(()=>t.style.opacity='0',2200);
+    t._t = setTimeout(()=>t.style.opacity='0', 2200);
 };
-
-// ─── Map bans ─────────────────────────────────────────────────────────────────
-window.toggleBan = function(el){
-    const n=document.querySelectorAll('.ban-chip.banned').length;
-    if(!el.classList.contains('banned')&&n>=3) return;
+window.toggleBan = function(el) {
+    const n = document.querySelectorAll('.ban-chip.banned').length;
+    if (!el.classList.contains('banned') && n >= 3) return;
     el.classList.toggle('banned');
 };
 
-// ─── Scrim Queue ──────────────────────────────────────────────────────────────
-const OPPS=[
+// ─── SCRIM QUEUE ─────────────────────────────────────────────────────────────
+const OPPS = [
     {name:'SHADOW PROTOCOL',tag:'SHDW',pl:['Phantom','Wraith','Ghost','Specter','Cipher']},
     {name:'IRON VEIL',tag:'IRNV',pl:['Kestrel','Falcon','Harrier','Merlin','Osprey']},
     {name:'NULL SECTOR',tag:'NULL',pl:['Static','Glitch','Void','Null','Vector']},
     {name:'APEX UNIT',tag:'APEX',pl:['Striker','Hunter','Ranger','Scout','Viper']},
 ];
-const TIERS=[
-    {min:8500,tier:'Diamond I',  c:'#b794f4',bg:'rgba(183,148,244,0.1)',b:'rgba(183,148,244,0.3)'},
-    {min:7800,tier:'Platinum III',c:'#63b3ed',bg:'rgba(99,179,237,0.1)', b:'rgba(99,179,237,0.3)'},
-    {min:7200,tier:'Platinum II', c:'#63b3ed',bg:'rgba(99,179,237,0.1)', b:'rgba(99,179,237,0.3)'},
-    {min:6500,tier:'Gold I',      c:'#f6c90e',bg:'rgba(246,201,14,0.1)', b:'rgba(246,201,14,0.3)'},
+const TIERS = [
+    {min:8500,tier:'Diamond I',  c:'#a78bfa',bg:'rgba(167,139,250,0.1)',b:'rgba(167,139,250,0.3)'},
+    {min:7800,tier:'Platinum III',c:'#60a5fa',bg:'rgba(96,165,250,0.1)', b:'rgba(96,165,250,0.3)'},
+    {min:7200,tier:'Platinum II', c:'#60a5fa',bg:'rgba(96,165,250,0.1)', b:'rgba(96,165,250,0.3)'},
+    {min:6500,tier:'Gold I',      c:'#fbbf24',bg:'rgba(251,191,36,0.1)', b:'rgba(251,191,36,0.3)'},
 ];
-function getTier(r){return TIERS.find(t=>r>=t.min)||TIERS[TIERS.length-1];}
-function ri(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+function getTier(r){ return TIERS.find(t=>r>=t.min)||TIERS[TIERS.length-1]; }
+function ri(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
 let qTimer=null, qSecs=7;
 
-window.startQueue=function(){
-    const btn=document.getElementById('queueBtn');
-    ['matchFound','acceptedState'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('active');});
-    document.getElementById('matchActions').style.display='flex';
-    document.getElementById('qRegion').textContent=document.getElementById('regionSel').selectedOptions[0].text.replace(/^.{2}\s/,'');
-    document.getElementById('qFormat').textContent=document.getElementById('formatSel').selectedOptions[0].text;
-    btn.className='queue-btn cancel-mode';
-    btn.innerHTML='<i class="fas fa-xmark"></i> Cancel Queue';
+window.startQueue = function() {
+    const btn = document.getElementById('qBtn');
+    ['matchFound','acceptedState'].forEach(id=>document.getElementById(id).classList.remove('show'));
+    document.getElementById('acceptRow').style.display='flex';
+    document.getElementById('qReg').textContent = document.getElementById('regionSel').selectedOptions[0].text.replace(/^.{2}\s/,'');
+    document.getElementById('qFmt').textContent = document.getElementById('formatSel').selectedOptions[0].text;
+    btn.className='find-btn cancel'; btn.innerHTML='<i class="fas fa-xmark"></i> Cancel';
     btn.onclick=cancelQueue;
-    document.getElementById('statusDot').className='status-dot searching';
-    document.getElementById('statusText').textContent='Searching for opponent…';
-    document.getElementById('queueOverlay').classList.add('active');
+    document.getElementById('qDot').className='status-dot searching';
+    document.getElementById('qStatusTxt').textContent='Searching for opponent…';
+    document.getElementById('qOverlay').classList.add('show');
     qSecs=7; updateRing(qSecs);
-    qTimer=setInterval(()=>{qSecs--;updateRing(qSecs);if(qSecs<=0){clearInterval(qTimer);showMatch();}},1000);
+    qTimer = setInterval(()=>{ qSecs--; updateRing(qSecs); if(qSecs<=0){clearInterval(qTimer);showMatch();} },1000);
 };
 function updateRing(s){
-    document.getElementById('ringTime').textContent=s;
-    document.getElementById('ringFill').style.strokeDashoffset=283*(1-(7-s)/7);
+    document.getElementById('ringNum').textContent=s;
+    document.getElementById('ringFg').style.strokeDashoffset=251*(1-(7-s)/7);
 }
 function showMatch(){
-    document.getElementById('queueOverlay').classList.remove('active');
-    const yr=ri(7400,8800), or=Math.max(6500,Math.min(9200,yr+ri(-45,45)));
+    document.getElementById('qOverlay').classList.remove('show');
+    const yr=ri(7400,8800), or2=Math.max(6500,Math.min(9200,yr+ri(-45,45)));
     const opp=OPPS[Math.floor(Math.random()*OPPS.length)];
-    const yt=getTier(yr), ot=getTier(or);
+    const yt=getTier(yr), ot=getTier(or2);
     const ypl=['mezz.HnH','Kira.HnH','Jace.HnH','Rex.HnH','Voss.HnH'];
-    function prows(pl,rb,blue){return pl.map(n=>`<div class="player-row"><div class="player-dot"></div><div class="player-name">${n}</div><div class="player-rating" style="color:${blue?'var(--primary)':'var(--gray)'};">${(rb/1000+(Math.random()*.8-.4)).toFixed(1)}</div></div>`).join('');}
-    document.getElementById('teamsRow').innerHTML=`
-    <div class="team-card your-team">
-        <div class="team-header"><div class="team-avatar">HnH</div><div><div class="team-name">HnH ESPORTS</div><div style="font-size:10px;color:var(--muted);">Your Team</div></div><span class="team-you-badge">YOU</span></div>
-        <div class="rank-display"><div class="rank-value">${(yr/100).toFixed(1)}</div><div class="rank-label">Team MMR</div></div>
-        <div class="rank-tier" style="background:${yt.bg};border:1px solid ${yt.b};color:${yt.c};"><i class="fas fa-shield-halved" style="font-size:9px;"></i> ${yt.tier}</div>
-        <div class="team-players">${prows(ypl,yr,true)}</div>
+    function pRows(pl,rb,yours){
+        return pl.map(n=>`<div class="tt-player"><div class="tt-pdot"></div><span style="flex:1;">${n}</span><span style="font-size:9px;font-family:monospace;color:${yours?'#a78bfa':'var(--gray)'};">${(rb/1000+(Math.random()*.8-.4)).toFixed(1)}</span></div>`).join('');
+    }
+    document.getElementById('teamsGrid').innerHTML=`
+    <div class="team-tile yours">
+        <div class="tt-head"><div class="tt-av">HnH</div><div><div class="tt-name">HnH ESPORTS</div><div style="font-size:10px;color:var(--gray);">Your Team</div></div><span class="tt-you">YOU</span></div>
+        <div class="tt-mmr">${(yr/100).toFixed(1)}</div>
+        <div style="font-size:10px;color:var(--gray);margin-bottom:10px;">Team MMR</div>
+        <div class="tt-tier" style="background:${yt.bg};border:1px solid ${yt.b};color:${yt.c};"><i class="fas fa-shield-halved" style="font-size:9px;"></i>${yt.tier}</div>
+        <div class="tt-players">${pRows(ypl,yr,true)}</div>
     </div>
-    <div class="vs-divider"><div class="vs-dot"></div><div class="vs-dot"></div><div class="vs-text">VS</div><div class="vs-dot"></div><div class="vs-dot"></div></div>
-    <div class="team-card opp-team">
-        <div class="team-header"><div class="team-avatar">${opp.tag}</div><div><div class="team-name">${opp.name}</div><div style="font-size:10px;color:var(--muted);">Opponent</div></div></div>
-        <div class="rank-display"><div class="rank-value" style="color:#e2e8f0;">${(or/100).toFixed(1)}</div><div class="rank-label">Team MMR</div></div>
-        <div class="rank-tier" style="background:${ot.bg};border:1px solid ${ot.b};color:${ot.c};"><i class="fas fa-shield-halved" style="font-size:9px;"></i> ${ot.tier}</div>
-        <div class="team-players">${prows(opp.pl,or,false)}</div>
+    <div class="vs-col"><div class="vs-dot"></div><div class="vs-dot"></div><div class="vs-txt">VS</div><div class="vs-dot"></div><div class="vs-dot"></div></div>
+    <div class="team-tile opp">
+        <div class="tt-head"><div class="tt-av">${opp.tag}</div><div><div class="tt-name">${opp.name}</div><div style="font-size:10px;color:var(--gray);">Opponent</div></div></div>
+        <div class="tt-mmr" style="color:var(--light);">${(or2/100).toFixed(1)}</div>
+        <div style="font-size:10px;color:var(--gray);margin-bottom:10px;">Team MMR</div>
+        <div class="tt-tier" style="background:${ot.bg};border:1px solid ${ot.b};color:${ot.c};"><i class="fas fa-shield-halved" style="font-size:9px;"></i>${ot.tier}</div>
+        <div class="tt-players">${pRows(opp.pl,or2,false)}</div>
     </div>`;
-    document.getElementById('matchFound').classList.add('active');
-    document.getElementById('queueBtn').style.display='none';
-    document.getElementById('statusDot').className='status-dot online';
-    document.getElementById('statusText').textContent='Match found!';
+    document.getElementById('matchFound').classList.add('show');
+    document.getElementById('qBtn').style.display='none';
+    document.getElementById('qDot').className='status-dot online';
+    document.getElementById('qStatusTxt').textContent='Match found!';
 }
-window.cancelQueue=function(){clearInterval(qTimer);document.getElementById('queueOverlay').classList.remove('active');resetQ();};
-window.acceptMatch=function(){document.getElementById('matchActions').style.display='none';document.getElementById('matchFound').classList.remove('active');document.getElementById('acceptedState').classList.add('active');resetQ();document.getElementById('statusText').textContent='1,248 teams online — avg wait 23s';};
-window.declineMatch=function(){document.getElementById('matchFound').classList.remove('active');resetQ();document.getElementById('statusText').textContent='1,248 teams online — avg wait 23s';};
-function resetQ(){const btn=document.getElementById('queueBtn');btn.style.display='';btn.className='queue-btn';btn.innerHTML='<i class="fas fa-magnifying-glass"></i> Find Scrim';btn.onclick=startQueue;document.getElementById('statusDot').className='status-dot online';}
-
-// ─── VOD REVIEW PARK ──────────────────────────────────────────────────────────
-const VOD_ROUNDS=[
-    {r:1,o:'W'},{r:2,o:'W'},{r:3,o:'L'},{r:4,o:'W'},{r:5,o:'L'},{r:6,o:'W'},
-    {r:7,o:'W'},{r:8,o:'L'},{r:9,o:'W'},{r:10,o:'L'},{r:11,o:'W'},{r:12,o:'W'},
-];
-const TOTAL=347; // 5:47 in seconds
-
-// Player paths (fractions of canvas)
-const BPATHS=[
-    [[.10,.28],[.22,.24],[.35,.30],[.46,.26],[.54,.20]],
-    [[.10,.42],[.20,.44],[.32,.40],[.44,.37],[.52,.32]],
-    [[.10,.60],[.20,.58],[.30,.54],[.43,.52],[.51,.48]],
-    [[.07,.33],[.18,.36],[.28,.40],[.40,.43],[.48,.45]],
-    [[.07,.52],[.17,.55],[.28,.58],[.40,.56],[.48,.54]],
-];
-const RPATHS=[
-    [[.90,.28],[.78,.30],[.66,.32],[.57,.24],[.50,.19]],
-    [[.90,.44],[.80,.42],[.70,.40],[.60,.38],[.52,.40]],
-    [[.90,.60],[.80,.58],[.70,.56],[.62,.57],[.54,.60]],
-    [[.88,.35],[.78,.38],[.68,.42],[.60,.44],[.53,.47]],
-    [[.88,.54],[.78,.53],[.68,.51],[.60,.50],[.52,.51]],
-];
-const KILLS=[
-    {t:.10,x:.34,y:.30,tm:'b'},{t:.17,x:.46,y:.26,tm:'r'},{t:.23,x:.53,y:.32,tm:'b'},
-    {t:.30,x:.43,y:.44,tm:'b'},{t:.36,x:.52,y:.38,tm:'r'},{t:.42,x:.61,y:.42,tm:'b'},
-    {t:.48,x:.40,y:.54,tm:'r'},{t:.55,x:.50,y:.60,tm:'b'},{t:.62,x:.67,y:.50,tm:'r'},
-    {t:.68,x:.56,y:.22,tm:'b'},{t:.74,x:.44,y:.36,tm:'r'},{t:.80,x:.52,y:.51,tm:'b'},
-    {t:.87,x:.41,y:.42,tm:'r'},{t:.93,x:.59,y:.30,tm:'b'},
-];
-const OBJS=[{t:.33,x:.53,y:.27},{t:.70,x:.74,y:.55}];
-
-let hmC,hmX,hmW2,hmH2,hmReady=false;
-let tlProg=0, tlPlay=false, tlLastT=null;
-
-function pathPt(path,t){
-    const seg=(path.length-1)*t;
-    const i=Math.min(Math.floor(seg),path.length-2);
-    const f=seg-i;
-    const a=path[i],b=path[i+1];
-    return{x:a[0]+(b[0]-a[0])*f,y:a[1]+(b[1]-a[1])*f};
+window.cancelQueue = function(){
+    clearInterval(qTimer);
+    document.getElementById('qOverlay').classList.remove('show');
+    document.getElementById('matchFound').classList.remove('show');
+    resetQ();
+};
+window.acceptMatch = function(){
+    document.getElementById('acceptRow').style.display='none';
+    document.getElementById('matchFound').classList.remove('show');
+    document.getElementById('acceptedState').classList.add('show');
+    resetQ(); document.getElementById('qStatusTxt').textContent='1,248 teams online — avg wait 23s';
+};
+window.declineMatch = function(){
+    document.getElementById('matchFound').classList.remove('show');
+    resetQ(); document.getElementById('qStatusTxt').textContent='1,248 teams online — avg wait 23s';
+};
+function resetQ(){
+    const btn=document.getElementById('qBtn');
+    btn.style.display=''; btn.className='find-btn';
+    btn.innerHTML='<i class="fas fa-magnifying-glass"></i> Find Scrim'; btn.onclick=startQueue;
+    document.getElementById('qDot').className='status-dot online';
 }
 
-function initVOD(){
-    if(hmReady) return;
-    hmReady=true;
-    hmC=document.getElementById('heatmapCanvas');
-    const wrap=hmC.parentElement;
-    hmW2=wrap.offsetWidth||520; hmH2=wrap.offsetHeight||460;
-    hmC.width=hmW2; hmC.height=hmH2;
-    hmX=hmC.getContext('2d');
-    buildTlRounds();
-    drawHeatmap();
+// ─── SPECTATOR — Oregon Round ─────────────────────────────────────────────────
+// Demo paths in 700×460 canvas reference space
+// Ash walks the blue route: Small Tower → Showers → Shower Corridor → kill
+// Ash follows the exact drawn blue line — 23 waypoints traced from the PNG
+// Path: exterior bottom-left → right along Shower Corridor base →
+//       turns UP through left side of Showers →
+//       curves RIGHT across top of Showers →
+//       comes DOWN-RIGHT through Shower Corridor → kill position
+const ASH_PATH = [
+    {x:147.0,y:388.6},
+    {x:154.7,y:389.4},
+    {x:162.4,y:390.2},
+    {x:170.8,y:390.2},
+    {x:179.2,y:390.2},
+    {x:187.6,y:390.2},
+    {x:196.0,y:390.2},
+    {x:203.0,y:390.2},
+    {x:210.0,y:390.2},
+    {x:215.6,y:390.2},
+    {x:221.2,y:390.2},
+    {x:223.3,y:388.6},
+    {x:225.4,y:387.0},
+    {x:226.8,y:384.7},
+    {x:228.2,y:382.3},
+    {x:229.6,y:378.3},
+    {x:231.0,y:374.3},
+    {x:232.4,y:370.4},
+    {x:233.8,y:366.4},
+    {x:235.2,y:359.3},
+    {x:236.6,y:352.1},
+    {x:238.0,y:344.2},
+    {x:239.4,y:336.3},
+    {x:240.8,y:327.6},
+    {x:242.2,y:318.8},
+    {x:243.6,y:310.1},
+    {x:245.0,y:301.4},
+    {x:246.4,y:293.4},
+    {x:247.8,y:285.5},
+    {x:249.2,y:278.4},
+    {x:250.6,y:271.2},
+    {x:252.0,y:264.9},
+    {x:253.4,y:258.6},
+    {x:254.8,y:255.4},
+    {x:256.2,y:252.2},
+    {x:258.3,y:249.8},
+    {x:260.4,y:247.4},
+    {x:263.9,y:246.7},
+    {x:267.4,y:245.9},
+    {x:273.7,y:245.1},
+    {x:280.0,y:244.3},
+    {x:288.4,y:244.3},
+    {x:296.8,y:244.3},
+    {x:305.9,y:244.3},
+    {x:315.0,y:244.3},
+    {x:323.4,y:244.3},
+    {x:331.8,y:244.3},
+    {x:338.8,y:244.3},
+    {x:345.8,y:244.3},
+    {x:350.7,y:245.1},
+    {x:355.6,y:245.9},
+    {x:358.4,y:249.0},
+    {x:361.2,y:252.2},
+    {x:363.3,y:257.0},
+    {x:365.4,y:261.7},
+    {x:368.9,y:269.7},
+    {x:372.4,y:277.6},
+    {x:375.9,y:287.1},
+    {x:379.4,y:296.6},
+    {x:382.2,y:306.1},
+    {x:385.0,y:315.7},
+    {x:387.8,y:325.2},
+    {x:390.6,y:334.7},
+    {x:394.1,y:343.4},
+    {x:397.6,y:352.1},
+    {x:401.8,y:359.3},
+    {x:406.0,y:366.4},
+    {x:411.6,y:371.2},
+    {x:417.2,y:375.9},
+    {x:424.2,y:379.1},
+    {x:431.2,y:382.3},
+    {x:439.6,y:383.1},
+    {x:448.0,y:383.9},
+    {x:457.1,y:383.9},
+    {x:466.2,y:383.9},
+    {x:474.6,y:383.1},
+    {x:483.0,y:382.3},
+    {x:487.9,y:380.7},
+    {x:492.8,y:379.1},
+];
+// Bandit sits on the red dot (Security/Shower junction) — does not move
+const BANDIT_POS = {x:492.8,y:375.9};
+
+const SP_WINDOW=95, SP_KILL=15;
+let spCanvas,spCtx,spMapImg,spAshImg,spBanditImg;
+let spProg=0, spPlaying=false, spLastT=null, spKillFired=false, spReady=false;
+let ytPlayer=null, ytReady=false, ytOffset=0;
+
+// Scale reference position to actual canvas size
+function sc(rx,ry){ return{x:rx*spCanvas.clientWidth/700,y:ry*spCanvas.clientHeight/460}; }
+
+
+function catmullRom(p0, p1, p2, p3, t) {
+    // Catmull-Rom spline — gives smooth curved path through waypoints
+    const t2 = t*t, t3 = t2*t;
+    return {
+        x: 0.5*((2*p1.x)+(-p0.x+p2.x)*t+(2*p0.x-5*p1.x+4*p2.x-p3.x)*t2+(-p0.x+3*p1.x-3*p2.x+p3.x)*t3),
+        y: 0.5*((2*p1.y)+(-p0.y+p2.y)*t+(2*p0.y-5*p1.y+4*p2.y-p3.y)*t2+(-p0.y+3*p1.y-3*p2.y+p3.y)*t3)
+    };
+}
+function pathInterp(path, t, dur) {
+    if (t <= 0) return {...path[0]};
+    if (t >= dur) return {...path[path.length-1]};
+    const p = (t / dur) * (path.length-1);
+    const i = Math.min(Math.floor(p), path.length-2);
+    const f = p - i;
+    const n = path.length;
+    // Clamp indices for boundary segments
+    const p0 = path[Math.max(0, i-1)];
+    const p1 = path[i];
+    const p2 = path[Math.min(n-1, i+1)];
+    const p3 = path[Math.min(n-1, i+2)];
+    const pos = catmullRom(p0, p1, p2, p3, f);
+    // Yaw = direction of travel (tangent)
+    const ahead = catmullRom(p0, p1, p2, p3, Math.min(f+0.05, 1));
+    const yaw = Math.atan2(ahead.y - pos.y, ahead.x - pos.x);
+    return { x: pos.x, y: pos.y, yaw };
 }
 
-function buildTlRounds(){
-    document.getElementById('tlRounds').innerHTML=VOD_ROUNDS.map((r,i)=>
-        `<div class="tl-round ${r.o==='W'?'win':'loss'} ${i===0?'cur':''}" id="tlr${i}" onclick="tlJump(${i})" title="R${r.r} ${r.o==='W'?'Win':'Loss'}">R${r.r}</div>`
-    ).join('');
-}
+function spDraw(){
+    if(!spCtx) return;
+    const W=spCanvas.clientWidth, H=spCanvas.clientHeight;
+    const t=spProg*SP_WINDOW;
+    const killed=t>=SP_KILL;
 
-function drawHeatmap(){
-    if(!hmX) return;
-    const W=hmW2,H=hmH2;
-    hmX.clearRect(0,0,W,H);
+    spCtx.clearRect(0,0,W,H);
 
-    // Background
-    hmX.fillStyle='#06090f'; hmX.fillRect(0,0,W,H);
+    // Map background
+    if(spMapImg&&spMapImg.complete&&spMapImg.naturalWidth>0){
+        spCtx.drawImage(spMapImg,80,220,500,290,0,0,W,H);
+        const vig=spCtx.createRadialGradient(W*.5,H*.5,W*.1,W*.5,H*.5,W*.75);
+        vig.addColorStop(0,'rgba(4,6,14,0)'); vig.addColorStop(1,'rgba(4,6,14,0.45)');
+        spCtx.fillStyle=vig; spCtx.fillRect(0,0,W,H);
+    } else {
+        spCtx.fillStyle='#060910'; spCtx.fillRect(0,0,W,H);
+        spCtx.strokeStyle='rgba(30,41,59,0.4)'; spCtx.lineWidth=.5;
+        for(let i=0;i<W;i+=40){spCtx.beginPath();spCtx.moveTo(i,0);spCtx.lineTo(i,H);spCtx.stroke();}
+        for(let i=0;i<H;i+=40){spCtx.beginPath();spCtx.moveTo(0,i);spCtx.lineTo(W,i);spCtx.stroke();}
+    }
 
-    // Rooms
-    const rooms=[
-        {x:.05,y:.12,w:.9,h:.76,f:'#080d16',s:'#18253d'},
-        {x:.05,y:.12,w:.24,h:.38,f:'#070c17',s:'#1e2e4c'},{x:.05,y:.50,w:.24,h:.38,f:'#060b16',s:'#1e2e4c'},
-        {x:.29,y:.16,w:.16,h:.64,f:'#060a15',s:'#162035'},
-        {x:.45,y:.12,w:.20,h:.32,f:'#070c17',s:'#1e2e4c'},{x:.45,y:.44,w:.20,h:.44,f:'#060b16',s:'#1e2e4c'},
-        {x:.65,y:.12,w:.30,h:.30,f:'#070c17',s:'#1e2e4c'},{x:.65,y:.42,w:.30,h:.46,f:'#060b16',s:'#1e2e4c'},
-    ];
-    const labels=[null,null,'WORKSHOP',null,'CCTV','BATHROOM','BAR','ARMOURY'];
-    rooms.forEach((r,i)=>{
-        hmX.fillStyle=r.f; hmX.fillRect(r.x*W,r.y*H,r.w*W,r.h*H);
-        hmX.strokeStyle=r.s; hmX.lineWidth=1.5; hmX.strokeRect(r.x*W,r.y*H,r.w*W,r.h*H);
-        if(labels[i]){hmX.fillStyle='rgba(80,110,160,0.22)';hmX.font=`700 ${Math.round(W*.016)}px Space Mono,monospace`;hmX.textAlign='center';hmX.fillText(labels[i],(r.x+r.w/2)*W,(r.y+r.h/2)*H+4);}
-    });
-    // Subtle grid
-    hmX.strokeStyle='rgba(30,50,90,0.12)'; hmX.lineWidth=.5;
-    for(let gx=0;gx<=W;gx+=W/14){hmX.beginPath();hmX.moveTo(gx,0);hmX.lineTo(gx,H);hmX.stroke();}
-    for(let gy=0;gy<=H;gy+=H/11){hmX.beginPath();hmX.moveTo(0,gy);hmX.lineTo(W,gy);hmX.stroke();}
-    // Bomb sites
-    [{x:.53,y:.27,l:'A'},{x:.74,y:.55,l:'B'}].forEach(s=>{
-        const sx=s.x*W,sy=s.y*H;
-        const g=hmX.createRadialGradient(sx,sy,0,sx,sy,W*.05);
-        g.addColorStop(0,'rgba(246,201,14,0.12)');g.addColorStop(1,'transparent');
-        hmX.fillStyle=g;hmX.beginPath();hmX.arc(sx,sy,W*.05,0,Math.PI*2);hmX.fill();
-        hmX.strokeStyle='rgba(246,201,14,0.4)';hmX.lineWidth=1;hmX.beginPath();hmX.arc(sx,sy,W*.05,0,Math.PI*2);hmX.stroke();
-        hmX.fillStyle='rgba(246,201,14,0.75)';hmX.font=`700 ${Math.round(W*.024)}px Rajdhani,sans-serif`;hmX.textAlign='center';hmX.fillText(s.l,sx,sy+5);
-    });
-    // Heat zones from past kills
-    KILLS.filter(e=>e.t<=tlProg).forEach(e=>{
-        const ex=e.x*W,ey=e.y*H;
-        const g=hmX.createRadialGradient(ex,ey,0,ex,ey,W*.065);
-        g.addColorStop(0,e.tm==='b'?'rgba(99,179,237,0.15)':'rgba(252,92,125,0.15)');
-        g.addColorStop(1,'transparent');
-        hmX.fillStyle=g;hmX.beginPath();hmX.arc(ex,ey,W*.065,0,Math.PI*2);hmX.fill();
-    });
-    // Obj heat
-    OBJS.filter(e=>e.t<=tlProg).forEach(e=>{
-        const ex=e.x*W,ey=e.y*H;
-        const g=hmX.createRadialGradient(ex,ey,0,ex,ey,W*.055);
-        g.addColorStop(0,'rgba(246,201,14,0.18)');g.addColorStop(1,'transparent');
-        hmX.fillStyle=g;hmX.beginPath();hmX.arc(ex,ey,W*.055,0,Math.PI*2);hmX.fill();
-    });
-    // Kill X markers
-    KILLS.filter(e=>e.t<=tlProg).slice(-6).forEach(e=>{
-        const ex=e.x*W,ey=e.y*H,fade=Math.min(1,(tlProg-e.t)*6);
-        hmX.strokeStyle=e.tm==='b'?`rgba(99,179,237,${fade*.55})`:`rgba(252,92,125,${fade*.55})`;
-        hmX.lineWidth=1.5;const r=W*.012;
-        hmX.beginPath();hmX.moveTo(ex-r,ey-r);hmX.lineTo(ex+r,ey+r);hmX.stroke();
-        hmX.beginPath();hmX.moveTo(ex+r,ey-r);hmX.lineTo(ex-r,ey+r);hmX.stroke();
-    });
-    // Player paths ghost trails
-    [...BPATHS,...RPATHS].forEach((path,i)=>{
-        const isB=i<5;
-        hmX.beginPath();
-        for(let t2=0;t2<=Math.min(1,tlProg+.005);t2+=0.025){
-            const p=pathPt(path,t2);
-            if(t2===0)hmX.moveTo(p.x*W,p.y*H);else hmX.lineTo(p.x*W,p.y*H);
+    // Scale helper
+    const sx=W/700, sy=H/460;
+    function s(rx,ry){return{x:rx*sx, y:ry*sy};}
+
+    // ── Helper: draw the spline path up to a given progress fraction ──
+    function drawSplinePath(prog) {
+        // Sample the Catmull-Rom spline at fine intervals for a smooth curve
+        const steps = 80;
+        spCtx.beginPath();
+        for(let k=0; k<=steps; k++){
+            const frac = prog * k / steps;
+            const pt = pathInterp(ASH_PATH, frac * SP_KILL, SP_KILL);
+            const sp = s(pt.x, pt.y);
+            if(k===0) spCtx.moveTo(sp.x, sp.y); else spCtx.lineTo(sp.x, sp.y);
         }
-        hmX.strokeStyle=isB?'rgba(99,179,237,0.07)':'rgba(252,92,125,0.06)';
-        hmX.lineWidth=1;hmX.stroke();
-    });
-    // Player dots
-    let ba=0,ra=0;
-    [...BPATHS,...RPATHS].forEach((path,i)=>{
-        const isB=i<5;
-        const pos=pathPt(path,tlProg);
-        const px=pos.x*W,py=pos.y*H;
-        const killsAgainst=KILLS.filter(e=>e.tm===(isB?'r':'b'));
-        const isDead=killsAgainst.filter(e=>e.t<=tlProg).length>i%5;
-        if(isDead){
-            hmX.strokeStyle=isB?'rgba(99,179,237,0.22)':'rgba(252,92,125,0.22)';
-            hmX.lineWidth=1;const r=W*.009;
-            hmX.beginPath();hmX.moveTo(px-r,py-r);hmX.lineTo(px+r,py+r);hmX.stroke();
-            hmX.beginPath();hmX.moveTo(px+r,py-r);hmX.lineTo(px-r,py+r);hmX.stroke();
+    }
+
+    // ── Ash full ghost path (full route dimmed) ─────────────────────
+    drawSplinePath(1.0);
+    spCtx.strokeStyle='rgba(124,58,237,0.18)'; spCtx.lineWidth=2;
+    spCtx.setLineDash([5,6]); spCtx.stroke(); spCtx.setLineDash([]);
+
+    // ── Ash active trail (walked so far) ──────────────────────────────
+    const ashNow = pathInterp(ASH_PATH, t, SP_KILL);
+    const trailProg = Math.min(t / SP_KILL, 1);
+    if(trailProg > 0.01){
+        drawSplinePath(trailProg);
+        // Extend to current interpolated position
+        spCtx.lineTo(s(ashNow.x,ashNow.y).x, s(ashNow.x,ashNow.y).y);
+        spCtx.strokeStyle='rgba(124,58,237,0.7)'; spCtx.lineWidth=2.5;
+        spCtx.setLineDash([4,5]); spCtx.stroke(); spCtx.setLineDash([]);
+    }
+
+    // ── Kill flash ─────────────────────────────────────────────────────
+    const ka=t-SP_KILL;
+    if(ka>=0&&ka<1.2){ spCtx.fillStyle=`rgba(239,68,68,${Math.max(0,0.4*(1-ka/1.2))})`; spCtx.fillRect(0,0,W,H); }
+
+    // ── Draw Bandit (fixed on red dot, slight yaw pulse) ─────────────
+    const bp = s(BANDIT_POS.x, BANDIT_POS.y);
+    const R  = W*0.028;
+    if(!killed){
+        // Bandit looks toward Ash - yaw toward her
+        const ashPix = s(ashNow.x, ashNow.y);
+        const banYaw = Math.atan2(ashPix.y-bp.y, ashPix.x-bp.x);
+        spCtx.beginPath(); spCtx.moveTo(bp.x,bp.y);
+        spCtx.arc(bp.x,bp.y,W*.07,banYaw-Math.PI/5,banYaw+Math.PI/5); spCtx.closePath();
+        spCtx.fillStyle='rgba(239,68,68,0.11)'; spCtx.fill();
+        spCtx.strokeStyle='rgba(239,68,68,0.26)'; spCtx.lineWidth=1; spCtx.stroke();
+        // Glow
+        const gb=spCtx.createRadialGradient(bp.x,bp.y,0,bp.x,bp.y,W*.05);
+        gb.addColorStop(0,'rgba(239,68,68,0.35)'); gb.addColorStop(1,'transparent');
+        spCtx.fillStyle=gb; spCtx.beginPath(); spCtx.arc(bp.x,bp.y,W*.05,0,Math.PI*2); spCtx.fill();
+        // Icon
+        if(spBanditImg&&spBanditImg.complete&&spBanditImg.naturalWidth>0){
+            spCtx.save(); spCtx.beginPath(); spCtx.arc(bp.x,bp.y,R*1.15,0,Math.PI*2); spCtx.clip();
+            spCtx.drawImage(spBanditImg,bp.x-R*1.15,bp.y-R*1.15,R*2.3,R*2.3); spCtx.restore();
+            spCtx.beginPath(); spCtx.arc(bp.x,bp.y,R*1.15,0,Math.PI*2);
+            spCtx.strokeStyle='rgba(239,68,68,0.9)'; spCtx.lineWidth=2; spCtx.stroke();
         } else {
-            isB?ba++:ra++;
-            const g=hmX.createRadialGradient(px,py,0,px,py,W*.028);
-            g.addColorStop(0,isB?'rgba(99,179,237,0.3)':'rgba(252,92,125,0.25)');g.addColorStop(1,'transparent');
-            hmX.fillStyle=g;hmX.beginPath();hmX.arc(px,py,W*.028,0,Math.PI*2);hmX.fill();
-            hmX.fillStyle=isB?'#63b3ed':'#fc5c7d';hmX.beginPath();hmX.arc(px,py,W*.014,0,Math.PI*2);hmX.fill();
-            hmX.fillStyle='rgba(255,255,255,0.9)';hmX.beginPath();hmX.arc(px,py,W*.005,0,Math.PI*2);hmX.fill();
+            spCtx.fillStyle='#ef4444'; spCtx.beginPath(); spCtx.arc(bp.x,bp.y,R,0,Math.PI*2); spCtx.fill();
         }
-    });
-    document.getElementById('aliveBlue').textContent=ba+' alive';
-    document.getElementById('aliveRed').textContent=ra+' alive';
+        spCtx.fillStyle='rgba(239,68,68,0.9)';
+        spCtx.font=`700 ${Math.round(W*0.017)}px Segoe UI,sans-serif`;
+        spCtx.textAlign='center'; spCtx.fillText('JefeDaChud',bp.x,bp.y-R*1.4-3);
+    } else {
+        const age=Math.min(1,(t-SP_KILL)*0.4);
+        const dr=R*(0.5+0.5*age);
+        spCtx.strokeStyle=`rgba(239,68,68,${0.85-age*0.4})`; spCtx.lineWidth=2.5;
+        spCtx.beginPath(); spCtx.moveTo(bp.x-dr,bp.y-dr); spCtx.lineTo(bp.x+dr,bp.y+dr); spCtx.stroke();
+        spCtx.beginPath(); spCtx.moveTo(bp.x+dr,bp.y-dr); spCtx.lineTo(bp.x-dr,bp.y+dr); spCtx.stroke();
+        spCtx.fillStyle=`rgba(239,68,68,${0.6-age*0.25})`;
+        spCtx.font=`700 ${Math.round(W*0.015)}px Segoe UI,sans-serif`; spCtx.textAlign='center';
+        spCtx.fillText('ELIMINATED',bp.x,bp.y+dr+14);
+    }
+
+    // ── Draw Ash ────────────────────────────────────────────────────────
+    const ap = s(ashNow.x, ashNow.y);
+    const ashYaw = killed
+        ? Math.atan2(bp.y-ap.y, bp.x-ap.x)  // look at Bandit
+        : (ashNow.yaw !== undefined ? ashNow.yaw : 0);
+    // Cone
+    spCtx.beginPath(); spCtx.moveTo(ap.x,ap.y);
+    spCtx.arc(ap.x,ap.y,W*.07,ashYaw-Math.PI/7,ashYaw+Math.PI/7); spCtx.closePath();
+    spCtx.fillStyle='rgba(124,58,237,0.13)'; spCtx.fill();
+    spCtx.strokeStyle='rgba(124,58,237,0.32)'; spCtx.lineWidth=1; spCtx.stroke();
+    // Glow
+    const ga=spCtx.createRadialGradient(ap.x,ap.y,0,ap.x,ap.y,W*.055);
+    ga.addColorStop(0,'rgba(124,58,237,0.38)'); ga.addColorStop(1,'transparent');
+    spCtx.fillStyle=ga; spCtx.beginPath(); spCtx.arc(ap.x,ap.y,W*.055,0,Math.PI*2); spCtx.fill();
+    // Icon
+    if(spAshImg&&spAshImg.complete&&spAshImg.naturalWidth>0){
+        spCtx.save(); spCtx.beginPath(); spCtx.arc(ap.x,ap.y,R*1.15,0,Math.PI*2); spCtx.clip();
+        spCtx.drawImage(spAshImg,ap.x-R*1.15,ap.y-R*1.15,R*2.3,R*2.3); spCtx.restore();
+        spCtx.beginPath(); spCtx.arc(ap.x,ap.y,R*1.15,0,Math.PI*2);
+        spCtx.strokeStyle='rgba(124,58,237,0.9)'; spCtx.lineWidth=2; spCtx.stroke();
+    } else {
+        spCtx.fillStyle='#7c3aed'; spCtx.beginPath(); spCtx.arc(ap.x,ap.y,R,0,Math.PI*2); spCtx.fill();
+    }
+    spCtx.fillStyle='rgba(167,139,250,0.9)';
+    spCtx.font=`700 ${Math.round(W*0.017)}px Segoe UI,sans-serif`;
+    spCtx.textAlign='center'; spCtx.fillText('mezz.HnH',ap.x,ap.y-R*1.4-3);
+
+    // ── Distance line ──────────────────────────────────────────────────
+    if(!killed){
+        const dx=bp.x-ap.x, dy=bp.y-ap.y;
+        const distPx=Math.sqrt(dx*dx+dy*dy);
+        const distM=(distPx/(W/700)*500/700/15*W/W).toFixed(1);  // approx
+        spCtx.setLineDash([3,7]); spCtx.strokeStyle='rgba(255,255,255,0.08)'; spCtx.lineWidth=1;
+        spCtx.beginPath(); spCtx.moveTo(ap.x,ap.y); spCtx.lineTo(bp.x,bp.y); spCtx.stroke();
+        spCtx.setLineDash([]);
+    }
+
+    // ── Room label ─────────────────────────────────────────────────────
+    spCtx.fillStyle='rgba(124,58,237,0.5)';
+    spCtx.font=`700 ${Math.round(W*0.014)}px Segoe UI,sans-serif`; spCtx.textAlign='left';
+    spCtx.fillText('SHOWER CORRIDOR',W*0.03,H*0.94);
+}
+function fmtT(s){const m=Math.floor(s/60),sc2=Math.floor(s%60);return`${m}:${String(sc2).padStart(2,'0')}`;}
+
+function spUpdateUI(){
+    const t=spProg*SP_WINDOW;
+    const rem=Math.max(0,95-t);
+    const ts=fmtT(rem);
+    document.getElementById('spTimer').textContent=ts;
+    document.getElementById('spTimeLbl').textContent=ts;
+    document.getElementById('spProg').style.width=(spProg*100)+'%';
+    document.getElementById('spHead').style.left=(spProg*100)+'%';
+    const killed=t>=SP_KILL;
+    document.getElementById('spPhaseLbl').textContent=killed?'ROUND OVER':'PRE-KILL';
+    if(killed&&!spKillFired){
+        spKillFired=true;
+        const kf=document.getElementById('killFeed');
+        kf.style.opacity='1'; kf.style.transform='translateX(-50%) translateY(0)';
+        document.getElementById('banditStatus').textContent='ELIMINATED';
+        document.getElementById('banditStatus').style.color='#ef4444';
+        document.getElementById('spPhase').textContent='ROUND WON';
+        setTimeout(()=>{ document.getElementById('winOverlay').style.display='flex'; }, 1800);
+    }
+    if(!killed&&spKillFired){
+        spKillFired=false;
+        const kf=document.getElementById('killFeed');
+        kf.style.opacity='0'; kf.style.transform='translateX(-50%) translateY(-10px)';
+        document.getElementById('banditStatus').textContent='ALIVE';
+        document.getElementById('banditStatus').style.color='#10b981';
+        document.getElementById('spPhase').textContent='ATTACK · BOMB PLANT';
+        document.getElementById('winOverlay').style.display='none';
+    }
 }
 
-// Timeline helpers
-function fmtT(s){const m=Math.floor(s/60),sc=Math.floor(s%60);return`${m}:${String(sc).padStart(2,'0')}`;}
-function updateTL(){
-    const s=tlProg*TOTAL;
-    document.getElementById('tlTime').textContent=fmtT(s);
-    document.getElementById('tlFill').style.width=(tlProg*100)+'%';
-    document.getElementById('tlHead').style.left=(tlProg*100)+'%';
-    const ri2=Math.min(VOD_ROUNDS.length-1,Math.floor(tlProg*VOD_ROUNDS.length));
-    document.getElementById('tlRlbl').textContent='R'+(ri2+1);
-    document.getElementById('povTimeChip').textContent=fmtT(s);
-    document.getElementById('povRoundChip').textContent='ROUND '+(ri2+1);
-    document.querySelectorAll('.tl-round').forEach((el,i)=>el.classList.toggle('cur',i===ri2));
-    drawHeatmap();
+function spTick(ts){
+    if(!spPlaying) return;
+    if(spLastT!==null){
+        const dt=(ts-spLastT)/1000;
+        spProg=Math.min(1,spProg+dt/SP_WINDOW);
+        spDraw(); spUpdateUI();
+        if(spProg>=1){
+            spPlaying=false;
+            document.getElementById('syncIcon').className='fas fa-play';
+            document.getElementById('syncPlayBtn').innerHTML='<i class="fas fa-play" id="syncIcon"></i> Sync Play';
+        }
+    }
+    spLastT=ts;
+    if(spPlaying) requestAnimationFrame(spTick);
 }
 
-window.tlTogglePlay=function(){
-    tlPlay=!tlPlay;
-    document.getElementById('playIcon').className=tlPlay?'fas fa-pause':'fas fa-play';
-    if(tlPlay){tlLastT=null;requestAnimationFrame(tlTick);}
-    else{const f=document.getElementById('ytFrame');if(f)f.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}','*');}
+// ── Sync controls ─────────────────────────────────────────────────────────────
+window.syncToggle = function(){
+    spPlaying=!spPlaying;
+    const icon=document.getElementById('syncIcon');
+    const btn=document.getElementById('syncPlayBtn');
+    if(spPlaying){
+        icon.className='fas fa-pause';
+        btn.innerHTML='<i class="fas fa-pause" id="syncIcon"></i> Pause';
+        spLastT=null;
+        requestAnimationFrame(spTick);
+        // Play YouTube from current offset
+        if(ytPlayer&&ytReady){
+            try{ ytPlayer.seekTo(ytOffset + spProg*SP_WINDOW, true); ytPlayer.playVideo(); }catch(_){}
+        }
+    } else {
+        icon.className='fas fa-play';
+        btn.innerHTML='<i class="fas fa-play" id="syncIcon"></i> Sync Play';
+        if(ytPlayer&&ytReady){ try{ ytPlayer.pauseVideo(); }catch(_){} }
+    }
 };
-function tlTick(ts){
-    if(!tlPlay)return;
-    if(tlLastT!==null){const dt=(ts-tlLastT)/1000;tlProg=Math.min(1,tlProg+dt/TOTAL);updateTL();if(tlProg>=1){tlPlay=false;document.getElementById('playIcon').className='fas fa-play';tlProg=0;}}
-    tlLastT=ts;if(tlPlay)requestAnimationFrame(tlTick);
-}
-window.tlStepBack=function(){tlProg=Math.max(0,tlProg-5/TOTAL);updateTL();};
-window.tlStepFwd=function(){tlProg=Math.min(1,tlProg+5/TOTAL);updateTL();};
-window.tlJump=function(i){tlProg=i/VOD_ROUNDS.length;updateTL();};
-window.tlScrubClick=function(e){
-    const rect=e.currentTarget.getBoundingClientRect();
-    tlProg=Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width));
-    updateTL();
-};
-window.onVodMatchChange=function(){
-    tlPlay=false;document.getElementById('playIcon').className='fas fa-play';
-    tlProg=0;updateTL();
-    const v=document.getElementById('vodMatchSel').value;
-    const labels={clubhouse:'CLUBHOUSE',bank:'BANK',kafe:'KAFE'};
-    document.getElementById('hmLabel').textContent='TOP-DOWN · '+(labels[v]||'MAP');
+window.spScrubClick = function(e){
+    const r=e.currentTarget.getBoundingClientRect();
+    spProg=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));
+    spDraw(); spUpdateUI();
+    if(ytPlayer&&ytReady){
+        try{ ytPlayer.seekTo(ytOffset+spProg*SP_WINDOW,true); }catch(_){}
+    }
 };
 
-// POV loader
-window.loadPov=function(){
-    const raw=document.getElementById('vodUrlInput').value.trim();
-    if(!raw)return;
-    const vid=parseYT(raw);
-    if(!vid){alert('Could not parse YouTube URL.');return;}
-    const wrap=document.getElementById('povFrame');
-    document.getElementById('povPlaceholder').style.display='none';
-    const old=document.getElementById('ytFrame');if(old)old.remove();
-    const f=document.createElement('iframe');
-    f.id='ytFrame';f.style.cssText='position:absolute;inset:0;width:100%;height:100%;border:none;';
-    f.allow='accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture';
-    f.allowFullscreen=true;
-    f.src=`https://www.youtube-nocookie.com/embed/${vid}?enablejsapi=1&autoplay=1&rel=0&modestbranding=1`;
-    wrap.appendChild(f);
-    document.getElementById('povHud').style.display='flex';
-};
+// ── YouTube IFrame API ────────────────────────────────────────────────────────
 function parseYT(s){
-    if(!s)return null;
-    if(/^[a-zA-Z0-9_-]{11}$/.test(s))return s;
-    let m=s.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);if(m)return m[1];
-    m=s.match(/[?&v=\/]([a-zA-Z0-9_-]{11})(?:[&?#]|$)/);if(m)return m[1];
-    m=s.match(/([a-zA-Z0-9_-]{11})/);return m?m[1]:null;
+    if(!s) return null;
+    if(/^[a-zA-Z0-9_-]{11}$/.test(s)) return s;
+    let m=s.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/); if(m) return m[1];
+    m=s.match(/[?&v=\/]([a-zA-Z0-9_-]{11})(?:[&?#]|$)/); if(m) return m[1];
+    m=s.match(/([a-zA-Z0-9_-]{11})/); return m?m[1]:null;
 }
 
-// Resize heatmap on window resize
-window.addEventListener('resize',()=>{
-    if(!hmC)return;
-    const wrap=hmC.parentElement;
-    hmW2=wrap.offsetWidth||520;hmH2=wrap.offsetHeight||460;
-    hmC.width=hmW2;hmC.height=hmH2;drawHeatmap();
-});
+window.loadYT = function(){
+    const raw=document.getElementById('ytUrlInput').value.trim();
+    if(!raw) return;
+    const vid=parseYT(raw);
+    if(!vid){ alert('Could not parse YouTube URL.'); return; }
+    document.getElementById('ytPlaceholder').style.display='none';
+    if(ytPlayer&&ytReady){
+        ytPlayer.loadVideoById(vid);
+    } else {
+        ytPlayer=new YT.Player('ytPlayerDiv',{
+            videoId:vid, width:'100%', height:'100%',
+            playerVars:{autoplay:0,rel:0,modestbranding:1,enablejsapi:1},
+            events:{
+                onReady:()=>{ ytReady=true; ytOffset=ytPlayer.getCurrentTime()||0; },
+                onStateChange:(e)=>{
+                    // If user pauses YouTube manually, pause heatmap too
+                    if(e.data===YT.PlayerState.PAUSED&&spPlaying){
+                        spPlaying=false;
+                        document.getElementById('syncPlayBtn').innerHTML='<i class="fas fa-play" id="syncIcon"></i> Sync Play';
+                    }
+                }
+            }
+        });
+    }
+    // Record the YouTube offset for sync
+    ytOffset = 0; // User should seek YouTube to the right spot, then hit Sync Play
+};
+
+// IFrame API ready callback (global)
+window.onYouTubeIframeAPIReady = function(){
+    // API ready, players created lazily when URL is loaded
+};
+
+// ── Spectator init ────────────────────────────────────────────────────────────
+function initSpectator(){
+    if(spReady) return;
+    spReady=true;
+
+    spCanvas=document.getElementById('spectatorCanvas');
+    if(!spCanvas) return;
+
+    function sizeCanvas(){
+        const wrap=spCanvas.parentElement;
+        const dpr=Math.min(window.devicePixelRatio||1,2);
+        const W=wrap.clientWidth, H=wrap.clientHeight;
+        spCanvas.width=W*dpr; spCanvas.height=H*dpr;
+        spCtx=spCanvas.getContext('2d');
+        spCtx.scale(dpr,dpr);
+        spDraw();
+    }
+    sizeCanvas();
+    window.addEventListener('resize', sizeCanvas);
+
+    spMapImg=new Image(); spMapImg.onload=()=>spDraw(); spMapImg.src='../styles/oregon_heat.png';
+    spAshImg=new Image(); spAshImg.onload=()=>spDraw(); spAshImg.src='../styles/ash.png';
+    spBanditImg=new Image(); spBanditImg.onload=()=>spDraw(); spBanditImg.src='../styles/bandit.png';
+
+    spDraw(); spUpdateUI();
+    // Auto-play after 0.8s
+    setTimeout(()=>{
+        if(!spPlaying){
+            spPlaying=true; spLastT=null;
+            document.getElementById('syncPlayBtn').innerHTML='<i class="fas fa-pause" id="syncIcon"></i> Pause';
+            requestAnimationFrame(spTick);
+        }
+    }, 800);
+}
 </script>
 </body>
 </html>

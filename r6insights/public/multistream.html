@@ -11,7 +11,7 @@
 <script src="../scripts/theme.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+<script src="../scripts/db-client.js"></script>
 <script src="../scripts/admin-preview.js"></script>
 <style>
 body { background-color: var(--darker); min-height: 100vh; overflow: hidden; padding: 0; }
@@ -334,7 +334,6 @@ body { background-color: var(--darker); min-height: 100vh; overflow: hidden; pad
 
 if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
-const db   = firebase.database();
 
 let ROSTER_PLAYERS = []; // filled after auth
 

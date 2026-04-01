@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link rel="stylesheet" href="../styles/pro-global.css">
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+<script src="../scripts/db-client.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
 <script src="../scripts/firebase-config.js"></script>
 <script src="../scripts/admin-preview.js"></script>
@@ -236,7 +236,6 @@ window._switchTab=window.switchTab=function(tab){
 };
 
 if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
-const db=firebase.database();
 
 const x=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 const COMPARE_WORKER_URL='https://falling-mountain-6506.pmezzich.workers.dev/ai';

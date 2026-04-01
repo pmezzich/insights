@@ -15,7 +15,7 @@
     <script src="../scripts/firebase-config.js"></script>
     <script>if(localStorage.getItem('r6_theme')==='light')document.documentElement.classList.add('light-mode');</script>
     <script src="../scripts/theme.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+  <script src="../scripts/db-client.js"></script>
 
   <style>
     :root { --primary:#7C3AED; --primary-dark:#6D28D9; --secondary:#4F46E5; --dark:#1E293B; --darker:#0F172A; --light:#F8FAFC; --gray:#94A3B8; --card-bg:rgba(30,41,59,0.75); --card-border:rgba(255,255,255,0.1); --success:#10B981; --danger:#EF4444; --warning:#F59E0B; --info:#3B82F6; }
@@ -668,7 +668,6 @@ function plantsDefusesFromExtras(matchObj, mapObj, roundNum, player, aliases){
 // Firebase init
 if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
 var auth=firebase.auth();
-var db=firebase.database();
 
 var teamId=null, teamName="";
 var kdChart=null, survChart=null, opChartPlay=null, opChartKost=null;

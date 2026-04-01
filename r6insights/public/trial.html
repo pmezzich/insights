@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../styles/pro-global.css">
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+<script src="../scripts/db-client.js"></script>
 <script src="../scripts/firebase-config.js"></script>
 <script>if(localStorage.getItem('r6_theme')==='light')document.documentElement.classList.add('light-mode');</script>
 <script src="../scripts/theme.js"></script>
@@ -313,7 +313,6 @@ const OP_COLORS = {
 // ── Firebase ──────────────────────────────────────────────────────────────────
 if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
-const db   = firebase.database();
 
 auth.onAuthStateChanged(user=>{
     if(!user||!user.emailVerified) window.location.href='index_pro.html';
