@@ -9,38 +9,57 @@
   var WASM_URL = (window.R6_WASM_URL || "r6-dissect.wasm");
   var _initPromise = null;
 
+  // Poll until Go's main() has called js.Global().Set("parseReplay", ...).
+  // gojs.run() is intentionally NOT awaited because our Go main() blocks forever
+  // on select{} — the run() promise never resolves while the WASM is alive.
+  // Instead we wait for the side-effect: window.parseReplay becoming a function.
+  function waitForParseReplay(maxMs) {
+    maxMs = maxMs || 5000;
+    return new Promise(function (resolve, reject) {
+      var start = Date.now();
+      (function poll() {
+        if (typeof window.parseReplay === "function") {
+          console.log("[r6-dissect v3] parseReplay registered OK");
+          resolve();
+        } else if (Date.now() - start >= maxMs) {
+          reject(new Error("[r6-dissect v3] Timed out waiting for parseReplay"));
+        } else {
+          setTimeout(poll, 30);
+        }
+      })();
+    });
+  }
+
   async function tryInstantiate(importObj, label) {
-    // Try instantiateStreaming first
     if (WebAssembly.instantiateStreaming) {
       try {
         const res = await WebAssembly.instantiateStreaming(fetch(WASM_URL), importObj);
         console.log("[r6-dissect v3] instantiateStreaming ok with", label);
-        gojs.run(res.instance);
+        gojs.run(res.instance); // fire-and-forget: select{} means this never resolves
+        await waitForParseReplay();
         return true;
       } catch (e) {
         console.warn("[r6-dissect v3] instantiateStreaming failed with", label, e);
       }
     }
-    // Fallback: fetch ArrayBuffer
     const resp = await fetch(WASM_URL);
     const bytes = await resp.arrayBuffer();
     const res2 = await WebAssembly.instantiate(bytes, importObj);
     console.log("[r6-dissect v3] instantiate(ArrayBuffer) ok with", label);
-    gojs.run(res2.instance);
+    gojs.run(res2.instance); // fire-and-forget: select{} means this never resolves
+    await waitForParseReplay();
     return true;
   }
 
   async function initWasm() {
     if (_initPromise) return _initPromise;
     _initPromise = (async () => {
-      // 1) Standard Go imports
       try {
         await tryInstantiate(gojs.importObject, "gojs.importObject");
         return true;
       } catch (e1) {
-        console.warn("[r6-dissect v3] standard Go imports failed, trying {gojs: gojs} adapter…", e1);
+        console.warn("[r6-dissect v3] standard imports failed, trying adapter...", e1);
       }
-      // 2) Adapter for modules expecting a "gojs" import namespace
       try {
         await tryInstantiate({ gojs: gojs }, "{ gojs: gojs }");
         return true;
@@ -52,11 +71,11 @@
     return _initPromise;
   }
 
-  // Public API similar to earlier
+  // Public API — by the time this resolves, window.parseReplay is guaranteed set.
   window.createDissectModule = async function createDissectModule() {
     await initWasm();
     const mod = {
-      parseReplay: (typeof window.parseReplay === "function") ? window.parseReplay : undefined,
+      parseReplay: window.parseReplay,
       cwrap: function () { throw new Error("cwrap not available in Go-based build"); },
       _malloc: function () { throw new Error("malloc not available in Go-based build"); },
       _free: function () {},
@@ -67,11 +86,9 @@
     return mod;
   };
 
-  // Eager init — wire up parseReplay on dissectModule once WASM is ready
+  // Eager init — wire up as soon as WASM is ready.
   initWasm().then(() => {
-    if (typeof window.parseReplay === "function") {
-      window.dissectModule = window.dissectModule || {};
-      window.dissectModule.parseReplay = window.parseReplay;
-    }
+    window.dissectModule = window.dissectModule || {};
+    window.dissectModule.parseReplay = window.parseReplay;
   });
 })();
