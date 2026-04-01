@@ -338,11 +338,15 @@ const auth = firebase.auth();
 let ROSTER_PLAYERS = []; // filled after auth
 
 auth.onAuthStateChanged(async user=>{
-    if(!user||!user.emailVerified) return window.location.href='index_pro.html';
-    R6Theme.init(user.uid, db);
+    if(!user) return window.location.href='index_pro.html';
+    const isFullDemo = user.isAnonymous && sessionStorage.getItem('demoMode') === 'full';
+    if(!isFullDemo && !user.emailVerified) return window.location.href='index_pro.html';
+    if(!isFullDemo) R6Theme.init(user.uid, db);
     // Load roster for POV dropdown
     try {
-        const teamId = await getPreviewTeamId(user, db);
+        const teamId = isFullDemo
+            ? (sessionStorage.getItem('adminPreviewTeamId') || 'r6i_demo_00000')
+            : await getPreviewTeamId(user, db);
         if(teamId){
             const snap = await db.ref(`teams/${teamId}/players`).once('value');
             const data = snap.val()||{};

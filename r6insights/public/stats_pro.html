@@ -694,7 +694,7 @@ auth.onAuthStateChanged(function(user){
     noTeam.style.display='block';
   }
 
-  var _isDemo = user && user.isAnonymous && sessionStorage.getItem('demoMode') === '1';
+  var _isDemo = user && user.isAnonymous && (sessionStorage.getItem('demoMode') === '1' || sessionStorage.getItem('demoMode') === 'full');
   if(!user || (!user.emailVerified && !_isDemo)){ window.location.href='index_pro.html'; return; }
 
   if(!_isDemo) R6Theme.init(user.uid, db);

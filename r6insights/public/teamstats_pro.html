@@ -470,7 +470,7 @@ const x=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g
 
 /* ─── AUTH ─── */
 auth.onAuthStateChanged(async user=>{
-    const _isDemo = user && user.isAnonymous && sessionStorage.getItem('demoMode') === '1';
+    const _isDemo = user && user.isAnonymous && (sessionStorage.getItem('demoMode') === '1' || sessionStorage.getItem('demoMode') === 'full');
     if(!user || (!user.emailVerified && !_isDemo)) return(window.location.href='index_pro.html');
     if(!_isDemo) R6Theme.init(user.uid, db);
     try{

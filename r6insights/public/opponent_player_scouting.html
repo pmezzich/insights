@@ -298,10 +298,14 @@ let SITES_BY_TEAM_MAP = {}; // { team: { map: Set(sites) } }
 
 // ── Auth ──────────────────────────────────────────────────────────
 auth.onAuthStateChanged(async user=>{
-    if(!user||!user.emailVerified) return window.location.href='index_pro.html';
-    R6Theme.init(user.uid, db);
+    if(!user) return window.location.href='index_pro.html';
+    const isFullDemo = user.isAnonymous && sessionStorage.getItem('demoMode') === 'full';
+    if(!isFullDemo && !user.emailVerified) return window.location.href='index_pro.html';
+    if(!isFullDemo) R6Theme.init(user.uid, db);
     try{
-        const teamId = await getPreviewTeamId(user, db);
+        const teamId = isFullDemo
+            ? (sessionStorage.getItem('adminPreviewTeamId') || 'r6i_demo_00000')
+            : await getPreviewTeamId(user, db);
         if(!teamId) throw new Error('No team');
         const snap = await db.ref(`teams/${teamId}/matches_pro`).once('value');
         const raw  = snap.val()||{};

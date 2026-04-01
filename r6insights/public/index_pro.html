@@ -7,9 +7,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../styles/pro-global.css">
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <script src="../scripts/db-client.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <script src="../scripts/firebase-config.js"></script>
+    <script src="../scripts/db-client.js"></script>
     <script>if(localStorage.getItem('r6_theme')==='light')document.documentElement.classList.add('light-mode');</script>
     <script src="../scripts/theme.js"></script>
     <script src="../scripts/subscription-gate.js"></script>
@@ -416,7 +416,67 @@
         }
         .btn-feedback:hover { background: rgba(114,137,218,0.22); }
 
-        /* ── DEMO BANNER ── */
+        /* ── ToS MODAL ── */
+        #tosModal {
+            position: fixed; inset: 0; z-index: 10000;
+            background: rgba(5, 8, 15, 0.92);
+            display: none; align-items: center; justify-content: center;
+            padding: 20px; backdrop-filter: blur(8px);
+        }
+        #tosModal.show { display: flex; }
+        .tos-card {
+            background: rgba(15, 23, 42, 0.98);
+            border: 1px solid rgba(124,58,237,0.4);
+            border-radius: 18px;
+            width: 100%; max-width: 600px;
+            max-height: 88vh;
+            display: flex; flex-direction: column;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.8);
+            overflow: hidden;
+        }
+        .tos-header {
+            padding: 22px 28px 18px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            flex-shrink: 0;
+        }
+        .tos-header h2 {
+            font-size: 18px; font-weight: 800;
+            background: linear-gradient(to right, #a78bfa, #818cf8);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            margin-bottom: 4px;
+        }
+        .tos-header p { font-size: 12px; color: var(--gray); }
+        .tos-body {
+            padding: 20px 28px;
+            overflow-y: auto; flex: 1;
+            font-size: 13px; line-height: 1.7; color: rgba(226,232,240,0.85);
+        }
+        .tos-body h3 {
+            font-size: 12px; font-weight: 800; text-transform: uppercase;
+            letter-spacing: 0.6px; color: #a78bfa; margin: 20px 0 6px;
+        }
+        .tos-body h3:first-child { margin-top: 0; }
+        .tos-footer {
+            padding: 18px 28px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            display: flex; align-items: center; justify-content: space-between;
+            flex-shrink: 0; gap: 12px;
+        }
+        .tos-signout {
+            background: none; border: none; color: var(--gray);
+            font-size: 12px; cursor: pointer; font-family: inherit;
+            text-decoration: underline;
+        }
+        .tos-accept {
+            padding: 11px 28px;
+            background: linear-gradient(135deg, #7C3AED, #4F46E5);
+            color: #fff; border: none; border-radius: 9px;
+            font-size: 14px; font-weight: 700; cursor: pointer;
+            font-family: inherit; transition: opacity 0.2s;
+        }
+        .tos-accept:hover { opacity: 0.9; }
+
+
         #demoBanner {
             display: none;
             background: linear-gradient(90deg, rgba(52,211,153,0.15), rgba(34,211,238,0.1));
@@ -665,7 +725,7 @@
             </a>
 
             <!-- Coach Suite -->
-            <a href="coach_suite.html" data-gate="team" class="tool-card" style="--card-accent:#fbbf24;">
+            <a href="coach_suite.html" data-gate="staff" class="tool-card" style="--card-accent:#fbbf24;">
                 <div class="card-icon-wrap" style="background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.2);color:#fbbf24;">
                     <i class="fas fa-chalkboard-user"></i>
                 </div>
@@ -739,6 +799,10 @@
         <div class="footer">
             R6 Insights &mdash; All tools in one place<br>
             <span style="font-size:11px;opacity:0.6;">© 2026 R6 Insights. All rights reserved.</span>
+            <span style="font-size:11px;opacity:0.4;margin-left:8px;">·</span>
+            <a href="privacy.html" style="font-size:11px;color:rgba(148,163,184,0.5);text-decoration:none;margin-left:8px;" onmouseover="this.style.color='#a78bfa'" onmouseout="this.style.color='rgba(148,163,184,0.5)'">Privacy Policy</a>
+            <span style="font-size:11px;opacity:0.4;margin-left:8px;">·</span>
+            <a href="https://discord.gg/Gyng9tT76y" target="_blank" style="font-size:11px;color:rgba(148,163,184,0.5);text-decoration:none;margin-left:8px;" onmouseover="this.style.color='#a78bfa'" onmouseout="this.style.color='rgba(148,163,184,0.5)'">Discord</a>
         </div>
 
     </div>
@@ -746,10 +810,24 @@
 
     <script>
     (function () {
-        firebase.initializeApp(FIREBASE_CONFIG);
+        if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
         const auth = firebase.auth();
 
         const $ = id => document.getElementById(id);
+
+        // ── Private Demo: detect ?vip=r6vip in URL ────────────────────────────
+        // Change 'r6vip' below to whatever secret keyword you want to share.
+        (function() {
+            const vip = new URLSearchParams(window.location.search).get('vip');
+            if (vip === 'r6vip') {
+                sessionStorage.setItem('demoMode', 'full');
+                sessionStorage.setItem('adminPreviewTeamId', 'r6i_demo_00000');
+                sessionStorage.setItem('adminPreviewTeamName', 'Ghost Protocol');
+                // Remove param from URL so it doesn't show in the address bar
+                window.history.replaceState({}, '', window.location.pathname);
+                auth.signInAnonymously().catch(() => {});
+            }
+        })();
 
         // ── Auth state ────────────────────────────────────────────────────────
         auth.onAuthStateChanged(async user => {
@@ -758,9 +836,10 @@
                 return;
             }
 
-            // ── Demo Mode: anonymous user coming from overview demo button ──
-            const isDemoMode = user.isAnonymous && sessionStorage.getItem('demoMode') === '1';
+            // ── Demo Mode: anonymous user (public demo or private VIP demo) ──
+            const isDemoMode = user.isAnonymous && (sessionStorage.getItem('demoMode') === '1' || sessionStorage.getItem('demoMode') === 'full');
             if (isDemoMode) {
+                const isFullDemo   = sessionStorage.getItem('demoMode') === 'full';
                 const demoTeamId   = sessionStorage.getItem('adminPreviewTeamId') || '';
                 const demoTeamName = sessionStorage.getItem('adminPreviewTeamName') || 'Demo Team';
                 try {
@@ -771,17 +850,22 @@
                 }
                 showHub();
                 showDemoBanner();
-                // In demo mode: only Player Stats and Team Stats are accessible
+
+                // Lock cards: public demo locks all but Player/Team Stats.
+                // VIP demo locks only Replay Analyzer (can't upload to demo team).
                 document.querySelectorAll('.tool-card').forEach(el => {
                     const href = el.getAttribute('href') || '';
-                    const isUnlocked = href.includes('stats_pro.html') || href.includes('teamstats_pro.html');
-                    if (!isUnlocked) {
+                    const isReplay = href.includes('FinalVersion.html');
+                    const isStatPage = href.includes('stats_pro.html') || href.includes('teamstats_pro.html');
+                    const shouldLock = isFullDemo ? isReplay : !isStatPage;
+                    if (shouldLock) {
                         el.classList.add('demo-locked');
-                        // Add lock badge if not already there
                         if (!el.querySelector('.demo-lock-badge')) {
                             const badge = document.createElement('span');
                             badge.className = 'demo-lock-badge';
-                            badge.innerHTML = '<i class="fas fa-lock"></i> Full Plan';
+                            badge.innerHTML = isFullDemo
+                                ? '<i class="fas fa-lock"></i> Live Only'
+                                : '<i class="fas fa-lock"></i> Full Plan';
                             el.appendChild(badge);
                         }
                     }
@@ -823,6 +907,12 @@
                 const userData = userSnap.val() || {};
                 if (userData.isOrgAdmin)  $('orgAdminBtn').style.display  = '';
                 if (userData.isTeamHead)  $('teamAdminBtn').style.display = '';
+
+                // Show ToS if not yet accepted
+                if (!userData.tosAccepted) {
+                    $('tosModal').classList.add('show');
+                    window._tosPendingUid = user.uid;
+                }
 
                 // Show team setup card if no team
                 if (!teamId && access?.hasSub) {
@@ -986,6 +1076,15 @@
             if (b) b.classList.add('show');
         }
 
+        window.acceptToS = async function() {
+            const uid = window._tosPendingUid;
+            if (!uid) return;
+            try {
+                await db.ref(`users/${uid}/tosAccepted`).set({ at: Date.now(), v: '1.0' });
+            } catch(e) { console.warn('ToS write failed:', e); }
+            $('tosModal').classList.remove('show');
+        };
+
         window.exitDemo = async function() {
             sessionStorage.removeItem('demoMode');
             sessionStorage.removeItem('adminPreviewTeamId');
@@ -996,6 +1095,64 @@
 
     })();
     </script>
+    <!-- Terms of Service Modal -->
+    <div id="tosModal">
+        <div class="tos-card">
+            <div class="tos-header">
+                <h2>Terms of Service</h2>
+                <p>Please read and accept our Terms of Service to continue. Last updated: January 2026.</p>
+            </div>
+            <div class="tos-body">
+                <h3>1. Acceptance of Terms</h3>
+                <p>By creating an account or accessing R6 Insights ("the Service"), you agree to be bound by these Terms of Service. If you do not agree, you may not use the Service.</p>
+
+                <h3>2. Description of Service</h3>
+                <p>R6 Insights is an esports analytics platform for competitive Rainbow Six Siege teams. The Service provides match data analysis, replay parsing, team management tools, and related features through subscription plans.</p>
+
+                <h3>3. Eligibility</h3>
+                <p>You must be at least 13 years of age to use this Service. If you are under 18, you must have parental or guardian consent. By using the Service, you represent that you meet these requirements.</p>
+
+                <h3>4. Accounts & Subscriptions</h3>
+                <p>Access to the Service requires a valid subscription code, which may be obtained through a direct purchase or team invite. Subscription codes are non-transferable except through the team management tools provided within the Service. You are responsible for maintaining the confidentiality of your account credentials.</p>
+
+                <h3>5. Billing & Payments</h3>
+                <p>Payments are processed securely by Stripe. Subscription fees are charged at the time of purchase and are non-refundable except as required by applicable law. We reserve the right to change pricing with reasonable notice.</p>
+
+                <h3>6. Acceptable Use</h3>
+                <p>You agree not to: (a) use the Service for any unlawful purpose; (b) attempt to gain unauthorised access to any part of the Service; (c) scrape, copy, or redistribute data from the Service without permission; (d) upload content that violates third-party rights; or (e) abuse, harass, or interfere with other users.</p>
+
+                <h3>7. Replay Data & Privacy</h3>
+                <p>Match replay files you upload remain your property. By uploading, you grant R6 Insights a limited licence to process and display that data within the Service. We do not sell your data to third parties. Please refer to our Privacy Policy for full details on data handling.</p>
+
+                <h3>8. Intellectual Property</h3>
+                <p>All platform code, design, and content not uploaded by users is the property of R6 Insights. Rainbow Six Siege is a trademark of Ubisoft. R6 Insights is not affiliated with or endorsed by Ubisoft.</p>
+
+                <h3>9. Disclaimers & Limitation of Liability</h3>
+                <p>The Service is provided "as is" without warranties of any kind. R6 Insights shall not be liable for any indirect, incidental, or consequential damages arising from your use of the Service. Our total liability shall not exceed the amount you paid in the 30 days preceding the claim.</p>
+
+                <h3>10. Termination</h3>
+                <p>We reserve the right to suspend or terminate accounts that violate these Terms. You may cancel your subscription at any time; access continues until the end of the current billing period.</p>
+
+                <h3>11. Changes to Terms</h3>
+                <p>We may update these Terms from time to time. Continued use of the Service after changes are posted constitutes acceptance of the updated Terms.</p>
+
+                <h3>12. Governing Law</h3>
+                <p>These Terms are governed by the laws of the jurisdiction in which R6 Insights operates, without regard to conflict of law principles.</p>
+            </div>
+            <div class="tos-footer">
+                <button class="tos-signout" onclick="auth.signOut().then(()=>{ $('tosModal').classList.remove('show'); showLogin(); })">
+                    Sign out instead
+                </button>
+                <div style="display:flex;align-items:center;gap:16px;">
+                    <a href="privacy.html" target="_blank" style="font-size:12px;color:rgba(148,163,184,0.5);text-decoration:none;" onmouseover="this.style.color='#a78bfa'" onmouseout="this.style.color='rgba(148,163,184,0.5)'">Privacy Policy</a>
+                    <button class="tos-accept" onclick="acceptToS()">
+                        I Accept — Continue
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="../scripts/profile-loader.js"></script>
 </body>
 </html>

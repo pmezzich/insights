@@ -391,7 +391,8 @@ async function loadLftPlayers(){
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 auth.onAuthStateChanged(async user => {
-    if(!user || !user.emailVerified){
+    const isFullDemo = user && user.isAnonymous && sessionStorage.getItem('demoMode') === 'full';
+    if(!user || (!user.emailVerified && !isFullDemo)){
         window.location.href = 'index_pro.html';
         return;
     }

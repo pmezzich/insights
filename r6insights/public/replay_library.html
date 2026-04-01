@@ -161,11 +161,14 @@ const x    = s  => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 let allMatches = [];
 
 auth.onAuthStateChanged(async user => {
-    if (!user || !user.emailVerified) return window.location.href = 'index_pro.html';
-    R6Theme.init(user.uid, db);
+    if (!user) return window.location.href = 'index_pro.html';
+    const isFullDemo = user.isAnonymous && sessionStorage.getItem('demoMode') === 'full';
+    if (!isFullDemo && !user.emailVerified) return window.location.href = 'index_pro.html';
+    if (!isFullDemo) R6Theme.init(user.uid, db);
 
-    const uSnap  = await db.ref(`users/${user.uid}`).once('value');
-    const teamId = uSnap.val()?.teamId || null;
+    const teamId = isFullDemo
+        ? (sessionStorage.getItem('adminPreviewTeamId') || 'r6i_demo_00000')
+        : (await db.ref(`users/${user.uid}`).once('value')).val()?.teamId || null;
     if (!teamId) {
         $('pageSubtitle').textContent = 'You are not on a team.';
         $('matchList').innerHTML = '<div class="empty-state"><i class="fas fa-users-slash"></i><p>Join a team to view replay history.</p></div>';

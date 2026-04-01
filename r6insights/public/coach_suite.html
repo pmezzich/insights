@@ -345,20 +345,26 @@ const auth = firebase.auth();
 const ALLOWED_ROLES = ['coach','analyst','captain','player','support'];
 
 auth.onAuthStateChanged(async user => {
-    if(!user || !user.emailVerified){
+    if (!user) { window.location.href = 'index_pro.html'; return; }
+
+    const isFullDemo = user.isAnonymous && sessionStorage.getItem('demoMode') === 'full';
+
+    if (!isFullDemo && !user.emailVerified) {
         window.location.href = 'index_pro.html';
         return;
     }
-    R6Theme.init(user.uid, db);
+
+    if (!isFullDemo) R6Theme.init(user.uid, db);
 
     document.getElementById('mainContent').style.display = 'block';
 
+    // Use sessionStorage teamId for VIP demo; otherwise read from Firebase
+    const teamId = isFullDemo
+        ? (sessionStorage.getItem('adminPreviewTeamId') || 'r6i_demo_00000')
+        : ((await db.ref(`users/${user.uid}`).once('value')).val()?.teamId || null);
+
     // Load quick stats
     try {
-        const userSnap = await db.ref(`users/${user.uid}`).once('value');
-        const userData = userSnap.val() || {};
-        const teamId   = userData.teamId;
-
         if (teamId) {
             const [matchSnap, playerSnap] = await Promise.all([
                 db.ref(`teams/${teamId}/matches_pro`).once('value'),

@@ -551,15 +551,22 @@ function clearMultiSelect(dropId, btnId, placeholder) {
         // ── Auth ──────────────────────────────────────────────────────────────
         auth.onAuthStateChanged(async user => {
             if (!user) return (window.location.href = 'index_pro.html');
-            if (!user.emailVerified) return (window.location.href = 'index_pro.html');
-            R6Theme.init(user.uid, db);
+            const isFullDemo = user.isAnonymous && sessionStorage.getItem('demoMode') === 'full';
+            if (!isFullDemo && !user.emailVerified) return (window.location.href = 'index_pro.html');
+            if (!isFullDemo) R6Theme.init(user.uid, db);
             try {
                 showLoading();
-                currentTeamId = await getPreviewTeamId(user, db);
+                currentTeamId = isFullDemo
+                    ? (sessionStorage.getItem('adminPreviewTeamId') || 'r6i_demo_00000')
+                    : await getPreviewTeamId(user, db);
                 if (!currentTeamId) throw new Error('No team association');
 
-                const roleSnap = await db.ref(`teams/${currentTeamId}/players/${user.uid}/role`).once('value');
-                isCaptain = roleSnap.val() === 'captain';
+                // In full demo simulate captain so delete/edit controls are visible
+                isCaptain = isFullDemo ? true : false;
+                if (!isFullDemo) {
+                    const roleSnap = await db.ref(`teams/${currentTeamId}/players/${user.uid}/role`).once('value');
+                    isCaptain = roleSnap.val() === 'captain';
+                }
 
                 const mSnap = await db.ref(`teams/${currentTeamId}/matches_pro`).once('value');
                 const raw = mSnap.val() || {};
