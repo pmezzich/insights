@@ -537,6 +537,25 @@
             </div>
         </div>
 
+    <!-- Danger Zone -->
+        <div class="panel" style="border-color:rgba(239,68,68,0.35);">
+            <div class="ph" style="color:#f87171;border-bottom-color:rgba(239,68,68,0.2);">
+                <i class="fas fa-triangle-exclamation" style="color:#f87171;"></i> Danger Zone
+            </div>
+            <div class="pb">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+                    <div>
+                        <div style="font-size:13px;font-weight:700;color:var(--light);margin-bottom:3px;">Revoke All Subscriptions</div>
+                        <div style="font-size:12px;color:var(--gray);">Deletes the <code>subscription</code> node from every user. Forces everyone to purchase a plan. Demo users are unaffected.</div>
+                    </div>
+                    <button class="btn btn-danger" id="revokeAllBtn" onclick="confirmRevokeAll()">
+                        <i class="fas fa-ban"></i> Revoke All Subscriptions
+                    </button>
+                </div>
+                <div id="revokeAllStatus" style="margin-top:10px;font-size:12px;display:none;"></div>
+            </div>
+        </div>
+
     </div>
 </div>
 
@@ -995,11 +1014,11 @@ window.saveGeneratedCodes = async function() {
     if(!_pendingCodes.length){ toast('No codes to save','info'); return; }
     setBtn('saveCodesBtn', true, '<i class="fas fa-spinner fa-spin"></i> Saving…');
     try {
-        const updates = {};
-        _pendingCodes.forEach(c => {
-            updates[`subscription_codes/${c.code}`] = c;
-        });
-        await db.ref().update(updates);
+        // Write each code under subscription_codes/{code} individually
+        // (root-level multi-path update is rejected by the Worker with 400)
+        const codeUpdates = {};
+        _pendingCodes.forEach(c => { codeUpdates[c.code] = c; });
+        await db.ref('subscription_codes').update(codeUpdates);
         toast(`${_pendingCodes.length} code${_pendingCodes.length!==1?'s':''} saved to Firebase!`, 'success');
         $('genCodesTitle').textContent = `✓ ${_pendingCodes.length} codes saved`;
         setBtn('saveCodesBtn', false, '<i class="fas fa-check"></i> Saved!');
@@ -1140,6 +1159,58 @@ document.querySelectorAll('.modal-overlay').forEach(el=>{
 document.addEventListener('keydown',e=>{
     if(e.key==='Escape') document.querySelectorAll('.modal-overlay.open').forEach(m=>m.classList.remove('open'));
 });
+
+/* ══════════════════════════════════════════════════════════
+   REVOKE ALL SUBSCRIPTIONS
+   ══════════════════════════════════════════════════════════ */
+window.confirmRevokeAll = function() {
+    if (!confirm('⚠️ This will delete the subscription node from EVERY non-demo user.\n\nThis cannot be undone. Everyone will lose access until they purchase a plan.\n\nAre you sure?')) return;
+    if (!confirm('Last chance — confirm you want to revoke ALL subscriptions now?')) return;
+    revokeAllSubscriptions();
+};
+
+async function revokeAllSubscriptions() {
+    const btn = document.getElementById('revokeAllBtn');
+    const status = document.getElementById('revokeAllStatus');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Revoking…';
+    status.style.display = 'block';
+    status.style.color = '#fbbf24';
+    status.textContent = 'Loading users…';
+
+    try {
+        const snap = await db.ref('users').once('value');
+        const users = snap.val() || {};
+        const uids = Object.keys(users).filter(uid => {
+            // Skip demo users
+            if (uid.startsWith('demo_uid')) return false;
+            // Only touch users who have a subscription node
+            return !!users[uid].subscription;
+        });
+
+        status.textContent = `Found ${uids.length} users with subscriptions. Removing…`;
+
+        let done = 0;
+        const BATCH = 10;
+        for (let i = 0; i < uids.length; i += BATCH) {
+            const batch = uids.slice(i, i + BATCH);
+            await Promise.all(batch.map(uid => db.ref(`users/${uid}/subscription`).remove()));
+            done += batch.length;
+            status.textContent = `Removed ${done} / ${uids.length}…`;
+        }
+
+        status.style.color = '#34d399';
+        status.textContent = `✓ Done — removed subscriptions from ${done} users.`;
+        btn.innerHTML = '<i class="fas fa-check"></i> Revoked';
+        toast(`Revoked subscriptions from ${done} users.`, 'success');
+    } catch(e) {
+        status.style.color = '#f87171';
+        status.textContent = '✗ Error: ' + e.message;
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-ban"></i> Revoke All Subscriptions';
+        toast('Error: ' + e.message, 'error');
+    }
+}
 
 function toast(msg,type='success'){
     const t=document.createElement('div');
