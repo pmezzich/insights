@@ -1,7 +1,7 @@
 (function () {
-  console.log("[r6-dissect patched v2] loader starting");
+  console.log("[r6-dissect v3] loader starting");
   if (typeof Go !== "function") {
-    console.error("[r6-dissect patched v2] wasm_exec.js (Go runtime) is missing.");
+    console.error("[r6-dissect v3] wasm_exec.js (Go runtime) is missing.");
     return;
   }
   var gojs = new Go();
@@ -14,18 +14,18 @@
     if (WebAssembly.instantiateStreaming) {
       try {
         const res = await WebAssembly.instantiateStreaming(fetch(WASM_URL), importObj);
-        console.log("[r6-dissect patched v2] instantiateStreaming ok with", label);
+        console.log("[r6-dissect v3] instantiateStreaming ok with", label);
         gojs.run(res.instance);
         return true;
       } catch (e) {
-        console.warn("[r6-dissect patched v2] instantiateStreaming failed with", label, e);
+        console.warn("[r6-dissect v3] instantiateStreaming failed with", label, e);
       }
     }
     // Fallback: fetch ArrayBuffer
     const resp = await fetch(WASM_URL);
     const bytes = await resp.arrayBuffer();
     const res2 = await WebAssembly.instantiate(bytes, importObj);
-    console.log("[r6-dissect patched v2] instantiate(ArrayBuffer) ok with", label);
+    console.log("[r6-dissect v3] instantiate(ArrayBuffer) ok with", label);
     gojs.run(res2.instance);
     return true;
   }
@@ -38,14 +38,14 @@
         await tryInstantiate(gojs.importObject, "gojs.importObject");
         return true;
       } catch (e1) {
-        console.warn("[r6-dissect patched v2] standard Go imports failed, trying {gojs: gojs} adapter…", e1);
+        console.warn("[r6-dissect v3] standard Go imports failed, trying {gojs: gojs} adapter…", e1);
       }
       // 2) Adapter for modules expecting a "gojs" import namespace
       try {
         await tryInstantiate({ gojs: gojs }, "{ gojs: gojs }");
         return true;
       } catch (e2) {
-        console.error("[r6-dissect patched v2] all instantiation attempts failed:", e2);
+        console.error("[r6-dissect v3] all instantiation attempts failed:", e2);
         throw e2;
       }
     })();
@@ -56,7 +56,7 @@
   window.createDissectModule = async function createDissectModule() {
     await initWasm();
     const mod = {
-      r6dissectParse: (typeof window.r6dissectParse === "function") ? window.r6dissectParse : undefined,
+      parseReplay: (typeof window.parseReplay === "function") ? window.parseReplay : undefined,
       cwrap: function () { throw new Error("cwrap not available in Go-based build"); },
       _malloc: function () { throw new Error("malloc not available in Go-based build"); },
       _free: function () {},
@@ -67,11 +67,11 @@
     return mod;
   };
 
-  // Eager init
+  // Eager init — wire up parseReplay on dissectModule once WASM is ready
   initWasm().then(() => {
-    if (typeof window.r6dissectParse === "function") {
+    if (typeof window.parseReplay === "function") {
       window.dissectModule = window.dissectModule || {};
-      window.dissectModule.r6dissectParse = window.r6dissectParse;
+      window.dissectModule.parseReplay = window.parseReplay;
     }
   });
 })();
