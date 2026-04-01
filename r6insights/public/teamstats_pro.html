@@ -1100,15 +1100,12 @@ function buildKPIStrip(s){
         </div>
         <div class="kpi-card" style="background:var(--card-bg);border:1px solid var(--card-border);position:relative;">
             <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(to right,#06b6d4,#22d3ee);"></div>
-            <i class="fas fa-drone kpi-icon" style="color:#22d3ee;"></i>
-            ${(()=>{
-                const avg=s.defRoundsForDrones>0?(s.droneDestroyedDef/s.defRoundsForDrones).toFixed(1):'—';
-                return \`<div class="kpi-val" style="color:#22d3ee;">\${avg}</div>
-                <div class="kpi-lbl">Avg Drones Destroyed</div>
-                <div class="kpi-sub">Defense only · \${s.droneDestroyedDef} total across \${s.defRoundsForDrones} rounds</div>\`;
-            })()}
+            <i class="fas fa-satellite-dish kpi-icon" style="color:#22d3ee;"></i>
+            <div class="kpi-val" style="color:#22d3ee;">${s.defRoundsForDrones>0?(s.droneDestroyedDef/s.defRoundsForDrones).toFixed(1):'—'}</div>
+            <div class="kpi-lbl">Avg Drones Destroyed</div>
+            <div class="kpi-sub">Defense only · ${s.droneDestroyedDef} total · ${s.defRoundsForDrones} def rounds</div>
         </div>
-    </div>\`;
+    </div>`;
 }
 
 function buildTeamRatingBreakdown(s){
