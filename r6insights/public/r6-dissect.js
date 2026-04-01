@@ -9,35 +9,18 @@
   var WASM_URL = (window.R6_WASM_URL || "r6-dissect.wasm");
   var _initPromise = null;
 
-  // Poll until Go's main() has called js.Global().Set("parseReplay", ...).
-  // gojs.run() is intentionally NOT awaited because our Go main() blocks forever
-  // on select{} — the run() promise never resolves while the WASM is alive.
-  // Instead we wait for the side-effect: window.parseReplay becoming a function.
-  function waitForParseReplay(maxMs) {
-    maxMs = maxMs || 5000;
-    return new Promise(function (resolve, reject) {
-      var start = Date.now();
-      (function poll() {
-        if (typeof window.parseReplay === "function") {
-          console.log("[r6-dissect v3] parseReplay registered OK");
-          resolve();
-        } else if (Date.now() - start >= maxMs) {
-          reject(new Error("[r6-dissect v3] Timed out waiting for parseReplay"));
-        } else {
-          setTimeout(poll, 30);
-        }
-      })();
-    });
-  }
-
   async function tryInstantiate(importObj, label) {
     if (WebAssembly.instantiateStreaming) {
       try {
         const res = await WebAssembly.instantiateStreaming(fetch(WASM_URL), importObj);
-        console.log("[r6-dissect v3] instantiateStreaming ok with", label);
-        gojs.run(res.instance); // fire-and-forget: select{} means this never resolves
-        await waitForParseReplay();
-        return true;
+        gojs.run(res.instance);
+        // Go's main() runs synchronously before select{} yields back to JS.
+        // window.parseReplay must be set by now — no polling needed.
+        if (typeof window.parseReplay === "function") {
+          console.log("[r6-dissect v3] parseReplay registered OK (streaming)");
+          return true;
+        }
+        throw new Error("parseReplay not set after gojs.run() — WASM may be wrong build");
       } catch (e) {
         console.warn("[r6-dissect v3] instantiateStreaming failed with", label, e);
       }
@@ -45,10 +28,12 @@
     const resp = await fetch(WASM_URL);
     const bytes = await resp.arrayBuffer();
     const res2 = await WebAssembly.instantiate(bytes, importObj);
-    console.log("[r6-dissect v3] instantiate(ArrayBuffer) ok with", label);
-    gojs.run(res2.instance); // fire-and-forget: select{} means this never resolves
-    await waitForParseReplay();
-    return true;
+    gojs.run(res2.instance);
+    if (typeof window.parseReplay === "function") {
+      console.log("[r6-dissect v3] parseReplay registered OK (arraybuffer)");
+      return true;
+    }
+    throw new Error("parseReplay not set after gojs.run() — WASM may be wrong build");
   }
 
   async function initWasm() {
@@ -71,7 +56,7 @@
     return _initPromise;
   }
 
-  // Public API — by the time this resolves, window.parseReplay is guaranteed set.
+  // Public API — resolves once window.parseReplay is confirmed set.
   window.createDissectModule = async function createDissectModule() {
     await initWasm();
     const mod = {
