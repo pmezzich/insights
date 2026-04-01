@@ -1,0 +1,2035 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Stats — R6 Insights</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../styles/pro-global.css">
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="../scripts/db-client.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="../scripts/firebase-config.js"></script>
+    <script>if(localStorage.getItem('r6_theme')==='light')document.documentElement.classList.add('light-mode');</script>
+    <script src="../scripts/theme.js"></script>
+    <script src="../scripts/admin-preview.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        :root {
+            --primary:#7C3AED; --secondary:#4F46E5;
+            --dark:#1E293B; --darker:#0F172A; --light:#F8FAFC; --gray:#94A3B8;
+            --success:#10B981; --danger:#EF4444; --warning:#F59E0B; --info:#3B82F6;
+            --card-bg:rgba(30,41,59,0.75); --card-border:rgba(255,255,255,0.1);
+        }
+        *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;}
+        body{
+            color:var(--light);min-height:100vh;padding:20px;
+            background-image:url('https://images.contentstack.io/v3/assets/bltb6530b271fddd0b1/blt6577b1f58530e6b2/5eb7cdc165eec876c4b5d0d8/rainbow6siege_bloodmoon_splash.jpg');
+            background-size:cover;background-position:center;background-attachment:fixed;
+        }
+        .container{max-width:1100px;margin:0 auto;background:rgba(15,23,42,0.93);border-radius:16px;overflow:hidden;box-shadow:0 12px 48px rgba(0,0,0,0.7);border:1px solid var(--card-border);backdrop-filter:blur(14px);}
+
+        /* ── NAV ── */
+        .nav-header{display:flex;justify-content:space-between;align-items:center;padding:18px 28px;background:rgba(30,41,59,0.9);border-bottom:1px solid var(--card-border);}
+        .logo{display:flex;align-items:center;gap:10px;}
+        .logo-icon{font-size:22px;color:var(--primary);}
+        .logo-text{font-size:19px;font-weight:700;background:linear-gradient(to right,#a78bfa,#818cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+        .nav-badge{background:linear-gradient(135deg,var(--primary),var(--secondary));color:white;font-size:10px;font-weight:700;letter-spacing:1.2px;padding:2px 9px;border-radius:20px;text-transform:uppercase;}
+        .nav-right{display:flex;align-items:center;gap:10px;}
+        .btn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:7px;transition:all .18s;text-decoration:none;font-family:inherit;color:var(--light);}
+        .btn:hover{transform:translateY(-1px);}
+        .btn-secondary{background:rgba(79,70,229,0.2);border:1px solid var(--secondary);}
+        .btn-secondary:hover{background:rgba(79,70,229,0.35);}
+        .btn-primary{background:linear-gradient(135deg,var(--primary),var(--secondary));color:white;}
+        .btn-primary:hover{opacity:.9;}
+        .btn-primary:disabled{opacity:.45;cursor:not-allowed;transform:none;}
+        .team-pill{display:flex;align-items:center;gap:7px;padding:6px 14px;background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.4);border-radius:50px;font-size:13px;color:#a78bfa;font-weight:600;}
+
+        /* ── PAGE TITLE ── */
+        .page-title{display:flex;align-items:center;gap:14px;padding:18px 28px;background:rgba(15,23,42,0.5);border-bottom:1px solid var(--card-border);}
+        .page-title-icon{width:40px;height:40px;border-radius:10px;background:rgba(59,130,246,0.18);border:1px solid rgba(59,130,246,0.3);display:flex;align-items:center;justify-content:center;font-size:17px;color:#60a5fa;flex-shrink:0;}
+        .page-title h2{font-size:17px;font-weight:700;}
+        .page-title p{font-size:12px;color:var(--gray);margin-top:2px;}
+
+        /* ── CONTENT ── */
+        .content{padding:20px 24px;display:flex;flex-direction:column;gap:18px;}
+
+        /* ── FILTERS ── */
+        
+/* ── MULTI-SELECT DROPDOWN ── */
+.ms-wrap{position:relative;display:inline-block;min-width:160px;width:100%;}
+.ms-btn{width:100%;padding:10px 32px 10px 12px;border-radius:8px;border:1px solid var(--card-border);background:rgba(10,16,28,0.85);color:var(--light);font-size:13px;font-family:inherit;cursor:pointer;text-align:left;position:relative;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:border-color .2s;}
+.ms-btn:hover,.ms-btn.open{border-color:var(--primary);}
+.ms-btn::after{content:'\\f078';font-family:'Font Awesome 6 Free';font-weight:900;font-size:10px;position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--gray);pointer-events:none;transition:transform .2s;}
+.ms-btn.open::after{transform:translateY(-50%) rotate(180deg);}
+.ms-dropdown{position:absolute;top:calc(100% + 4px);left:0;min-width:100%;width:max-content;max-width:280px;background:rgba(15,23,42,0.98);border:1px solid rgba(124,58,237,0.4);border-radius:8px;padding:6px 0;z-index:9999;display:none;box-shadow:0 8px 24px rgba(0,0,0,0.6);max-height:240px;overflow-y:auto;}
+.ms-dropdown.open{display:block;}
+.ms-item{display:flex;align-items:center;gap:9px;padding:8px 12px;cursor:pointer;font-size:13px;transition:background .12s;}
+.ms-item:hover{background:rgba(124,58,237,0.12);}
+.ms-item input[type=checkbox]{width:14px;height:14px;accent-color:var(--primary);cursor:pointer;flex-shrink:0;}
+.ms-item label{cursor:pointer;flex:1;white-space:nowrap;}
+.ms-sep{height:1px;background:var(--card-border);margin:4px 0;}
+.ms-clear{padding:7px 12px;font-size:11px;color:rgba(148,163,184,0.5);cursor:pointer;text-align:center;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+.ms-clear:hover{color:#a78bfa;}
+
+        .filter-panel{background:var(--card-bg);border:1px solid var(--card-border);border-radius:12px;padding:16px 18px;}
+        .filter-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+        .fg{display:flex;flex-direction:column;gap:4px;flex:1;min-width:110px;}
+        .fl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);}
+        .fi{padding:9px 12px;border-radius:8px;border:1px solid var(--card-border);background:rgba(10,16,28,0.85);color:var(--light);font-size:13px;font-family:inherit;transition:border-color .2s;}
+        .fi:focus{outline:none;border-color:var(--primary);}
+        .match-count{font-size:12px;color:var(--gray);display:flex;align-items:center;gap:5px;margin-top:10px;}
+
+        /* ── KPI STRIP ── */
+        .kpi-strip{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;}
+        .kpi-card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:12px;padding:16px 16px 14px;position:relative;overflow:hidden;}
+        .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+        .kc-blue::before  {background:linear-gradient(to right,#3B82F6,#60a5fa);}
+        .kc-green::before {background:linear-gradient(to right,#10B981,#34d399);}
+        .kc-purple::before{background:linear-gradient(to right,#7C3AED,#a78bfa);}
+        .kc-amber::before {background:linear-gradient(to right,#F59E0B,#fbbf24);}
+        .kc-gray::before  {background:linear-gradient(to right,#475569,#94A3B8);}
+        .kpi-icon{font-size:13px;margin-bottom:8px;display:block;}
+        .kc-blue   .kpi-icon{color:#60a5fa;}
+        .kc-green  .kpi-icon{color:#34d399;}
+        .kc-purple .kpi-icon{color:#a78bfa;}
+        .kc-amber  .kpi-icon{color:#fbbf24;}
+        .kc-gray   .kpi-icon{color:var(--gray);}
+        .kpi-val{font-size:26px;font-weight:800;line-height:1;margin-bottom:2px;}
+        .kc-blue   .kpi-val{color:#60a5fa;}
+        .kc-green  .kpi-val{color:#34d399;}
+        .kc-purple .kpi-val{color:#a78bfa;}
+        .kc-amber  .kpi-val{color:#fbbf24;}
+        .kc-gray   .kpi-val{color:var(--gray);}
+        .kpi-lbl{font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;font-weight:600;}
+        .kpi-sub{font-size:11px;color:rgba(148,163,184,0.6);margin-top:3px;}
+        .kpi-tbd{font-size:10px;color:rgba(148,163,184,0.4);font-style:italic;}
+
+        /* ── 2-COL GRID ── */
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+        .three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+
+        /* ── PANEL ── */
+        .panel{background:var(--card-bg);border:1px solid var(--card-border);border-radius:12px;overflow:hidden;}
+        .panel-hdr{padding:13px 16px;border-bottom:1px solid var(--card-border);font-size:12px;font-weight:700;display:flex;align-items:center;gap:7px;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;}
+        .panel-body{padding:16px;}
+
+        /* ── WIN CONDITIONS ── */
+        .wc-row{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+        .wc-row:last-child{margin-bottom:0;}
+        .wc-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+        .wci-kill  {background:rgba(239,68,68,0.15); color:#f87171;border:1px solid rgba(239,68,68,0.3);}
+        .wci-def   {background:rgba(16,185,129,0.15);color:#34d399;border:1px solid rgba(16,185,129,0.3);}
+        .wci-time  {background:rgba(245,158,11,0.15);color:#fbbf24;border:1px solid rgba(245,158,11,0.3);}
+        .wci-loss  {background:rgba(148,163,184,0.1);color:var(--gray);border:1px solid var(--card-border);}
+        .wc-info{flex:1;}
+        .wc-label{font-size:13px;font-weight:700;margin-bottom:4px;}
+        .wc-bar-wrap{height:6px;border-radius:3px;background:rgba(255,255,255,0.06);overflow:hidden;margin-bottom:3px;}
+        .wc-bar{height:100%;border-radius:3px;transition:width .5s ease;}
+        .wc-bar.bk{background:linear-gradient(to right,#f87171,#ef4444);}
+        .wc-bar.bd{background:linear-gradient(to right,#34d399,#10B981);}
+        .wc-bar.bt{background:linear-gradient(to right,#fbbf24,#F59E0B);}
+        .wc-bar.bl{background:rgba(148,163,184,0.3);}
+        .wc-nums{font-size:11px;color:var(--gray);}
+        .wc-count{font-size:20px;font-weight:800;min-width:36px;text-align:right;}
+
+        /* ── ATK/DEF SPLIT ── */
+        .split-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+        .split-card{border-radius:10px;padding:14px;text-align:center;}
+        .split-atk{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);}
+        .split-def{background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.25);}
+        .split-icon{font-size:20px;margin-bottom:6px;display:block;}
+        .split-atk .split-icon{color:#f87171;}
+        .split-def .split-icon{color:#60a5fa;}
+        .split-pct{font-size:28px;font-weight:800;margin-bottom:2px;}
+        .split-atk .split-pct{color:#f87171;}
+        .split-def .split-pct{color:#60a5fa;}
+        .split-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);font-weight:700;}
+        .split-detail{font-size:11px;color:var(--gray);margin-top:4px;}
+        .split-bar-wrap{height:8px;border-radius:4px;background:rgba(255,255,255,0.05);overflow:hidden;margin-top:12px;display:flex;}
+        .split-bar-atk{background:linear-gradient(to right,rgba(239,68,68,0.7),rgba(239,68,68,0.3));transition:width .5s ease;}
+        .split-bar-def{background:linear-gradient(to left,rgba(59,130,246,0.7),rgba(59,130,246,0.3));transition:width .5s ease;}
+
+        /* ── STREAKS ── */
+        .streak-row{display:flex;gap:10px;}
+        .streak-card{flex:1;border-radius:10px;padding:14px;text-align:center;}
+        .streak-cur {background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.25);}
+        .streak-long{background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);}
+        .streak-val{font-size:32px;font-weight:800;margin-bottom:2px;}
+        .streak-cur  .streak-val{color:#a78bfa;}
+        .streak-long .streak-val{color:#fbbf24;}
+        .streak-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);font-weight:700;}
+        .streak-sub{font-size:11px;color:var(--gray);margin-top:4px;}
+        .streak-neg{color:#f87171 !important;}
+
+        /* ── ROUND WINS BREAKDOWN ── */
+        .rw-row{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;margin-bottom:10px;}
+        .rw-row:last-child{margin-bottom:0;}
+        .rw-val-l{font-size:15px;font-weight:800;color:#34d399;}
+        .rw-val-r{font-size:15px;font-weight:800;color:#f87171;text-align:right;}
+        .rw-bar-center{height:6px;border-radius:3px;background:rgba(255,255,255,0.05);overflow:hidden;display:flex;}
+        .rw-fill-l{background:linear-gradient(to right,rgba(52,211,153,0.8),rgba(52,211,153,0.4));border-radius:3px 0 0 3px;transition:width .4s;}
+        .rw-fill-r{background:linear-gradient(to left,rgba(248,113,113,0.8),rgba(248,113,113,0.4));border-radius:0 3px 3px 0;transition:width .4s;}
+        .rw-center-lbl{font-size:9px;color:rgba(148,163,184,0.45);text-align:center;font-weight:700;text-transform:uppercase;letter-spacing:.4px;}
+
+        /* ── MAP SCORE TABLE ── */
+        .map-toggle{display:flex;gap:6px;margin-bottom:14px;}
+        .map-toggle-btn{padding:6px 14px;border-radius:7px;border:1px solid var(--card-border);background:rgba(15,23,42,0.5);color:var(--gray);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .18s;}
+        .map-toggle-btn.active{background:rgba(124,58,237,0.2);border-color:rgba(124,58,237,0.5);color:#a78bfa;}
+        .map-table{width:100%;border-collapse:collapse;font-size:12px;}
+        .map-table th{text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:rgba(148,163,184,0.4);padding:8px 12px 6px;border-bottom:1px solid rgba(255,255,255,0.07);}
+        .map-table th.right{text-align:right;}
+        .map-table th.center{text-align:center;}
+        .map-table td{padding:9px 12px;border-bottom:1px solid rgba(255,255,255,0.04);}
+        .map-table tr:last-child td{border-bottom:none;}
+        .map-table tr:hover td{background:rgba(255,255,255,0.02);}
+        .map-name-td{font-weight:700;color:var(--light);}
+        .td-c{text-align:center;}
+        .td-r{text-align:right;}
+        .above{color:#34d399;font-weight:700;}
+        .below{color:#f87171;font-weight:700;}
+        .neutral{color:var(--gray);}
+        .score-pill{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;display:inline-block;}
+        .score-pos{background:rgba(16,185,129,0.15);color:#34d399;border:1px solid rgba(16,185,129,0.3);}
+        .score-neg{background:rgba(239,68,68,0.15); color:#f87171;border:1px solid rgba(239,68,68,0.3);}
+        .score-neu{background:rgba(148,163,184,0.1);color:var(--gray);border:1px solid var(--card-border);}
+        .pro-avg{color:rgba(148,163,184,0.45);font-size:10px;}
+
+        /* expandable per-map row */
+        .map-row-main{cursor:pointer;}
+        .map-expand-row{display:none;}
+        .map-expand-row.open{display:table-row;}
+        .map-expand-cell{padding:0!important;}
+        .map-expand-inner{background:rgba(10,16,28,0.5);border-radius:8px;margin:4px 12px 10px;padding:12px 14px;display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+        .me-block{}
+        .me-title{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:rgba(148,163,184,0.4);margin-bottom:8px;}
+        .me-stat-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;font-size:12px;}
+        .me-stat-row:last-child{margin-bottom:0;}
+        .me-stat-lbl{color:var(--gray);}
+        .me-stat-val{font-weight:700;}
+        .pro-badge{padding:1px 6px;border-radius:4px;font-size:9px;background:rgba(79,70,229,0.2);color:#818cf8;border:1px solid rgba(79,70,229,0.3);}
+        .chevron{transition:transform .2s;display:inline-block;font-size:10px;color:var(--gray);}
+        .chevron.open{transform:rotate(90deg);}
+
+        /* ── TOTAL MAP SCORE ── */
+        .map-score-total{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:rgba(15,23,42,0.5);border-top:1px solid var(--card-border);border-radius:0 0 12px 12px;}
+        .mst-lbl{font-size:12px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;}
+        .mst-val{font-size:20px;font-weight:800;}
+
+        /* ── LOADING / EMPTY ── */
+        #loadingOverlay{position:fixed;inset:0;background:rgba(10,16,30,0.97);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:14px;}
+        #loadingOverlay.hidden{display:none;}
+        .spinner{width:42px;height:42px;border:3px solid rgba(124,58,237,0.15);border-top-color:var(--primary);border-radius:50%;animation:spin .75s linear infinite;}
+        @keyframes spin{to{transform:rotate(360deg);}}
+        .spinner-text{color:var(--gray);font-size:14px;}
+        .empty-state{text-align:center;padding:50px 20px;color:var(--gray);}
+        .empty-state i{font-size:44px;margin-bottom:12px;display:block;color:rgba(59,130,246,0.3);}
+
+        @media(max-width:800px){
+            body{padding:10px;}.content{padding:12px;}.nav-header,.page-title{padding:14px 16px;}
+            .kpi-strip{grid-template-columns:repeat(3,1fr);}
+            .two-col,.three-col{grid-template-columns:1fr;}
+            .tr-grid-header{grid-template-columns:160px 1fr 44px 52px;gap:6px;}
+            .tr-row{grid-template-columns:160px 1fr 44px 52px;gap:6px;}
+            .tr-hero{flex-direction:column;align-items:flex-start;gap:12px;}
+        }
+        @media(max-width:500px){
+            .kpi-strip{grid-template-columns:1fr 1fr;}
+            .tr-grid-header,.tr-row{grid-template-columns:1fr 1fr 44px 52px;gap:6px;}
+            .tr-hero-rating{font-size:36px;}
+        }
+
+        /* ── TEAM RATING BREAKDOWN ── */
+        .tr-hero{display:flex;align-items:center;gap:20px;padding:20px 20px 16px;border-bottom:1px solid var(--card-border);}
+        .tr-hero-left{display:flex;align-items:center;gap:12px;flex-shrink:0;}
+        .tr-hero-rating{font-size:48px;font-weight:900;line-height:1;}
+        .tr-hero-grade{font-size:18px;font-weight:800;padding:4px 12px;border-radius:8px;line-height:1.2;}
+        .tr-hero-right{flex:1;}
+        .tr-hero-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--gray);margin-bottom:4px;}
+        .tr-hero-desc{font-size:13px;color:rgba(248,250,252,0.8);line-height:1.4;}
+        .tr-hero-warn{margin-top:8px;font-size:11px;color:rgba(245,158,11,0.7);display:flex;align-items:center;gap:6px;}
+
+        .tr-grid{padding:12px 16px 16px;}
+        .tr-grid-header{display:grid;grid-template-columns:200px 1fr 50px 60px;gap:10px;align-items:center;padding:0 4px 8px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:rgba(148,163,184,0.35);border-bottom:1px solid rgba(255,255,255,0.04);margin-bottom:6px;}
+        .tr-row{display:grid;grid-template-columns:200px 1fr 50px 60px;gap:10px;align-items:center;padding:8px 4px;border-radius:6px;transition:background .15s;}
+        .tr-row:hover{background:rgba(255,255,255,0.02);}
+        .tr-meta{display:flex;align-items:center;gap:10px;}
+        .tr-icon-wrap{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:12px;border:1px solid;flex-shrink:0;}
+        .tr-label{font-size:12px;font-weight:700;color:var(--light);}
+        .tr-raw{font-size:10px;color:rgba(148,163,184,0.5);margin-top:1px;}
+        .tr-bar-area{padding:0 4px;}
+        .tr-bar-track{height:6px;border-radius:3px;background:rgba(255,255,255,0.06);overflow:hidden;}
+        .tr-bar-fill{height:100%;border-radius:3px;transition:width .6s ease;}
+        .tr-score{font-size:16px;font-weight:800;text-align:right;}
+        .tr-contrib{font-size:11px;color:rgba(148,163,184,0.5);text-align:right;font-weight:600;}
+        /* ── AI REPORT PANEL ── */
+        .ai-panel{background:var(--card-bg);border:1px solid rgba(124,58,237,0.35);border-radius:12px;overflow:hidden;}
+        .ai-panel-hdr{padding:16px 20px;background:rgba(124,58,237,0.1);border-bottom:1px solid rgba(124,58,237,0.22);display:flex;align-items:center;gap:12px;}
+        .ai-panel-icon{width:38px;height:38px;border-radius:10px;background:rgba(124,58,237,0.22);border:1px solid rgba(124,58,237,0.4);display:flex;align-items:center;justify-content:center;font-size:17px;color:#a78bfa;flex-shrink:0;}
+        .ai-hdr-text h3{font-size:15px;font-weight:700;}
+        .ai-hdr-text p{font-size:12px;color:var(--gray);margin-top:2px;}
+        .ai-panel-body{padding:20px;}
+        .ai-key-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--card-border);}
+        .ai-key-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);white-space:nowrap;}
+        .ai-key-in{flex:1;min-width:200px;padding:9px 12px;border-radius:8px;border:1px solid rgba(124,58,237,0.3);background:rgba(10,16,28,0.9);color:var(--light);font-size:13px;font-family:inherit;transition:border-color .2s;}
+        .ai-key-in:focus{outline:none;border-color:var(--primary);}
+        .ai-key-in::placeholder{color:rgba(148,163,184,0.3);}
+        .ai-ph{text-align:center;padding:24px 20px;color:var(--gray);}
+        .ai-ph i{font-size:32px;margin-bottom:10px;display:block;color:rgba(124,58,237,0.25);}
+        .ai-ph p{font-size:13px;line-height:1.6;}
+        .ai-spin-wrap{display:flex;flex-direction:column;align-items:center;gap:12px;padding:32px;}
+        .ai-spinner{width:36px;height:36px;border:3px solid rgba(124,58,237,0.15);border-top-color:var(--primary);border-radius:50%;animation:spin .75s linear infinite;}
+        .ai-output{font-size:13px;line-height:1.75;color:rgba(248,250,252,0.82);}
+        .ai-sec{margin-bottom:16px;}
+        .ai-sec-title{font-size:13px;font-weight:700;color:#a78bfa;margin-bottom:7px;padding-bottom:5px;border-bottom:1px solid rgba(124,58,237,0.2);display:flex;align-items:center;gap:6px;}
+        .ai-sec-body ul{padding-left:18px;}
+        .ai-sec-body li{margin-bottom:4px;}
+        .ai-sec-body strong{color:var(--light);}
+        .ai-report-meta{display:flex;align-items:center;gap:8px;margin-bottom:16px;}
+        .ai-badge{padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;background:rgba(124,58,237,0.18);color:#a78bfa;border:1px solid rgba(124,58,237,0.3);}
+        .ai-pdf-badge{padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;background:rgba(16,185,129,0.18);color:#34d399;border:1px solid rgba(16,185,129,0.3);}
+        .btn-pdf{background:linear-gradient(135deg,#10B981,#059669);color:white;border:none;}
+        .btn-pdf:hover{opacity:.9;}
+    </style>
+</head>
+<body>
+
+<div id="loadingOverlay">
+    <div class="spinner"></div>
+    <div class="spinner-text" id="loadingText">Loading…</div>
+</div>
+
+<div class="container">
+
+    <div class="nav-header">
+        <a href="index_pro.html" class="logo">
+            <img src="../styles/r6_insights.png" class="logo-img" alt="R6 Insights">
+            <div class="logo-text">R6 INSIGHTS</div>
+            
+        </a>
+        <div class="nav-right">
+            <div class="team-pill"><i class="fas fa-shield-halved"></i><span id="teamNamePill">—</span></div>
+            <a href="index_pro.html" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Hub</a>
+            <a href="profile.html" id="navAvatar" class="nav-avatar-btn" title="Profile">?</a>
+                <button class="btn btn-secondary" onclick="logout()"><i class="fas fa-right-from-bracket"></i> Logout</button>
+        </div>
+    </div>
+
+    <div class="page-title">
+        <div class="page-title-icon"><i class="fas fa-users"></i></div>
+        <div>
+            <h2>Team Stats</h2>
+            <p>Team rating, match record, round win conditions, streaks, and map performance vs Pro League averages</p>
+        </div>
+    </div>
+
+    <div class="content">
+
+        <!-- Filters -->
+        <div class="filter-panel">
+            <div class="filter-row">
+                <div class="fg">
+                    <span class="fl">Opponent</span>
+                    <div class="ms-wrap" id="oppWrap"><button class="ms-btn" id="oppBtn" type="button">All Opponents</button><div class="ms-dropdown" id="oppDrop"></div></div>
+                </div>
+                <div class="fg">
+                    <span class="fl">Last N Matches</span>
+                    <select id="filtN" class="fi">
+                        <option value="0">All matches</option>
+                        <option value="5">Last 5</option>
+                        <option value="10">Last 10</option>
+                        <option value="20">Last 20</option>
+                        <option value="30">Last 30</option>
+                    </select>
+                </div>
+                <div class="fg">
+                    <span class="fl">Match Type</span>
+                    <select id="filtType" class="fi">
+                        <option value="">All Types</option>
+                        <option value="scrim">Scrim</option>
+                        <option value="gameday">Game Day</option>
+                    </select>
+                </div>
+                <div class="fg">
+                    <span class="fl">From Date</span>
+                    <input type="date" id="filtFrom" class="fi">
+                </div>
+                <div class="fg">
+                    <span class="fl">To Date</span>
+                    <input type="date" id="filtTo" class="fi">
+                </div>
+                <button class="btn btn-primary" onclick="applyFilters()" style="align-self:flex-end;">
+                    <i class="fas fa-play"></i> Apply
+                </button>
+            </div>
+            <div class="match-count" id="matchCountBar" style="display:none;">
+                <i class="fas fa-database"></i><span id="matchCountText"></span>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div id="statsArea">
+            <div class="empty-state">
+                <i class="fas fa-users"></i>
+                <p>Click Apply to load team stats.</p>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ══════════════════════════════════════════════════════════
+   PRO LEAGUE AVERAGES  (Attack win% / Defense win%)
+   Source: Pro League historical data
+   When team beats these averages they earn map score points.
+   When below, they lose map score points.
+   ══════════════════════════════════════════════════════════ */
+const PRO_AVG = {
+    'Bank':             { atk: 47.72, def: 52.28 },
+    'Border':           { atk: 48.10, def: 51.90 },
+    'Chalet':           { atk: 49.37, def: 50.63 },
+    'Club House':       { atk: 44.66, def: 55.34 },
+    'Clubhouse':        { atk: 44.66, def: 55.34 }, // alias
+    'Coastline':        { atk: 50.59, def: 49.41 },
+    'Consulate':        { atk: 44.81, def: 55.19 },
+    'Kafe Dostoyevsky': { atk: 43.45, def: 56.55 },
+    'Kafe':             { atk: 43.45, def: 56.55 }, // alias
+    'Oregon':           { atk: 44.48, def: 55.52 },
+    'Villa':            { atk: 43.19, def: 56.81 },
+    'Theme Park':       { atk: 39.37, def: 60.63 },
+    'Skyscraper':       { atk: 40.07, def: 59.93 },
+    'Nighthaven Labs':  { atk: 42.74, def: 57.26 },
+    'Nighthaven':       { atk: 42.74, def: 57.26 }, // alias
+    'Lair':             { atk: 47.00, def: 53.00 }, // estimated — update when data available
+    'Stadium Bravo':    { atk: 50.00, def: 50.00 }, // estimated
+    'Emerald Plains':   { atk: 46.00, def: 54.00 }, // estimated
+    'Close Quarter':    { atk: 48.00, def: 52.00 }, // estimated
+};
+
+/* ══════════════════════════════════════════════════════════
+   FIREBASE
+   ══════════════════════════════════════════════════════════ */
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+
+
+/* ── Multi-select helper ── */
+function buildMultiSelect(wrapperId, btnId, dropId, options, placeholder) {
+    var wrap = document.getElementById(wrapperId);
+    if (!wrap) return;
+    var btn  = document.getElementById(btnId);
+    var drop = document.getElementById(dropId);
+    if (!btn || !drop) return;
+    drop.innerHTML = '<div class="ms-clear" onclick="clearMultiSelect(&quot;'+dropId+'&quot;,&quot;'+btnId+'&quot;,&quot;'+placeholder+'&quot;)">Clear selection</div><div class="ms-sep"></div>';
+    options.forEach(function(opt) {
+        var item = document.createElement('div');
+        item.className = 'ms-item';
+        var safeOpt = opt.replace(/"/g,'&quot;');
+        var id = 'ms_'+dropId+'_'+opt.replace(/[^a-z0-9]/gi,'_');
+        item.innerHTML = '<input type="checkbox" id="'+id+'" value="'+safeOpt+'"><label for="'+id+'">'+opt+'</label>';
+        drop.appendChild(item);
+    });
+    btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        drop.classList.toggle('open');
+        btn.classList.toggle('open');
+    });
+    drop.addEventListener('change', function() { updateMultiSelectLabel(btnId, dropId, placeholder); });
+    document.addEventListener('click', function(e) {
+        if (!wrap.contains(e.target)) { drop.classList.remove('open'); btn.classList.remove('open'); }
+    });
+}
+function getMultiSelectValues(dropId) {
+    var drop = document.getElementById(dropId);
+    if (!drop) return [];
+    return Array.from(drop.querySelectorAll('input[type=checkbox]:checked')).map(function(cb){ return cb.value; });
+}
+function updateMultiSelectLabel(btnId, dropId, placeholder) {
+    var vals = getMultiSelectValues(dropId);
+    var btn  = document.getElementById(btnId);
+    if (!btn) return;
+    if (vals.length === 0) btn.textContent = placeholder;
+    else if (vals.length === 1) btn.textContent = vals[0];
+    else btn.textContent = vals.length+' selected';
+}
+function clearMultiSelect(dropId, btnId, placeholder) {
+    var drop = document.getElementById(dropId);
+    if (drop) drop.querySelectorAll('input[type=checkbox]').forEach(function(cb){ cb.checked=false; });
+    var btn = document.getElementById(btnId);
+    if (btn) btn.textContent = placeholder;
+}
+
+let teamId=null, allMatches=[], teamName='';
+const $=id=>document.getElementById(id);
+const x=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+/* ─── AUTH ─── */
+auth.onAuthStateChanged(async user=>{
+    const _isDemo = user && user.isAnonymous && (sessionStorage.getItem('demoMode') === '1' || sessionStorage.getItem('demoMode') === 'full');
+    if(!user || (!user.emailVerified && !_isDemo)) return(window.location.href='index_pro.html');
+    if(!_isDemo) R6Theme.init(user.uid, db);
+    try{
+        setLoading('Checking session…');
+        teamId = _isDemo
+            ? (sessionStorage.getItem('adminPreviewTeamId') || 'r6i_demo_00000')
+            : await getPreviewTeamId(user, db);
+        if(!teamId) throw new Error('No team found.');
+        const tn=await db.ref(`teams/${teamId}/info/teamName`).once('value');
+        teamName=tn.val()||'';
+        $('teamNamePill').textContent=teamName||teamId;
+        setLoading('Loading matches…');
+        await loadMatches();
+        populateFilters();
+        applyFilters();
+    }catch(e){showErr('Failed to load: '+e.message);}
+    finally{hideLoading();}
+});
+
+async function loadMatches(){
+    const snap=await db.ref(`teams/${teamId}/matches_pro`).once('value');
+    const raw=snap.val()||{};
+    allMatches=Object.entries(raw).map(([id,m])=>{
+        let maps=m.maps;
+        if(!maps) maps=[];
+        else if(!Array.isArray(maps)) maps=Object.values(maps);
+        return{id,...m,maps,ts:new Date(m.timestamp||m.date||0).getTime()};
+    }).sort((a,b)=>a.ts-b.ts); // oldest first for streak calculation
+}
+
+function populateFilters(){
+    const opps=[...new Set(allMatches.map(m=>m.opponent).filter(Boolean))].sort();
+    buildMultiSelect('oppWrap','oppBtn','oppDrop',opps,'All Opponents');
+}
+
+/* ─── APPLY FILTERS & RENDER ─── */
+window.applyFilters=function(){
+    let matches=[...allMatches];
+    const n=parseInt($('filtN').value)||0;
+    const from=$('filtFrom').value;
+    const to=$('filtTo').value;
+    const typ=$('filtType')?$('filtType').value:'';
+    const oppSels=getMultiSelectValues('oppDrop');
+    if(oppSels.length>0) matches=matches.filter(m=>oppSels.includes(m.opponent));
+    if(typ) matches=matches.filter(m=>(m.matchType||'scrim')===typ);
+    if(from){const fd=new Date(from).getTime(); matches=matches.filter(m=>m.ts>=fd);}
+    if(to)  {const td=new Date(to).getTime()+86399000; matches=matches.filter(m=>m.ts<=td);}
+    // n = last N (take from end since sorted ascending)
+    if(n) matches=matches.slice(-n);
+
+    const stats=compute(matches);
+    $('matchCountBar').style.display='flex';
+    $('matchCountText').textContent=`${matches.length} matches · ${stats.totalRounds} rounds total`;
+    _lastStats = stats;
+    render(stats);
+};
+
+/* ══════════════════════════════════════════════════════════
+   COMPUTE  — walk all matches → maps → rounds
+   ══════════════════════════════════════════════════════════ */
+function normRounds(map){
+    if(!map.rounds) return[];
+    const arr=Array.isArray(map.rounds)?map.rounds:Object.values(map.rounds);
+    return arr.filter(Boolean).sort((a,b)=>parseInt(a.roundNumber||a.round||0)-parseInt(b.roundNumber||b.round||0));
+}
+
+/* Determine win condition for OUR team from round data.
+   Priority:
+   1. r.teams[ourIdx].winCondition  (if FinalVersion saved teams array)
+   2. r.winCondition  (if saved directly)
+   3. Infer from events: defuse/plant events + round outcome
+   Returns: 'kill' | 'defuse' | 'time' | 'loss' | 'unknown'
+*/
+function getWinCondition(r, won){
+    if(!won) return 'loss';
+
+    // 1 — teams array saved with winCondition
+    if(Array.isArray(r.teams)){
+        const idx=r.yourTeamIndex??0;
+        const t=r.teams[idx];
+        if(t?.winCondition){
+            const wc=t.winCondition;
+            if(/kill/i.test(wc)||/elim/i.test(wc)||/opponent/i.test(wc)) return'kill';
+            if(/defus/i.test(wc)||/disabl/i.test(wc))                    return'defuse';
+            if(/detonat/i.test(wc)||/bomb/i.test(wc)||/plant/i.test(wc)) return'defuse';
+            if(/time/i.test(wc)||/expire/i.test(wc)||/timer/i.test(wc))  return'time';
+        }
+        // Try winning team (any team with won===true)
+        const winT=r.teams.find(t=>t?.won===true);
+        if(winT?.winCondition){
+            const wc=winT.winCondition;
+            if(/kill/i.test(wc)||/opponent/i.test(wc)) return'kill';
+            if(/defus/i.test(wc)||/disabl/i.test(wc))  return'defuse';
+            if(/detonat/i.test(wc)||/bomb/i.test(wc))   return'defuse';
+            if(/time/i.test(wc)||/expire/i.test(wc))    return'time';
+        }
+    }
+
+    // 2 — winCondition saved directly on round
+    if(r.winCondition){
+        const wc=r.winCondition;
+        if(/kill/i.test(wc)||/opponent/i.test(wc)) return'kill';
+        if(/defus/i.test(wc)||/disabl/i.test(wc))  return'defuse';
+        if(/detonat/i.test(wc)||/bomb/i.test(wc))   return'defuse';
+        if(/time/i.test(wc)||/expire/i.test(wc))    return'time';
+    }
+
+    // 3 — infer from events
+    const evs=Array.isArray(r.events)?r.events:[];
+    const side=(r.yourRole||'').toLowerCase();
+    const hasDefuse=evs.some(e=>(e.type||'').toLowerCase()==='defuse');
+    const hasPlant =evs.some(e=>(e.type||'').toLowerCase()==='plant');
+    const killEvs  =evs.filter(e=>(e.type||'').toLowerCase()==='kill');
+    const allKilled=killEvs.length>=5; // rough: 5 kills means all opponents dead
+
+    if(side.includes('defen')||side==='def'){
+        // Defender wins
+        if(hasDefuse) return'defuse'; // they defused
+        if(allKilled) return'kill';
+        // no plant ever happened → time or kill
+        if(!hasPlant) return 'kill'; // if no plant, either kill or time
+        return'time'; // plant happened but wasn't defused and round ended → time ran out? or kill. default time
+    } else {
+        // Attacker wins
+        if(hasPlant)  return'defuse'; // planted = bomb detonation win
+        if(allKilled) return'kill';
+        return'kill';
+    }
+}
+
+function isWin(r){
+    const o=(r.outcome||'').toLowerCase();
+    return o==='win'||o==='won'||o.startsWith('won');
+}
+
+function roundSide(r,map){
+    const rl=(r.yourRole||'').toLowerCase();
+    if(rl.includes('attack')||rl==='atk') return'atk';
+    if(rl.includes('defen')||rl==='def')  return'def';
+    if(Array.isArray(r.teams)){
+        const t=r.teams[r.yourTeamIndex??0];
+        const tr=(t?.role||t?.name||'').toLowerCase();
+        if(tr.includes('attack')) return'atk';
+        if(tr.includes('defen'))  return'def';
+    }
+    const n=parseInt(r.roundNumber||r.round||0);
+    const sd=(map.startingSide||'').toLowerCase();
+    if(n<=6)  return sd==='attack'?'atk':'def';
+    if(n<=12) return sd==='attack'?'def':'atk';
+    return((n-12)%2===1)?'atk':'def';
+}
+
+function compute(matches){
+    const s={
+        matchWins:0, matchLosses:0, matchDraws:0,
+        totalRounds:0, roundWins:0, roundLosses:0,
+        wcKill:0, wcDefuse:0, wcTime:0,    // round wins by condition
+        atkRounds:0, atkWins:0,
+        defRounds:0, defWins:0,
+        maps:{},          // mapName → {atkR,atkW,defR,defW}
+        matchList:[],     // [{won,date,opponent}] for streak
+
+        /* ── TEAM RATING metrics ── */
+        teamKills:0, teamDeaths:0,           // aggregate K/D
+        roundsWithEvents:0,                   // rounds that have event data
+        openingDuelWins:0, openingDuelTotal:0, // first blood
+        atkPlantRounds:0, atkPlantSuccess:0,   // attack plant rate
+        defDenyRounds:0, defDenySuccess:0,     // defense plant denial
+        clutchSituations:0, clutchWins:0,      // 1vX situations
+        survivalTotalSlots:0, survivalAlive:0, // per-player-per-round survival
+        ratingPerMatch:[],                     // per-match rating for sparkline
+        droneDestroyedDef:0,                   // deduped drone destructions on defense
+        defRoundsForDrones:0,                  // defense rounds that had drone data
+    };
+
+    /* Helper: identify our players from round data */
+    function getOurPlayers(r){
+        const ours=new Set();
+        // Primary: use players array with teamIndex===0 — most reliable
+        if(Array.isArray(r.players)){
+            r.players.forEach(p=>{
+                if(p&&(p.teamIndex===0||p.teamIndex==='0')){
+                    // Add nameKey (sanitized), name/username (original), and dot-decoded variant
+                    const nk=(p.nameKey||'').toLowerCase().trim();
+                    const nm=(p.name||p.username||'').toLowerCase().trim();
+                    const decoded=nk.replace(/\(dot\)/gi,'.').replace(/\(hash\)/gi,'#');
+                    if(nk) ours.add(nk);
+                    if(nm) ours.add(nm);
+                    if(decoded) ours.add(decoded);
+                }
+            });
+        }
+        // Also check playerTeams / alias for extra name coverage
+        const alias=r.playerTeamsAlias||{};
+        const pt=r.playerTeams||{};
+        Object.entries(pt).forEach(([key,team])=>{
+            if(/your|team.*0|^0$/i.test(String(team))){
+                const k=key.toLowerCase().trim();
+                const orig=(alias[key]||'').toLowerCase().trim();
+                const decoded=k.replace(/\(dot\)/gi,'.').replace(/\(hash\)/gi,'#');
+                if(k) ours.add(k);
+                if(orig) ours.add(orig);
+                if(decoded) ours.add(decoded);
+            }
+        });
+        return ours;
+    }
+
+    function getEnemyPlayers(r){
+        const enemies=new Set();
+        if(Array.isArray(r.players)){
+            r.players.forEach(p=>{
+                if(p&&(p.teamIndex===1||p.teamIndex==='1')){
+                    const nk=(p.nameKey||'').toLowerCase().trim();
+                    const nm=(p.name||p.username||'').toLowerCase().trim();
+                    const decoded=nk.replace(/\(dot\)/gi,'.').replace(/\(hash\)/gi,'#');
+                    if(nk) enemies.add(nk);
+                    if(nm) enemies.add(nm);
+                    if(decoded) enemies.add(decoded);
+                }
+            });
+        }
+        const alias=r.playerTeamsAlias||{};
+        const pt=r.playerTeams||{};
+        Object.entries(pt).forEach(([key,team])=>{
+            if(/enemy|opponent|team.*1|^1$/i.test(String(team))){
+                const k=key.toLowerCase().trim();
+                const orig=(alias[key]||'').toLowerCase().trim();
+                const decoded=k.replace(/\(dot\)/gi,'.').replace(/\(hash\)/gi,'#');
+                if(k) enemies.add(k);
+                if(orig) enemies.add(orig);
+                if(decoded) enemies.add(decoded);
+            }
+        });
+        return enemies;
+    }
+
+    matches.forEach(match=>{
+        let mapsArr=match.maps;
+        let matchMapWins=0, matchMapLosses=0;
+
+        mapsArr.forEach(map=>{
+            const mapName=(map.mapName||'Unknown').trim();
+            if(!s.maps[mapName]) s.maps[mapName]={atkR:0,atkW:0,defR:0,defW:0};
+
+            const rounds=normRounds(map);
+            rounds.forEach(r=>{
+                const won=isWin(r);
+                const sd=roundSide(r,map);
+                s.totalRounds++;
+                if(won) s.roundWins++; else s.roundLosses++;
+
+                // Win condition (only counted for won rounds)
+                const wc=getWinCondition(r,won);
+                if(won){
+                    if(wc==='kill')   s.wcKill++;
+                    if(wc==='defuse') s.wcDefuse++;
+                    if(wc==='time')   s.wcTime++;
+                }
+
+                // ATK/DEF
+                if(sd==='atk'){s.atkRounds++;if(won)s.atkWins++;}
+                else          {s.defRounds++;if(won)s.defWins++;}
+
+                // Per-map
+                if(sd==='atk'){s.maps[mapName].atkR++;if(won)s.maps[mapName].atkW++;}
+                else          {s.maps[mapName].defR++;if(won)s.maps[mapName].defW++;}
+
+                // Drone destructions — defense only, deduplicated by timestamp
+                if(sd==='def'){
+                    const drones=Array.isArray(r.droneDestructions)?r.droneDestructions:[];
+                    if(drones.length>0){
+                        const seenTs=new Set();
+                        drones.forEach(d=>{
+                            const t=d.time??d.timeInSeconds??d.timestamp;
+                            if(t!=null && !seenTs.has(t)){ seenTs.add(t); s.droneDestroyedDef++; }
+                        });
+                        s.defRoundsForDrones++;
+                    }
+                }
+
+                /* ── EVENT-BASED METRICS ── */
+                const evs=Array.isArray(r.events)?r.events:[];
+                const killEvs=evs.filter(e=>(e.type||'').toLowerCase()==='kill');
+                if(!killEvs.length) return; // no events → skip advanced metrics
+
+                s.roundsWithEvents++;
+                const ours=getOurPlayers(r);
+                const enemies=getEnemyPlayers(r);
+
+                // Team K/D from events
+                killEvs.forEach(ev=>{
+                    const killer=(ev.username||ev.user||ev.actor||'').toLowerCase().trim();
+                    const victim=(ev.target||ev.victim||'').toLowerCase().trim();
+                    if(ours.has(killer)&&!ours.has(victim)) s.teamKills++;
+                    if(enemies.has(killer)&&ours.has(victim)) s.teamDeaths++;
+                });
+
+                // Survival: count our players who died this round
+                const ourDeadThisRound=new Set();
+                killEvs.forEach(ev=>{
+                    const victim=(ev.target||ev.victim||'').toLowerCase().trim();
+                    if(ours.has(victim)) ourDeadThisRound.add(victim);
+                });
+                const ourPlayerCount=ours.size||5;
+                s.survivalTotalSlots+=ourPlayerCount;
+                s.survivalAlive+=(ourPlayerCount-ourDeadThisRound.size);
+
+                // Opening duel: first kill of the round
+                const sortedKills=[...killEvs].sort((a,b)=>
+                    (parseFloat(a.timeInSeconds||a.timestamp||0))-(parseFloat(b.timeInSeconds||b.timestamp||0))
+                );
+                if(sortedKills.length>0){
+                    const firstKill=sortedKills[0];
+                    const fkKiller=(firstKill.username||firstKill.user||firstKill.actor||'').toLowerCase().trim();
+                    s.openingDuelTotal++;
+                    if(ours.has(fkKiller)) s.openingDuelWins++;
+                }
+
+                // Plant discipline
+                const plantEvs=evs.filter(e=>(e.type||'').toLowerCase()==='plant'||
+                                              (e.type||'').toLowerCase()==='bomb_planted'||
+                                              (e.type||'').toLowerCase()==='defuserplantstart');
+                if(sd==='atk'){
+                    s.atkPlantRounds++;
+                    if(plantEvs.length>0) s.atkPlantSuccess++;
+                }
+                if(sd==='def'){
+                    s.defDenyRounds++;
+                    if(plantEvs.length===0) s.defDenySuccess++; // no plant = denied
+                }
+
+                // 1vX clutch detection: count kills chronologically to find
+                // moments where our team was outnumbered and still won
+                if(won){
+                    let ourAlive=ourPlayerCount, enemyAlive=enemies.size||5;
+                    let wasDisadvantaged=false;
+                    sortedKills.forEach(ev=>{
+                        const killer=(ev.username||ev.user||ev.actor||'').toLowerCase().trim();
+                        const victim=(ev.target||ev.victim||'').toLowerCase().trim();
+                        if(ours.has(victim))  ourAlive--;
+                        if(enemies.has(victim)) enemyAlive--;
+                        if(ourAlive>0 && ourAlive<enemyAlive) wasDisadvantaged=true;
+                    });
+                    if(wasDisadvantaged){
+                        s.clutchSituations++;
+                        s.clutchWins++; // they won while disadvantaged
+                    }
+                }
+                if(!won){
+                    // Check if enemy was disadvantaged (we were up) = we lost a 1vX (bad)
+                    let ourAlive=ourPlayerCount, enemyAlive=enemies.size||5;
+                    sortedKills.forEach(ev=>{
+                        const killer=(ev.username||ev.user||ev.actor||'').toLowerCase().trim();
+                        const victim=(ev.target||ev.victim||'').toLowerCase().trim();
+                        if(ours.has(victim))  ourAlive--;
+                        if(enemies.has(victim)) enemyAlive--;
+                    });
+                    // If at any point enemy was outnumbered but won → we lost a clutchable situation
+                    let oA2=ourPlayerCount, eA2=enemies.size||5;
+                    let enemyWasDown=false;
+                    sortedKills.forEach(ev=>{
+                        const killer=(ev.username||ev.user||ev.actor||'').toLowerCase().trim();
+                        const victim=(ev.target||ev.victim||'').toLowerCase().trim();
+                        if(ours.has(victim))  oA2--;
+                        if(enemies.has(victim)) eA2--;
+                        if(eA2>0 && eA2<oA2) enemyWasDown=true;
+                    });
+                    if(enemyWasDown) s.clutchSituations++; // they clutched against us (we lost)
+                }
+            });
+
+            // Map win/loss (more rounds won on this map)
+            if(map.teamScore>map.opponentScore) matchMapWins++;
+            else if(map.teamScore<map.opponentScore) matchMapLosses++;
+        });
+
+        // Match result: win if majority of maps won, loss if majority lost, draw otherwise
+        const isMatchWin  = matchMapWins > matchMapLosses;
+        const isMatchLoss = matchMapLosses > matchMapWins;
+        if(isMatchWin)       s.matchWins++;
+        else if(isMatchLoss) s.matchLosses++;
+        else                 s.matchDraws++;
+
+        s.matchList.push({won:isMatchWin,date:match.ts,opponent:match.opponent||'?'});
+    });
+
+    // Streaks  (matchList is already in chronological order)
+    let curStreak=0, longestW=0, longestL=0;
+    for(let i=s.matchList.length-1;i>=0;i--){
+        const mw=s.matchList[i].won;
+        if(i===s.matchList.length-1){
+            curStreak=mw?1:-1;
+        } else {
+            const prev=s.matchList[i+1].won;
+            if(mw&&prev)       curStreak++;
+            else if(!mw&&!prev) curStreak--;
+            else break;
+        }
+    }
+    let run=0;
+    s.matchList.forEach(m=>{
+        if(m.won){run=run>0?run+1:1;longestW=Math.max(longestW,run);}
+        else     {run=run<0?run-1:-1;longestL=Math.min(longestL,run);}
+    });
+    s.curStreak=curStreak;
+    s.longestWin=longestW;
+    s.longestLoss=Math.abs(longestL);
+
+    // Map score (vs Pro League)
+    let totalMapScore=0;
+    Object.entries(s.maps).forEach(([name,ms])=>{
+        const pa=PRO_AVG[name]||{atk:50,def:50};
+        const atkPct=ms.atkR>0?ms.atkW/ms.atkR*100:null;
+        const defPct=ms.defR>0?ms.defW/ms.defR*100:null;
+        const atkDelta=atkPct!==null?atkPct-pa.atk:0;
+        const defDelta=defPct!==null?defPct-pa.def:0;
+        // Map score = average of non-null deltas, weighted by rounds
+        let mapScore=0, parts=0;
+        if(atkPct!==null){mapScore+=atkDelta*(ms.atkR/(ms.atkR+ms.defR));parts++;}
+        if(defPct!==null){mapScore+=defDelta*(ms.defR/(ms.atkR+ms.defR));parts++;}
+        ms.atkPct=atkPct;ms.defPct=defPct;
+        ms.atkDelta=atkDelta;ms.defDelta=defDelta;
+        ms.mapScore=mapScore;
+        ms.pa=pa;
+        totalMapScore+=mapScore;
+    });
+    s.totalMapScore=totalMapScore;
+
+    /* ══════════════════════════════════════════════════════════
+       TEAM RATING — Inspired by SiegeGG's player rating model,
+       adapted for team-level scrim analytics.
+       
+       9 Components (0-100 each), weighted & combined:
+       ────────────────────────────────────────────────
+       1. Round Win %          (20%)  — core measure of winning
+       2. Map Score vs Pro     (15%)  — performance vs pro league averages
+       3. Survival Rate        (12%)  — team-wide survival discipline
+       4. K/D Efficiency       (10%)  — fragging power
+       5. Opening Duels        (12%)  — first blood win rate (most impactful kill)
+       6. Plant Discipline     (10%)  — attack plant rate + defense denial
+       7. Clutch Resilience    (8%)   — winning 1vX / not losing them
+       8. Side Balance         (5%)   — balanced atk & def performance
+       9. Momentum             (8%)   — streak & recent form bonus
+       ══════════════════════════════════════════════════════════ */
+
+    const hasEvents = s.roundsWithEvents > 0;
+
+    // 1. Round Win % → 0-100  (50% = 50, 60% = 75, 40% = 25)
+    const rawRWR = s.totalRounds > 0 ? s.roundWins / s.totalRounds : 0.5;
+    // Sigmoid-ish scaling: amplify distance from 50%
+    const rwrScore = Math.max(0, Math.min(100, 50 + (rawRWR - 0.5) * 200));
+
+    // 2. Map Score vs Pro → 0-100  (0 delta = 50, +20 = 100, -20 = 0)
+    const mapCount = Object.keys(s.maps).length || 1;
+    const avgMapDelta = totalMapScore / mapCount;
+    const mapScore = Math.max(0, Math.min(100, 50 + avgMapDelta * 2.5));
+
+    // 3. Survival Rate → 0-100
+    const survRate = hasEvents && s.survivalTotalSlots > 0
+        ? (s.survivalAlive / s.survivalTotalSlots) : 0.5;
+    // Pro avg survival is ~30%. Scale: 20%=0, 50%=80, 60%+=100
+    const survScore = Math.max(0, Math.min(100, (survRate - 0.15) / 0.55 * 100));
+
+    // 4. K/D Efficiency → 0-100  (1.0 = 50, 1.5 = 85, 0.5 = 15)
+    const teamKD = s.teamDeaths > 0 ? s.teamKills / s.teamDeaths : (s.teamKills > 0 ? 2.0 : 1.0);
+    const kdScore = Math.max(0, Math.min(100, (teamKD - 0.3) / 1.4 * 100));
+
+    // 5. Opening Duels → 0-100  (50% = 50, 70% = 85)
+    const odWR = s.openingDuelTotal > 0 ? s.openingDuelWins / s.openingDuelTotal : 0.5;
+    const odScore = Math.max(0, Math.min(100, odWR * 100));
+
+    // 6. Plant Discipline → 0-100
+    // Attack: % of attack rounds where plant went down.  Benchmark ~40% = avg
+    const plantRate = s.atkPlantRounds > 0 ? s.atkPlantSuccess / s.atkPlantRounds : 0.5;
+    // Defense: % of defense rounds where plant was denied. Benchmark ~60% = avg
+    const denyRate = s.defDenyRounds > 0 ? s.defDenySuccess / s.defDenyRounds : 0.5;
+    const plantScore = Math.max(0, Math.min(100, ((plantRate + denyRate) / 2) * 100));
+
+    // 7. Clutch Resilience → 0-100
+    // Winning 1vX when disadvantaged is rare. Even 30% = good.
+    const clutchRate = s.clutchSituations > 0 ? s.clutchWins / s.clutchSituations : 0.5;
+    const clutchScore = Math.max(0, Math.min(100, clutchRate * 130)); // boost because clutching is hard
+
+    // 8. Side Balance → 0-100  (equal atk/def performance = 100, one-sided = lower)
+    const atkWR = s.atkRounds > 0 ? s.atkWins / s.atkRounds : 0.5;
+    const defWR = s.defRounds > 0 ? s.defWins / s.defRounds : 0.5;
+    const sideGap = Math.abs(atkWR - defWR);
+    const balanceScore = Math.max(0, Math.min(100, 100 - sideGap * 200));
+
+    // 9. Momentum → 0-100  (based on current streak)
+    const streakVal = s.curStreak;
+    const momentumScore = Math.max(0, Math.min(100, 50 + streakVal * 10));
+
+    // Dynamic weights: if no event data, redistribute to non-event metrics
+    let weights, components;
+    if(hasEvents){
+        weights = {rwr:0.20, map:0.15, surv:0.12, kd:0.10, od:0.12, plant:0.10, clutch:0.08, balance:0.05, momentum:0.08};
+        components = {rwr:rwrScore, map:mapScore, surv:survScore, kd:kdScore, od:odScore, plant:plantScore, clutch:clutchScore, balance:balanceScore, momentum:momentumScore};
+    } else {
+        // No events: only use round-based metrics
+        weights = {rwr:0.35, map:0.25, surv:0, kd:0, od:0, plant:0, clutch:0, balance:0.20, momentum:0.20};
+        components = {rwr:rwrScore, map:mapScore, surv:0, kd:0, od:0, plant:0, clutch:0, balance:balanceScore, momentum:momentumScore};
+    }
+
+    let teamRating = 0;
+    Object.keys(weights).forEach(k=>{ teamRating += (components[k] || 0) * weights[k]; });
+    teamRating = Math.max(0, Math.min(100, Math.round(teamRating * 10) / 10));
+
+    // Grade
+    function letterGrade(score){
+        if(score>=97) return'S';  if(score>=93) return'A+'; if(score>=88) return'A';
+        if(score>=83) return'A-'; if(score>=78) return'B+'; if(score>=73) return'B';
+        if(score>=68) return'B-'; if(score>=63) return'C+'; if(score>=58) return'C';
+        if(score>=53) return'C-'; if(score>=48) return'D+'; if(score>=43) return'D';
+        if(score>=38) return'D-'; return'F';
+    }
+
+    s.teamRating = teamRating;
+    s.teamGrade  = letterGrade(teamRating);
+    s.ratingHasEvents = hasEvents;
+    s.ratingComponents = {
+        rwr:   {val:rwrScore,   w:weights.rwr,   raw: rawRWR,        label:'Round Win Rate',   icon:'fa-crosshairs',  color:'#60a5fa'},
+        map:   {val:mapScore,   w:weights.map,    raw: avgMapDelta,   label:'Map Score vs Pro', icon:'fa-map',         color:'#a78bfa'},
+        surv:  {val:survScore,  w:weights.surv,   raw: survRate,      label:'Survival Rate',    icon:'fa-heart-pulse', color:'#f472b6'},
+        kd:    {val:kdScore,    w:weights.kd,     raw: teamKD,        label:'K/D Efficiency',   icon:'fa-skull',       color:'#fb923c'},
+        od:    {val:odScore,    w:weights.od,      raw: odWR,          label:'Opening Duels',    icon:'fa-bolt',        color:'#fbbf24'},
+        plant: {val:plantScore, w:weights.plant,   raw: plantRate,     label:'Plant Discipline', icon:'fa-bomb',        color:'#34d399'},
+        clutch:{val:clutchScore,w:weights.clutch,  raw: clutchRate,    label:'Clutch Resilience', icon:'fa-hand-fist',  color:'#f87171'},
+        balance:{val:balanceScore,w:weights.balance,raw:sideGap,       label:'Side Balance',     icon:'fa-scale-balanced',color:'#38bdf8'},
+        momentum:{val:momentumScore,w:weights.momentum,raw:streakVal,  label:'Momentum',         icon:'fa-fire',        color:'#c084fc'},
+    };
+    // Raw sub-stats for display
+    s.rawStats = {
+        teamKD, survRate, odWR, plantRate, denyRate, clutchRate,
+        clutchWins: s.clutchWins, clutchTotal: s.clutchSituations,
+        openingWins: s.openingDuelWins, openingTotal: s.openingDuelTotal,
+    };
+
+    return s;
+}
+
+/* ── GRADE COLOR HELPER ── */
+function gradeColor(g){
+    if(g==='S')  return'#fbbf24';
+    if(g.startsWith('A')) return'#34d399';
+    if(g.startsWith('B')) return'#60a5fa';
+    if(g.startsWith('C')) return'#fbbf24';
+    if(g.startsWith('D')) return'#fb923c';
+    return'#f87171';
+}
+
+/* ══════════════════════════════════════════════════════════
+   RENDER
+   ══════════════════════════════════════════════════════════ */
+function render(s){
+    $('statsArea').innerHTML=`
+        ${buildKPIStrip(s)}
+        ${buildTeamRatingBreakdown(s)}
+        <div class="two-col">${buildWinConditions(s)}${buildSplitAndStreak(s)}</div>
+        ${buildMapScore(s)}
+        ${buildAIPanel()}
+    `;
+    // Wire map toggle
+    document.querySelectorAll('.map-toggle-btn').forEach(btn=>{
+        btn.addEventListener('click',()=>{
+            document.querySelectorAll('.map-toggle-btn').forEach(b=>b.classList.remove('active'));
+            btn.classList.add('active');
+            // toggle views
+            document.querySelectorAll('.map-view').forEach(v=>{
+                v.style.display=v.dataset.view===btn.dataset.view?'block':'none';
+            });
+        });
+    });
+    // Wire expandable map rows
+    document.querySelectorAll('.map-row-main').forEach(row=>{
+        row.addEventListener('click',()=>{
+            const key=row.dataset.mapkey;
+            const expRow=document.getElementById(`exp-${key}`);
+            const chev=row.querySelector('.chevron');
+            if(expRow){
+                const open=expRow.classList.toggle('open');
+                if(chev) chev.classList.toggle('open',open);
+            }
+        });
+    });
+}
+
+function buildKPIStrip(s){
+    const wr=s.matchWins+s.matchLosses>0?(s.matchWins/(s.matchWins+s.matchLosses)*100).toFixed(0):0;
+    const rwr=s.totalRounds>0?(s.roundWins/s.totalRounds*100).toFixed(0):0;
+    const curStr=Math.abs(s.curStreak);
+    const curSuffix=s.curStreak>0?'<span style="font-size:12px;color:#34d399;">W</span>':
+                    s.curStreak<0?'<span style="font-size:12px;color:#f87171;">L</span>':'';
+
+    return`
+    <div class="kpi-strip">
+        <div class="kpi-card kc-blue">
+            <i class="fas fa-trophy kpi-icon"></i>
+            <div class="kpi-val">${s.matchWins}<span style="font-size:14px;color:var(--gray);font-weight:500;">-${s.matchLosses}</span></div>
+            <div class="kpi-lbl">Match Record</div>
+            <div class="kpi-sub">${wr}% win rate · ${s.matchDraws} draws</div>
+        </div>
+        <div class="kpi-card kc-green">
+            <i class="fas fa-crosshairs kpi-icon"></i>
+            <div class="kpi-val">${s.roundWins}<span style="font-size:14px;color:var(--gray);font-weight:500;">-${s.roundLosses}</span></div>
+            <div class="kpi-lbl">Round Record</div>
+            <div class="kpi-sub">${rwr}% round win rate</div>
+        </div>
+        <div class="kpi-card kc-purple">
+            <i class="fas fa-fire kpi-icon"></i>
+            <div class="kpi-val">${curStr}${curSuffix}</div>
+            <div class="kpi-lbl">Current Streak</div>
+            <div class="kpi-sub">${s.curStreak===0?'No matches yet':s.curStreak>0?`${curStr} wins in a row`:`${curStr} losses in a row`}</div>
+        </div>
+        <div class="kpi-card kc-amber">
+            <i class="fas fa-medal kpi-icon"></i>
+            <div class="kpi-val">${s.longestWin}<span style="font-size:11px;color:var(--gray);font-weight:500;"> W</span></div>
+            <div class="kpi-lbl">Longest Win Streak</div>
+            <div class="kpi-sub">Longest loss streak: ${s.longestLoss}L</div>
+        </div>
+        <div class="kpi-card kc-gray" style="position:relative;">
+            <i class="fas fa-star kpi-icon" style="color:${gradeColor(s.teamGrade)};"></i>
+            <div class="kpi-val" style="color:${gradeColor(s.teamGrade)};">${s.teamRating.toFixed(1)}</div>
+            <div class="kpi-lbl">Team Rating</div>
+            <div class="kpi-sub">Grade: <span style="color:${gradeColor(s.teamGrade)};font-weight:800;font-size:13px;">${s.teamGrade}</span>${!s.ratingHasEvents?' · <span style="color:rgba(245,158,11,0.6);">Limited data</span>':''}</div>
+        </div>
+        <div class="kpi-card" style="background:var(--card-bg);border:1px solid var(--card-border);position:relative;">
+            <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(to right,#06b6d4,#22d3ee);"></div>
+            <i class="fas fa-drone kpi-icon" style="color:#22d3ee;"></i>
+            ${(()=>{
+                const avg=s.defRoundsForDrones>0?(s.droneDestroyedDef/s.defRoundsForDrones).toFixed(1):'—';
+                return \`<div class="kpi-val" style="color:#22d3ee;">\${avg}</div>
+                <div class="kpi-lbl">Avg Drones Destroyed</div>
+                <div class="kpi-sub">Defense only · \${s.droneDestroyedDef} total across \${s.defRoundsForDrones} rounds</div>\`;
+            })()}
+        </div>
+    </div>\`;
+}
+
+function buildTeamRatingBreakdown(s){
+    const rc=s.ratingComponents;
+    const raw=s.rawStats;
+
+    // Build component rows
+    const compKeys=['rwr','map','od','surv','kd','plant','clutch','balance','momentum'];
+    const rawLabels={
+        rwr:   `${(rc.rwr.raw*100).toFixed(1)}% round WR`,
+        map:   `${rc.map.raw>=0?'+':''}${rc.map.raw.toFixed(1)} avg delta`,
+        surv:  s.ratingHasEvents?`${(raw.survRate*100).toFixed(1)}% alive/round`:'No event data',
+        kd:    s.ratingHasEvents?`${raw.teamKD.toFixed(2)} K/D`:'No event data',
+        od:    s.ratingHasEvents?`${raw.openingWins}/${raw.openingTotal} first bloods`:'No event data',
+        plant: s.ratingHasEvents?`${(raw.plantRate*100).toFixed(0)}% plant · ${(raw.denyRate*100).toFixed(0)}% deny`:'No event data',
+        clutch:s.ratingHasEvents?`${raw.clutchWins}/${raw.clutchTotal} clutch wins`:'No event data',
+        balance:`${(Math.abs(rc.balance.raw)*100).toFixed(0)}% side gap`,
+        momentum:`${s.curStreak>=0?'+':''}${s.curStreak} streak`,
+    };
+
+    const rows=compKeys.map(k=>{
+        const c=rc[k];
+        if(c.w===0) return''; // hidden (no events)
+        const contribution=(c.val*c.w).toFixed(1);
+        const weightPct=(c.w*100).toFixed(0);
+        const barWidth=Math.max(2,c.val);
+        const barColor=c.color;
+        const valColor=c.val>=70?'#34d399':c.val>=45?'#fbbf24':'#f87171';
+        return`
+            <div class="tr-row">
+                <div class="tr-meta">
+                    <div class="tr-icon-wrap" style="color:${c.color};border-color:${c.color}33;background:${c.color}15;">
+                        <i class="fas ${c.icon}"></i>
+                    </div>
+                    <div>
+                        <div class="tr-label">${c.label}</div>
+                        <div class="tr-raw">${rawLabels[k]} · ${weightPct}% weight</div>
+                    </div>
+                </div>
+                <div class="tr-bar-area">
+                    <div class="tr-bar-track">
+                        <div class="tr-bar-fill" style="width:${barWidth}%;background:${barColor};"></div>
+                    </div>
+                </div>
+                <div class="tr-score" style="color:${valColor};">${c.val.toFixed(0)}</div>
+                <div class="tr-contrib">+${contribution}</div>
+            </div>`;
+    }).filter(Boolean).join('');
+
+    const gc=gradeColor(s.teamGrade);
+
+    return`
+    <div class="panel">
+        <div class="panel-hdr"><i class="fas fa-star" style="color:#fbbf24;"></i> Team Rating Breakdown
+            <span style="margin-left:auto;font-size:11px;font-weight:400;color:rgba(148,163,184,0.5);">Inspired by SiegeGG · 9 weighted components</span>
+        </div>
+        <div class="panel-body" style="padding:0;">
+            <!-- Big Rating Display -->
+            <div class="tr-hero">
+                <div class="tr-hero-left">
+                    <div class="tr-hero-rating" style="color:${gc};">${s.teamRating.toFixed(1)}</div>
+                    <div class="tr-hero-grade" style="background:${gc}20;border:1px solid ${gc}40;color:${gc};">${s.teamGrade}</div>
+                </div>
+                <div class="tr-hero-right">
+                    <div class="tr-hero-label">Overall Team Rating</div>
+                    <div class="tr-hero-desc">
+                        ${s.teamRating>=80?'Elite performance — dominant across all metrics.':
+                          s.teamRating>=65?'Strong performance — competitive with room to refine.':
+                          s.teamRating>=50?'Average — solid fundamentals, key areas to improve.':
+                          s.teamRating>=35?'Below average — several metrics need attention.':
+                          'Struggling — focus on fundamentals and team coordination.'}
+                    </div>
+                    ${!s.ratingHasEvents?'<div class="tr-hero-warn"><i class="fas fa-triangle-exclamation"></i> No round event data found — rating based on round outcomes only. Upload replay files for full analysis.</div>':''}
+                </div>
+            </div>
+            <!-- Component Breakdown -->
+            <div class="tr-grid">
+                <div class="tr-grid-header">
+                    <span>Component</span>
+                    <span style="text-align:center;">Score Bar</span>
+                    <span style="text-align:right;">Score</span>
+                    <span style="text-align:right;">Weighted</span>
+                </div>
+                ${rows}
+            </div>
+        </div>
+    </div>`;
+}
+
+function buildWinConditions(s){
+    const total=s.roundWins||1;
+    const kPct=(s.wcKill/total*100).toFixed(0);
+    const dPct=(s.wcDefuse/total*100).toFixed(0);
+    const tPct=(s.wcTime/total*100).toFixed(0);
+    // losses
+    const lossTotal=s.roundLosses||1;
+
+    // win breakdown bar widths (% of total rounds won)
+    const kBar=(s.wcKill/total*100).toFixed(1);
+    const dBar=(s.wcDefuse/total*100).toFixed(1);
+    const tBar=(s.wcTime/total*100).toFixed(1);
+
+    // Also compute loss conditions from (total rounds - wins = losses)
+    // We don't have loss conditions tracked separately yet — placeholder
+    return`
+    <div class="panel">
+        <div class="panel-hdr"><i class="fas fa-flag-checkered"></i> Round Win Conditions</div>
+        <div class="panel-body">
+            <div style="margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--card-border);">
+                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:rgba(148,163,184,0.4);margin-bottom:10px;">
+                    <i class="fas fa-circle-check" style="color:#34d399;"></i> ${s.roundWins} Round Wins
+                </div>
+                <div class="wc-row">
+                    <div class="wc-icon wci-kill"><i class="fas fa-skull-crossbones"></i></div>
+                    <div class="wc-info">
+                        <div class="wc-label">Elimination</div>
+                        <div class="wc-bar-wrap"><div class="wc-bar bk" style="width:${kBar}%"></div></div>
+                        <div class="wc-nums">${kPct}% of wins · ${s.wcKill} rounds</div>
+                    </div>
+                    <div class="wc-count" style="color:#f87171;">${s.wcKill}</div>
+                </div>
+                <div class="wc-row">
+                    <div class="wc-icon wci-def"><i class="fas fa-bomb"></i></div>
+                    <div class="wc-info">
+                        <div class="wc-label">Defuser / Plant</div>
+                        <div class="wc-bar-wrap"><div class="wc-bar bd" style="width:${dBar}%"></div></div>
+                        <div class="wc-nums">${dPct}% of wins · ${s.wcDefuse} rounds</div>
+                    </div>
+                    <div class="wc-count" style="color:#34d399;">${s.wcDefuse}</div>
+                </div>
+                <div class="wc-row">
+                    <div class="wc-icon wci-time"><i class="fas fa-clock"></i></div>
+                    <div class="wc-info">
+                        <div class="wc-label">Time Expired</div>
+                        <div class="wc-bar-wrap"><div class="wc-bar bt" style="width:${tBar}%"></div></div>
+                        <div class="wc-nums">${tPct}% of wins · ${s.wcTime} rounds</div>
+                    </div>
+                    <div class="wc-count" style="color:#fbbf24;">${s.wcTime}</div>
+                </div>
+            </div>
+            <div style="font-size:11px;color:rgba(148,163,184,0.4);text-align:center;">
+                <i class="fas fa-circle-info"></i> Win condition is read from replay data (teams[].winCondition). 
+                If your replays don't contain this field, counts may show 0.
+            </div>
+        </div>
+    </div>`;
+}
+
+function buildSplitAndStreak(s){
+    const atkPct=s.atkRounds>0?(s.atkWins/s.atkRounds*100).toFixed(1):0;
+    const defPct=s.defRounds>0?(s.defWins/s.defRounds*100).toFixed(1):0;
+    const atkFill=(parseFloat(atkPct)/(parseFloat(atkPct)+parseFloat(defPct)||1)*100).toFixed(1);
+    const defFill=(100-parseFloat(atkFill)).toFixed(1);
+
+    return`
+    <div style="display:flex;flex-direction:column;gap:14px;">
+        <div class="panel">
+            <div class="panel-hdr"><i class="fas fa-shield-halved"></i> Attack / Defense Split</div>
+            <div class="panel-body">
+                <div class="split-grid">
+                    <div class="split-card split-atk">
+                        <i class="fas fa-sword split-icon"></i>
+                        <div class="split-pct">${atkPct}%</div>
+                        <div class="split-lbl">Attack Win Rate</div>
+                        <div class="split-detail">${s.atkWins}W / ${s.atkRounds-s.atkWins}L · ${s.atkRounds} rounds</div>
+                    </div>
+                    <div class="split-card split-def">
+                        <i class="fas fa-shield-halved split-icon"></i>
+                        <div class="split-pct">${defPct}%</div>
+                        <div class="split-lbl">Defense Win Rate</div>
+                        <div class="split-detail">${s.defWins}W / ${s.defRounds-s.defWins}L · ${s.defRounds} rounds</div>
+                    </div>
+                </div>
+                <div class="split-bar-wrap" style="margin-top:12px;">
+                    <div class="split-bar-atk" style="width:${atkFill}%"></div>
+                    <div class="split-bar-def" style="width:${defFill}%"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-hdr"><i class="fas fa-chart-bar"></i> Round Win/Loss Summary</div>
+            <div class="panel-body">
+                <div class="rw-row">
+                    <div class="rw-val-l">${s.roundWins}</div>
+                    <div>
+                        <div class="rw-center-lbl" style="margin-bottom:4px;">Total Rounds</div>
+                        <div class="rw-bar-center" style="width:100%;">
+                            <div class="rw-fill-l" style="width:${(s.roundWins/s.totalRounds*100||0).toFixed(1)}%"></div>
+                            <div class="rw-fill-r" style="width:${(s.roundLosses/s.totalRounds*100||0).toFixed(1)}%"></div>
+                        </div>
+                    </div>
+                    <div class="rw-val-r">${s.roundLosses}</div>
+                </div>
+                <div class="rw-row">
+                    <div class="rw-val-l">${s.atkWins}</div>
+                    <div>
+                        <div class="rw-center-lbl" style="margin-bottom:4px;">Attack Rounds</div>
+                        <div class="rw-bar-center">
+                            <div class="rw-fill-l" style="width:${(s.atkWins/s.atkRounds*100||0).toFixed(1)}%"></div>
+                            <div class="rw-fill-r" style="width:${((s.atkRounds-s.atkWins)/s.atkRounds*100||0).toFixed(1)}%"></div>
+                        </div>
+                    </div>
+                    <div class="rw-val-r">${s.atkRounds-s.atkWins}</div>
+                </div>
+                <div class="rw-row" style="margin-bottom:0">
+                    <div class="rw-val-l">${s.defWins}</div>
+                    <div>
+                        <div class="rw-center-lbl" style="margin-bottom:4px;">Defense Rounds</div>
+                        <div class="rw-bar-center">
+                            <div class="rw-fill-l" style="width:${(s.defWins/s.defRounds*100||0).toFixed(1)}%"></div>
+                            <div class="rw-fill-r" style="width:${((s.defRounds-s.defWins)/s.defRounds*100||0).toFixed(1)}%"></div>
+                        </div>
+                    </div>
+                    <div class="rw-val-r">${s.defRounds-s.defWins}</div>
+                </div>
+            </div>
+        </div>
+    </div>`;
+}
+
+function buildMapScore(s){
+    const maps=Object.entries(s.maps).sort((a,b)=>b[1].atkR+b[1].defR - (a[1].atkR+a[1].defR));
+    if(!maps.length) return`<div class="panel"><div class="panel-body"><div class="empty-state" style="padding:30px;"><i class="fas fa-map"></i><p>No map data.</p></div></div></div>`;
+
+    const totalScore=s.totalMapScore;
+    const scoreCls=totalScore>2?'score-pos':totalScore<-2?'score-neg':'score-neu';
+
+    // Overall map score table
+    const overallRows=maps.map(([name,ms])=>{
+        const totalR=ms.atkR+ms.defR;
+        const pa=ms.pa;
+        const atkStr=ms.atkR>0?`${ms.atkW}/${ms.atkR} (${ms.atkPct.toFixed(0)}%)`:'—';
+        const defStr=ms.defR>0?`${ms.defW}/${ms.defR} (${ms.defPct.toFixed(0)}%)`:'—';
+        const atkDStr=ms.atkR>0?(ms.atkDelta>=0?`+${ms.atkDelta.toFixed(1)}`:`${ms.atkDelta.toFixed(1)}`):null;
+        const defDStr=ms.defR>0?(ms.defDelta>=0?`+${ms.defDelta.toFixed(1)}`:`${ms.defDelta.toFixed(1)}`):null;
+        const scoreNum=ms.mapScore;
+        const scoreSuf=scoreNum>=0?`+${scoreNum.toFixed(1)}`:`${scoreNum.toFixed(1)}`;
+        const sCls=scoreNum>2?'score-pos':scoreNum<-2?'score-neg':'score-neu';
+        const mapKey=name.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
+
+        return`
+        <tr class="map-row-main" data-mapkey="${mapKey}">
+            <td class="map-name-td"><i class="fas fa-chevron-right chevron"></i> ${x(name)}</td>
+            <td class="td-c">${totalR}</td>
+            <td class="td-c">
+                <span>${atkStr}</span>
+                ${atkDStr?`<div class="pro-avg">Pro: ${pa.atk.toFixed(0)}% <span class="${parseFloat(atkDStr)>=0?'above':'below'}">${atkDStr}</span></div>`:''}
+            </td>
+            <td class="td-c">
+                <span>${defStr}</span>
+                ${defDStr?`<div class="pro-avg">Pro: ${pa.def.toFixed(0)}% <span class="${parseFloat(defDStr)>=0?'above':'below'}">${defDStr}</span></div>`:''}
+            </td>
+            <td class="td-r"><span class="score-pill ${sCls}">${scoreSuf}</span></td>
+        </tr>
+        <tr class="map-expand-row" id="exp-${mapKey}">
+            <td colspan="5" class="map-expand-cell">
+                <div class="map-expand-inner">
+                    <div class="me-block">
+                        <div class="me-title"><i class="fas fa-sword" style="color:#f87171;"></i> Attack</div>
+                        <div class="me-stat-row">
+                            <span class="me-stat-lbl">Rounds played</span>
+                            <span class="me-stat-val">${ms.atkR}</span>
+                        </div>
+                        <div class="me-stat-row">
+                            <span class="me-stat-lbl">Rounds won</span>
+                            <span class="me-stat-val">${ms.atkW}</span>
+                        </div>
+                        <div class="me-stat-row">
+                            <span class="me-stat-lbl">Win rate</span>
+                            <span class="me-stat-val">${ms.atkR>0?ms.atkPct.toFixed(1)+'%':'—'}</span>
+                        </div>
+                        <div class="me-stat-row">
+                            <span class="me-stat-lbl">Pro League avg</span>
+                            <span class="pro-badge">${pa.atk.toFixed(1)}%</span>
+                        </div>
+                        <div class="me-stat-row">
+                            <span class="me-stat-lbl">Delta vs Pro</span>
+                            <span class="me-stat-val ${ms.atkDelta>=0?'above':'below'}">${ms.atkR>0?(ms.atkDelta>=0?'+':'')+ms.atkDelta.toFixed(1)+'%':'—'}</span>
+                        </div>
+                    </div>
+                    <div class="me-block">
+                        <div class="me-title"><i class="fas fa-shield-halved" style="color:#60a5fa;"></i> Defense</div>
+                        <div class="me-stat-row">
+                            <span class="me-stat-lbl">Rounds played</span>
+                            <span class="me-stat-val">${ms.defR}</span>
+                        </div>
+                        <div class="me-stat-row">
+                            <span class="me-stat-lbl">Rounds won</span>
+                            <span class="me-stat-val">${ms.defW}</span>
+                        </div>
+                        <div class="me-stat-row">
+                            <span class="me-stat-lbl">Win rate</span>
+                            <span class="me-stat-val">${ms.defR>0?ms.defPct.toFixed(1)+'%':'—'}</span>
+                        </div>
+                        <div class="me-stat-row">
+                            <span class="me-stat-lbl">Pro League avg</span>
+                            <span class="pro-badge">${pa.def.toFixed(1)}%</span>
+                        </div>
+                        <div class="me-stat-row">
+                            <span class="me-stat-lbl">Delta vs Pro</span>
+                            <span class="me-stat-val ${ms.defDelta>=0?'above':'below'}">${ms.defR>0?(ms.defDelta>=0?'+':'')+ms.defDelta.toFixed(1)+'%':'—'}</span>
+                        </div>
+                    </div>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+
+    return`
+    <div class="panel">
+        <div class="panel-hdr"><i class="fas fa-map"></i> Map Score vs Pro League Averages
+            <span style="margin-left:auto;font-size:11px;font-weight:400;color:rgba(148,163,184,0.5);">Click any map to expand · Green = above Pro avg · Red = below</span>
+        </div>
+        <div class="panel-body" style="padding:14px 0 0;">
+            <table class="map-table">
+                <thead>
+                    <tr>
+                        <th>Map</th>
+                        <th class="center">Rounds</th>
+                        <th class="center">ATK (W/R)</th>
+                        <th class="center">DEF (W/R)</th>
+                        <th class="right">Map Score</th>
+                    </tr>
+                </thead>
+                <tbody>${overallRows}</tbody>
+            </table>
+            <div class="map-score-total">
+                <div>
+                    <div class="mst-lbl">Total Map Score</div>
+                    <div style="font-size:11px;color:rgba(148,163,184,0.4);margin-top:2px;">Weighted delta vs Pro League averages across all maps</div>
+                </div>
+                <div class="mst-val ${totalScore>=0?'above':'below'}">${totalScore>=0?'+':''}${totalScore.toFixed(1)}</div>
+            </div>
+        </div>
+    </div>`;
+}
+
+/* ─── UTILS ─── */
+function setLoading(msg){const el=$('loadingText');if(el)el.textContent=msg;$('loadingOverlay').classList.remove('hidden');}
+function hideLoading(){$('loadingOverlay').classList.add('hidden');}
+function showErr(msg){$('statsArea').innerHTML=`<div class="empty-state"><i class="fas fa-circle-xmark" style="color:#f87171;"></i><p>${x(msg)}</p></div>`;}
+function logout(){auth.signOut().then(()=>window.location.href='index_pro.html');}
+window.logout=logout;
+
+/* ══════════════════════════════════════════════════════════
+   AI REPORT PANEL
+   ══════════════════════════════════════════════════════════ */
+function buildAIPanel(){
+    return`
+    <div class="ai-panel">
+        <div class="ai-panel-hdr">
+            <div class="ai-panel-icon"><i class="fas fa-robot"></i></div>
+            <div class="ai-hdr-text">
+                <h3>AI Team Report + PDF Download</h3>
+                <p>Generate a full scouting report with map analysis, strengths & weaknesses — exported as a PDF</p>
+            </div>
+        </div>
+        <div class="ai-panel-body">
+            <div class="ai-key-row">
+                <button class="btn btn-primary" onclick="generateAIPDF()" id="aiBtn">
+                    <i class="fas fa-wand-magic-sparkles"></i> Generate Report
+                </button>
+                <button class="btn btn-pdf" onclick="downloadLastPDF()" id="pdfBtn" style="display:none;">
+                    <i class="fas fa-file-pdf"></i> Download PDF
+                </button>
+            </div>
+            <div id="aiOutput">
+                <div class="ai-ph">
+                    <i class="fas fa-file-chart-column"></i>
+                    <p>Click <strong>Generate Report</strong> to get a full AI scouting report.<br>
+                    Covers match record, win conditions, ATK/DEF split, every map vs Pro League averages — exported as a PDF.</p>
+                </div>
+            </div>
+        </div>
+    </div>`;
+}
+
+/* ─── Keep last computed stats accessible for AI ─── */
+let _lastStats = null;
+
+let _lastPDFDoc = null; // store last built jsPDF doc for re-download
+
+/* ─── GENERATE ─── */
+/* ── Cloudflare Worker URL — update after Worker is deployed ── */
+var TEAMSTATS_WORKER_URL = 'https://falling-mountain-6506.pmezzich.workers.dev/ai';
+
+window.generateAIPDF = async function(){
+    if(!_lastStats){ toast('Apply filters first to load stats.','error'); return; }
+    $('aiBtn').disabled = true;
+    $('aiOutput').innerHTML = `<div class="ai-spin-wrap"><div class="ai-spinner"></div><div style="color:var(--gray);font-size:13px;">Generating report…</div></div>`;
+    const pdfBtn = $('pdfBtn');
+    if(pdfBtn) pdfBtn.style.display='none';
+
+    try{
+        const prompt = buildAIPrompt(_lastStats);
+        const res = await fetch(TEAMSTATS_WORKER_URL,{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({prompt})
+        });
+        if(!res.ok){
+            const e=await res.json().catch(()=>({}));
+            throw new Error(e?.error?.message||`Worker error ${res.status} — have you set up the Cloudflare Worker and updated TEAMSTATS_WORKER_URL?`);
+        }
+        const data = await res.json();
+        const report = data.result || data.content || data.choices?.[0]?.message?.content || 'No response.';
+
+        // Render in page
+        renderAIOutput(report);
+
+        // Build PDF
+        const doc = buildPDF(_lastStats, report);
+        _lastPDFDoc = doc;
+
+        // Auto-download
+        const fname = `${(teamName||'Team').replace(/\s+/g,'_')}_R6_Report_${new Date().toISOString().slice(0,10)}.pdf`;
+        doc.save(fname);
+
+        // Show re-download button
+        if(pdfBtn){ pdfBtn.style.display='inline-flex'; pdfBtn.dataset.fname=fname; }
+    }catch(e){
+        $('aiOutput').innerHTML=`<div style="padding:20px;color:#fca5a5;font-size:13px;"><i class="fas fa-circle-xmark"></i> ${x(e.message)}</div>`;
+    }finally{
+        const btn=$('aiBtn');
+        if(btn) btn.disabled=false;
+
+    }
+};
+
+window.downloadLastPDF = function(){
+    if(!_lastPDFDoc){ toast('Generate a report first.','error'); return; }
+    const btn=$('pdfBtn');
+    const fname=(btn?.dataset?.fname)||`R6_Team_Report.pdf`;
+    _lastPDFDoc.save(fname);
+};
+
+/* ─── BUILD PROMPT ─── */
+function buildAIPrompt(s){
+    const wr=s.matchWins+s.matchLosses>0?(s.matchWins/(s.matchWins+s.matchLosses)*100).toFixed(1):0;
+    const rwr=s.totalRounds>0?(s.roundWins/s.totalRounds*100).toFixed(1):0;
+    const atkPct=s.atkRounds>0?(s.atkWins/s.atkRounds*100).toFixed(1):0;
+    const defPct=s.defRounds>0?(s.defWins/s.defRounds*100).toFixed(1):0;
+
+    const mapLines=Object.entries(s.maps)
+        .sort((a,b)=>(b[1].atkR+b[1].defR)-(a[1].atkR+a[1].defR))
+        .map(([name,ms])=>{
+            const pa=ms.pa||{atk:50,def:50};
+            const aStr=ms.atkR>0?`${ms.atkPct.toFixed(1)}% (${ms.atkW}/${ms.atkR} rounds, pro avg ${pa.atk.toFixed(1)}%, delta ${ms.atkDelta>=0?'+':''}${ms.atkDelta.toFixed(1)}%)`:'no ATK data';
+            const dStr=ms.defR>0?`${ms.defPct.toFixed(1)}% (${ms.defW}/${ms.defR} rounds, pro avg ${pa.def.toFixed(1)}%, delta ${ms.defDelta>=0?'+':''}${ms.defDelta.toFixed(1)}%)`:'no DEF data';
+            const sc=ms.mapScore>=0?`+${ms.mapScore.toFixed(1)}`:`${ms.mapScore.toFixed(1)}`;
+            return`  ${name}: ATK win% ${aStr} | DEF win% ${dStr} | Map Score: ${sc}`;
+        }).join('\n');
+
+    return`You are writing a formal Rainbow Six Siege team performance report. Use ## headings. Be specific and data-driven.
+
+TEAM: ${teamName||'Unknown'}
+SAMPLE: ${s.matchWins+s.matchLosses+s.matchDraws} matches, ${s.totalRounds} rounds
+
+MATCH RECORD:
+  Record: ${s.matchWins}W - ${s.matchLosses}L - ${s.matchDraws}D | Win Rate: ${wr}%
+  Current Streak: ${Math.abs(s.curStreak)}${s.curStreak>0?'W':'L'} | Longest Win Streak: ${s.longestWin}W | Longest Loss Streak: ${s.longestLoss}L
+
+ROUND WIN CONDITIONS (how rounds are won):
+  Elimination (killed all): ${s.wcKill} rounds
+  Defuser / Plant detonation: ${s.wcDefuse} rounds
+  Time Expired (defenders survived): ${s.wcTime} rounds
+  Total round wins: ${s.roundWins} | Round win rate: ${rwr}%
+
+ATTACK / DEFENSE SPLIT:
+  Attack: ${atkPct}% win rate (${s.atkWins}W / ${s.atkRounds-s.atkWins}L, ${s.atkRounds} rounds)
+  Defense: ${defPct}% win rate (${s.defWins}W / ${s.defRounds-s.defWins}L, ${s.defRounds} rounds)
+
+MAP PERFORMANCE vs PRO LEAGUE AVERAGES:
+  (positive map score = above pro avg, negative = below)
+${mapLines}
+
+Total Map Score: ${s.totalMapScore>=0?'+':''}${s.totalMapScore.toFixed(1)}
+
+Write the report using EXACTLY these sections:
+
+## Executive Summary
+(3-4 sentences: overall team performance level, standout strengths, primary weaknesses. Cite win rate, round win rate, map score total.)
+
+## Match Record Analysis
+(Analyse the W/L/D record and streaks. Is this a consistent team or volatile? What does the streak data suggest?)
+
+## Win Condition Profile
+(What type of team are they? Do they win through kills, defuser, or time? What does the balance between elimination, defuser and time wins say about their playstyle and coordination? Should they adjust?)
+
+## Attack / Defense Assessment
+(Compare ATK and DEF win rates. Which side is dominant? Is there a significant weakness on either side that opponents could exploit? Reference exact %.)
+
+## Map-by-Map Analysis
+(For EACH map listed above, write 2-3 sentences covering: is it above or below pro avg on ATK and/or DEF, what the map score means, and one specific tactical suggestion — e.g. "Bank ATK is 12% below pro avg — consider focusing hard breach timings and ensuring Thatcher + Thermite combo is consistent". Cover every map. Group the maps into: STRENGTHS (positive score), AREAS TO IMPROVE (negative score).)
+
+## Priority Areas for Improvement
+(Top 3-4 concrete, actionable improvements ranked by impact. Be specific: e.g. "Improve Bank ATK execution — currently 35.2% vs 47.7% pro avg" rather than generic advice.)
+
+## Coaching Recommendations
+(5-6 bullet points: specific tactical adjustments, strat suggestions, operator recommendations, focus areas for practice. Reference exact stats.)
+
+Be formal, direct, and specific. Quote all stats. Reference exact map names.`;
+}
+
+/* ─── RENDER AI OUTPUT IN PAGE ─── */
+function renderAIOutput(text){
+    const secs=text.split(/\n## /);
+    let html='';
+    secs.forEach((sec,i)=>{
+        if(i===0){
+            const s=sec.replace(/^## /,'').trim();
+            if(s) html+=`<div class="ai-sec-body" style="margin-bottom:14px;">${mdHtml(s)}</div>`;
+            return;
+        }
+        const nl=sec.indexOf('\n');
+        const title=nl>-1?sec.slice(0,nl).trim():sec.trim();
+        const body=nl>-1?sec.slice(nl+1).trim():'';
+        html+=`<div class="ai-sec">
+            <div class="ai-sec-title"><i class="fas fa-chevron-right" style="font-size:9px;opacity:.5;"></i> ${x(title)}</div>
+            <div class="ai-sec-body">${mdHtml(body)}</div>
+        </div>`;
+    });
+    $('aiOutput').innerHTML=`<div class="ai-output">
+        <div class="ai-report-meta">
+            <span class="ai-badge"><i class="fas fa-robot"></i> GPT-4o mini</span>
+            <span class="ai-pdf-badge"><i class="fas fa-file-pdf"></i> PDF downloaded</span>
+            <span style="font-size:11px;color:var(--gray);">${new Date().toLocaleString()}</span>
+        </div>
+        ${html}
+    </div>`;
+}
+
+function mdHtml(t){
+    return t
+        .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+        .replace(/^- (.*)/gm,'<li>$1</li>')
+        .replace(/((?:<li>[\s\S]*?<\/li>\n?)+)/g,m=>`<ul>${m}</ul>`)
+        .replace(/\n{2,}/g,'<br><br>')
+        .replace(/\n/g,'<br>');
+}
+
+/* ──────────────────────────────────────────────────────────
+   PDF GENERATION  (jsPDF + autoTable)
+   ────────────────────────────────────────────────────────── */
+function buildPDF(s, aiText){
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+
+    const W = doc.internal.pageSize.getWidth();   // 210
+    const H = doc.internal.pageSize.getHeight();  // 297
+    const ML = 18, MR = 18, MT = 18;
+    const CW = W - ML - MR;
+
+    // ── Colours ──
+    const C = {
+        bg:      [15, 23, 42],
+        header:  [30, 41, 59],
+        accent:  [124, 58, 237],
+        accentL: [167, 139, 250],
+        green:   [16, 185, 129],
+        red:     [239, 68, 68],
+        amber:   [245, 158, 11],
+        blue:    [59, 130, 246],
+        white:   [248, 250, 252],
+        gray:    [100, 116, 139],
+        lightGray:[148,163,184],
+        rowAlt:  [22, 33, 54],
+    };
+
+    // ── Helpers ──
+    let cy = MT; // current y cursor
+
+    function addPage(){
+        doc.addPage();
+        cy = MT;
+        drawPageBg();
+        drawPageFooter();
+    }
+
+    function drawPageBg(){
+        doc.setFillColor(...C.bg);
+        doc.rect(0, 0, W, H, 'F');
+    }
+
+    function drawPageFooter(){
+        const pg = doc.internal.getNumberOfPages();
+        doc.setFillColor(...C.header);
+        doc.rect(0, H-10, W, 10, 'F');
+        doc.setFontSize(8);
+        doc.setTextColor(...C.gray);
+        doc.text(`R6 Analytics Pro — ${teamName||'Team'} Report`, ML, H-3.5);
+        doc.text(`Page ${pg}`, W-ML, H-3.5, {align:'right'});
+        doc.setTextColor(...C.lightGray);
+        doc.text(new Date().toLocaleDateString(), W/2, H-3.5, {align:'center'});
+    }
+
+    function checkNewPage(needed=20){
+        if(cy + needed > H - 14){ addPage(); return true; }
+        return false;
+    }
+
+    function sectionTitle(label, icon=''){
+        checkNewPage(14);
+        doc.setFillColor(...C.header);
+        doc.roundedRect(ML, cy, CW, 9, 1.5, 1.5, 'F');
+        doc.setDrawColor(...C.accent);
+        doc.setLineWidth(0.4);
+        doc.line(ML, cy, ML, cy+9);
+        doc.setFontSize(9);
+        doc.setFont('helvetica','bold');
+        doc.setTextColor(...C.accentL);
+        doc.text(label.toUpperCase(), ML+5, cy+6);
+        cy += 12;
+    }
+
+    function kv(label, value, color=C.white){
+        checkNewPage(7);
+        doc.setFontSize(9);
+        doc.setFont('helvetica','normal');
+        doc.setTextColor(...C.lightGray);
+        doc.text(label, ML+2, cy);
+        doc.setFont('helvetica','bold');
+        doc.setTextColor(...color);
+        doc.text(String(value), ML+70, cy);
+        cy += 5.5;
+    }
+
+    function bodyText(text, color=C.white, indent=0){
+        const maxW = CW - indent - 4;
+        doc.setFontSize(9);
+        doc.setFont('helvetica','normal');
+        doc.setTextColor(...color);
+        const lines = doc.splitTextToSize(text, maxW);
+        lines.forEach(line=>{
+            checkNewPage(6);
+            doc.text(line, ML+indent, cy);
+            cy += 5;
+        });
+        cy += 1;
+    }
+
+    function bullet(text, color=C.white){
+        const maxW = CW - 8;
+        doc.setFontSize(9);
+        doc.setFont('helvetica','normal');
+        doc.setTextColor(...color);
+        const lines = doc.splitTextToSize(text, maxW);
+        lines.forEach((line,i)=>{
+            checkNewPage(6);
+            if(i===0){
+                doc.setTextColor(...C.accentL);
+                doc.text('•', ML+2, cy);
+                doc.setTextColor(...color);
+                doc.text(line, ML+7, cy);
+            } else {
+                doc.text(line, ML+7, cy);
+            }
+            cy += 5;
+        });
+    }
+
+    function spacer(h=4){ cy += h; }
+
+    // ══════════════════════════════════════════════════════
+    //  PAGE 1 — COVER
+    // ══════════════════════════════════════════════════════
+    drawPageBg();
+    drawPageFooter();
+
+    // Purple accent top bar
+    doc.setFillColor(...C.accent);
+    doc.rect(0, 0, W, 3, 'F');
+
+    // R6 logo badge
+    doc.setFillColor(30,41,59);
+    doc.roundedRect(ML, MT+2, CW, 52, 4, 4, 'F');
+    doc.setDrawColor(...C.accent);
+    doc.setLineWidth(0.5);
+    doc.roundedRect(ML, MT+2, CW, 52, 4, 4, 'D');
+
+    // Crosshair icon placeholder (circles)
+    doc.setFillColor(...C.accent);
+    doc.circle(ML+12, MT+28, 5, 'F');
+    doc.setFillColor(...C.bg);
+    doc.circle(ML+12, MT+28, 3, 'F');
+    doc.setFillColor(...C.accent);
+    doc.circle(ML+12, MT+28, 1.2, 'F');
+
+    // Title
+    doc.setFontSize(22);
+    doc.setFont('helvetica','bold');
+    doc.setTextColor(...C.accentL);
+    doc.text('R6 ANALYTICS PRO', ML+22, MT+23);
+
+    doc.setFontSize(13);
+    doc.setFont('helvetica','normal');
+    doc.setTextColor(...C.lightGray);
+    doc.text('Team Performance Report', ML+22, MT+31);
+
+    doc.setFontSize(11);
+    doc.setFont('helvetica','bold');
+    doc.setTextColor(...C.white);
+    doc.text(teamName||'Team', ML+22, MT+40);
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica','normal');
+    doc.setTextColor(...C.gray);
+    doc.text(`Generated ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}`, ML+22, MT+47);
+
+    cy = MT + 64;
+
+    // ── Summary KPI boxes row ──
+    const wr=s.matchWins+s.matchLosses>0?(s.matchWins/(s.matchWins+s.matchLosses)*100).toFixed(0):0;
+    const rwr=s.totalRounds>0?(s.roundWins/s.totalRounds*100).toFixed(0):0;
+    const atkPct=s.atkRounds>0?(s.atkWins/s.atkRounds*100).toFixed(1):0;
+    const defPct=s.defRounds>0?(s.defWins/s.defRounds*100).toFixed(1):0;
+
+    const kpis=[
+        {label:'Match Record', val:`${s.matchWins}-${s.matchLosses}`,  sub:`${wr}% win rate`, color:C.blue},
+        {label:'Round Record', val:`${s.roundWins}-${s.roundLosses}`,  sub:`${rwr}% win rate`, color:C.green},
+        {label:'ATK Win%',     val:`${atkPct}%`,                        sub:`${s.atkRounds} rounds`, color:C.red},
+        {label:'DEF Win%',     val:`${defPct}%`,                        sub:`${s.defRounds} rounds`, color:C.blue},
+        {label:'Map Score',    val:`${s.totalMapScore>=0?'+':''}${s.totalMapScore.toFixed(1)}`, sub:'vs Pro avg', color:s.totalMapScore>=0?C.green:C.red},
+    ];
+
+    const bw = (CW - (kpis.length-1)*4) / kpis.length;
+    kpis.forEach((k,i)=>{
+        const bx = ML + i*(bw+4);
+        doc.setFillColor(22,33,54);
+        doc.roundedRect(bx, cy, bw, 22, 2, 2, 'F');
+        doc.setFillColor(...k.color);
+        doc.roundedRect(bx, cy, bw, 2, 1, 1, 'F');
+        doc.setFontSize(8);
+        doc.setFont('helvetica','normal');
+        doc.setTextColor(...C.lightGray);
+        doc.text(k.label, bx+bw/2, cy+7, {align:'center'});
+        doc.setFontSize(13);
+        doc.setFont('helvetica','bold');
+        doc.setTextColor(...k.color);
+        doc.text(k.val, bx+bw/2, cy+15, {align:'center'});
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica','normal');
+        doc.setTextColor(...C.gray);
+        doc.text(k.sub, bx+bw/2, cy+20, {align:'center'});
+    });
+    cy += 30;
+
+    // ── Win Conditions quick bar ──
+    sectionTitle('Win Conditions');
+    const wcData=[
+        {label:'Elimination',      val:s.wcKill,   color:C.red},
+        {label:'Defuser / Plant',  val:s.wcDefuse, color:C.green},
+        {label:'Time Expired',     val:s.wcTime,   color:C.amber},
+    ];
+    const wcTotal = (s.wcKill+s.wcDefuse+s.wcTime)||1;
+    wcData.forEach(wc=>{
+        checkNewPage(10);
+        const pct = (wc.val/wcTotal*100).toFixed(0);
+        const barW = (wc.val/wcTotal)*(CW-80);
+        doc.setFontSize(8.5);
+        doc.setFont('helvetica','normal');
+        doc.setTextColor(...C.lightGray);
+        doc.text(wc.label, ML+2, cy+3.5);
+        doc.setFillColor(22,33,54);
+        doc.roundedRect(ML+52, cy, CW-80, 6, 1, 1, 'F');
+        doc.setFillColor(...wc.color);
+        if(barW>0) doc.roundedRect(ML+52, cy, barW, 6, 1, 1, 'F');
+        doc.setFont('helvetica','bold');
+        doc.setTextColor(...wc.color);
+        doc.text(`${wc.val}  (${pct}%)`, ML+52+(CW-80)+3, cy+4.5);
+        cy += 9;
+    });
+    spacer(4);
+
+    // ── Streaks ──
+    sectionTitle('Streaks');
+    kv('Current Streak', `${Math.abs(s.curStreak)}${s.curStreak>0?' Win':(s.curStreak<0?' Loss':' —')}`, s.curStreak>0?C.green:(s.curStreak<0?C.red:C.gray));
+    kv('Longest Win Streak', `${s.longestWin} wins`, C.amber);
+    kv('Longest Loss Streak', `${s.longestLoss} losses`, C.gray);
+    spacer(4);
+
+    // ══════════════════════════════════════════════════════
+    //  PAGE 2 — MAP BREAKDOWN TABLE
+    // ══════════════════════════════════════════════════════
+    addPage();
+    doc.setFontSize(14);
+    doc.setFont('helvetica','bold');
+    doc.setTextColor(...C.accentL);
+    doc.text('Map Performance vs Pro League Averages', W/2, cy, {align:'center'});
+    cy += 10;
+
+    const mapRows = Object.entries(s.maps)
+        .sort((a,b)=>(b[1].atkR+b[1].defR)-(a[1].atkR+a[1].defR))
+        .map(([name, ms])=>{
+            const pa = ms.pa||{atk:50,def:50};
+            const atkStr = ms.atkR>0 ? `${ms.atkPct.toFixed(0)}%` : '—';
+            const defStr = ms.defR>0 ? `${ms.defPct.toFixed(0)}%` : '—';
+            const atkProStr = `${pa.atk.toFixed(0)}%`;
+            const defProStr = `${pa.def.toFixed(0)}%`;
+            const atkDStr = ms.atkR>0 ? `${ms.atkDelta>=0?'+':''}${ms.atkDelta.toFixed(1)}%` : '—';
+            const defDStr = ms.defR>0 ? `${ms.defDelta>=0?'+':''}${ms.defDelta.toFixed(1)}%` : '—';
+            const scoreStr = `${ms.mapScore>=0?'+':''}${ms.mapScore.toFixed(1)}`;
+            return [name, String(ms.atkR+ms.defR), atkStr, atkProStr, atkDStr, defStr, defProStr, defDStr, scoreStr];
+        });
+
+    doc.autoTable({
+        startY: cy,
+        head: [['Map','Rnds','ATK %','ATK Pro','ATK Δ','DEF %','DEF Pro','DEF Δ','Score']],
+        body: mapRows,
+        theme: 'plain',
+        styles:{
+            font:'helvetica', fontSize:8.5, textColor:[...C.white],
+            fillColor:[...C.bg], cellPadding:{top:3,right:3,bottom:3,left:3},
+            lineWidth:0, overflow:'linebreak',
+        },
+        headStyles:{
+            fillColor:[...C.header], textColor:[...C.accentL],
+            fontStyle:'bold', fontSize:8,
+        },
+        alternateRowStyles:{ fillColor:[...C.rowAlt] },
+        columnStyles:{
+            0:{fontStyle:'bold', cellWidth:32},
+            1:{halign:'center', cellWidth:14},
+            2:{halign:'center', cellWidth:16},
+            3:{halign:'center', cellWidth:16},
+            4:{halign:'center', cellWidth:16},
+            5:{halign:'center', cellWidth:16},
+            6:{halign:'center', cellWidth:16},
+            7:{halign:'center', cellWidth:16},
+            8:{halign:'center', cellWidth:16},
+        },
+        margin:{left:ML, right:MR},
+        didParseCell: function(data){
+            // Colour ATK/DEF delta columns
+            const col = data.column.index;
+            const val = data.cell.raw;
+            if((col===4||col===7) && data.section==='body'){
+                if(typeof val==='string'&&val.startsWith('+')) data.cell.styles.textColor=[...C.green];
+                else if(typeof val==='string'&&val.startsWith('-')) data.cell.styles.textColor=[...C.red];
+            }
+            if(col===8&&data.section==='body'){
+                if(typeof val==='string'&&val.startsWith('+')) data.cell.styles.textColor=[...C.green];
+                else if(typeof val==='string'&&val.startsWith('-')) data.cell.styles.textColor=[...C.red];
+            }
+        },
+    });
+
+    cy = doc.lastAutoTable.finalY + 8;
+
+    // Map score legend
+    doc.setFontSize(8);
+    doc.setFont('helvetica','normal');
+    doc.setTextColor(...C.gray);
+    doc.text('ATK Δ / DEF Δ = your win% minus Pro League average.  +positive = above average  −negative = below average', ML, cy);
+    cy += 5;
+    doc.text(`Total Map Score: ${s.totalMapScore>=0?'+':''}${s.totalMapScore.toFixed(1)}  (sum of weighted deltas across all maps)`, ML, cy);
+    cy += 10;
+
+    // ══════════════════════════════════════════════════════
+    //  PAGE 3+ — AI REPORT
+    // ══════════════════════════════════════════════════════
+    addPage();
+    doc.setFontSize(14);
+    doc.setFont('helvetica','bold');
+    doc.setTextColor(...C.accentL);
+    doc.text('AI Scouting Report', W/2, cy, {align:'center'});
+    cy += 4;
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica','normal');
+    doc.setTextColor(...C.gray);
+    doc.text('Generated by GPT-4o mini · R6 Analytics Pro', W/2, cy+4, {align:'center'});
+    cy += 12;
+
+    // Parse ## sections and render
+    const sections = aiText.split(/\n## /);
+    sections.forEach((sec, i)=>{
+        if(i===0){
+            const cleaned = sec.replace(/^## /,'').trim();
+            if(cleaned) bodyText(cleaned, C.lightGray);
+            return;
+        }
+        const nl  = sec.indexOf('\n');
+        const title = nl>-1 ? sec.slice(0,nl).trim() : sec.trim();
+        const body  = nl>-1 ? sec.slice(nl+1).trim() : '';
+        checkNewPage(18);
+        sectionTitle(title);
+        if(body){
+            // Split body into lines, detect bullets
+            const lines = body.split('\n').filter(l=>l.trim());
+            lines.forEach(line=>{
+                const t = line.trim();
+                if(t.startsWith('-')||t.startsWith('•')){
+                    bullet(t.replace(/^[-•]\s*/,''), C.lightGray);
+                } else if(t.startsWith('For ')&&t.endsWith(':')){
+                    checkNewPage(8);
+                    doc.setFontSize(9); doc.setFont('helvetica','bold');
+                    doc.setTextColor(...C.accentL);
+                    doc.text(t, ML+2, cy); cy+=6;
+                } else {
+                    bodyText(t, C.lightGray, 2);
+                }
+            });
+        }
+        spacer(3);
+    });
+
+    return doc;
+}
+
+function toast(msg,type='success'){
+    const t=document.createElement('div');
+    t.style.cssText=`position:fixed;bottom:22px;right:22px;padding:11px 17px;border-radius:10px;font-size:13px;font-weight:600;z-index:9998;display:flex;align-items:center;gap:7px;box-shadow:0 4px 20px rgba(0,0,0,.5);animation:tin .2s ease;color:white;background:${type==='error'?'rgba(239,68,68,0.95)':'rgba(16,185,129,0.95)'};font-family:'Segoe UI',sans-serif`;
+    t.innerHTML=`<i class="fas ${type==='error'?'fa-circle-xmark':'fa-circle-check'}"></i>${msg}`;
+    document.body.appendChild(t);
+    setTimeout(()=>t.remove(),3500);
+}
+
+})();
+</script>
+    <div style="text-align:center;padding:14px 20px;font-size:12px;color:rgba(148,163,184,0.5);">© 2026 R6 Insights. All rights reserved.</div>
+<script src="../scripts/profile-loader.js"></script>
+</body>
+</html>
