@@ -348,10 +348,10 @@ createDissectModule && createDissectModule().then(m=>{ dissectModule=m; log('✓
 async function parseRec(buffer){
     if(!dissectModule){ log('✗ Parser not ready.'); return null; }
     const mod = dissectModule;
-    if(typeof mod.r6dissectParse !== 'function'){ log('✗ r6dissectParse not found.'); return null; }
+    if(typeof mod.parseReplay !== 'function'){ log('✗ parseReplay not found.'); return null; }
     const u8 = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
     try{
-        const out = mod.r6dissectParse(u8) || mod.r6dissectParse(u8, u8.length);
+        const out = mod.parseReplay(u8) || mod.parseReplay(u8, u8.length);
         if(typeof out==='string'&&out.length) return JSON.parse(out);
     }catch(e){ log('✗ Parse error: '+e.message); }
     return null;
