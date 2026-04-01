@@ -82,7 +82,7 @@
         .match-count{font-size:12px;color:var(--gray);display:flex;align-items:center;gap:5px;margin-top:10px;}
 
         /* ── KPI STRIP ── */
-        .kpi-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;}
+        .kpi-strip{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;}
         .kpi-card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:12px;padding:16px 16px 14px;position:relative;overflow:hidden;}
         .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
         .kc-blue::before  {background:linear-gradient(to right,#3B82F6,#60a5fa);}
@@ -642,6 +642,8 @@ function compute(matches){
         clutchSituations:0, clutchWins:0,      // 1vX situations
         survivalTotalSlots:0, survivalAlive:0, // per-player-per-round survival
         ratingPerMatch:[],                     // per-match rating for sparkline
+        droneDestroyedDef:0,                   // deduped drone destructions on defense
+        defRoundsForDrones:0,                  // defense rounds that had drone data
     };
 
     /* Helper: identify our players from round data */
@@ -736,6 +738,19 @@ function compute(matches){
                 // Per-map
                 if(sd==='atk'){s.maps[mapName].atkR++;if(won)s.maps[mapName].atkW++;}
                 else          {s.maps[mapName].defR++;if(won)s.maps[mapName].defW++;}
+
+                // Drone destructions — defense only, deduplicated by timestamp
+                if(sd==='def'){
+                    const drones=Array.isArray(r.droneDestructions)?r.droneDestructions:[];
+                    if(drones.length>0){
+                        const seenTs=new Set();
+                        drones.forEach(d=>{
+                            const t=d.time??d.timeInSeconds??d.timestamp;
+                            if(t!=null && !seenTs.has(t)){ seenTs.add(t); s.droneDestroyedDef++; }
+                        });
+                        s.defRoundsForDrones++;
+                    }
+                }
 
                 /* ── EVENT-BASED METRICS ── */
                 const evs=Array.isArray(r.events)?r.events:[];
@@ -1083,7 +1098,17 @@ function buildKPIStrip(s){
             <div class="kpi-lbl">Team Rating</div>
             <div class="kpi-sub">Grade: <span style="color:${gradeColor(s.teamGrade)};font-weight:800;font-size:13px;">${s.teamGrade}</span>${!s.ratingHasEvents?' · <span style="color:rgba(245,158,11,0.6);">Limited data</span>':''}</div>
         </div>
-    </div>`;
+        <div class="kpi-card" style="background:var(--card-bg);border:1px solid var(--card-border);position:relative;">
+            <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(to right,#06b6d4,#22d3ee);"></div>
+            <i class="fas fa-drone kpi-icon" style="color:#22d3ee;"></i>
+            ${(()=>{
+                const avg=s.defRoundsForDrones>0?(s.droneDestroyedDef/s.defRoundsForDrones).toFixed(1):'—';
+                return \`<div class="kpi-val" style="color:#22d3ee;">\${avg}</div>
+                <div class="kpi-lbl">Avg Drones Destroyed</div>
+                <div class="kpi-sub">Defense only · \${s.droneDestroyedDef} total across \${s.defRoundsForDrones} rounds</div>\`;
+            })()}
+        </div>
+    </div>\`;
 }
 
 function buildTeamRatingBreakdown(s){
