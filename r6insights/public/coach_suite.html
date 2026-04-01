@@ -342,7 +342,7 @@
 if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 
-const ALLOWED_ROLES = ['coach','analyst','captain'];
+const ALLOWED_ROLES = ['coach','analyst','captain','player','support'];
 
 auth.onAuthStateChanged(async user => {
     if(!user || !user.emailVerified){
