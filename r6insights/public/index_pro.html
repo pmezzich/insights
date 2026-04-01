@@ -781,7 +781,7 @@
             </a>
 
             <!-- Replay Analyzer -->
-            <a href="FinalVersion.html" data-gate="team" class="tool-card theme-cyan">
+            <a href="Parser.html" data-gate="team" class="tool-card theme-cyan">
                 <div class="card-icon-wrap">
                     <i class="fas fa-film"></i>
                 </div>
@@ -855,7 +855,7 @@
                 // VIP demo locks only Replay Analyzer (can't upload to demo team).
                 document.querySelectorAll('.tool-card').forEach(el => {
                     const href = el.getAttribute('href') || '';
-                    const isReplay = href.includes('FinalVersion.html');
+                    const isReplay = href.includes('Parser.html');
                     const isStatPage = href.includes('stats_pro.html') || href.includes('teamstats_pro.html');
                     const shouldLock = isFullDemo ? isReplay : !isStatPage;
                     if (shouldLock) {
