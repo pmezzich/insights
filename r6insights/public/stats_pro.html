@@ -726,7 +726,18 @@ auth.onAuthStateChanged(function(user){
       });
     })
     .then(function(){
-      logln('Ready. Select a player and press Apply.');
+      if(_isDemo){
+        // In demo mode, auto-select first player and load so visitors see full stats immediately
+        var sel = document.getElementById('playerSelect');
+        if(sel && sel.options.length > 1){
+          sel.selectedIndex = 1; // index 0 is "(All Players)"
+          loadStats();
+        } else {
+          logln('Ready. Select a player and press Apply.');
+        }
+      } else {
+        logln('Ready. Select a player and press Apply.');
+      }
     })
     .catch(function(e){
       if (e && e.message === 'no-team') return;
@@ -767,6 +778,33 @@ async function buildFilters(){
   } catch(rosterErr) {
     logln('Roster load failed: '+rosterErr.message);
     console.error('Roster error:', rosterErr);
+  }
+  // ── Demo fallback: if roster still empty, infer players from round data ──────
+  if(rosterPlayers.length === 0){
+    try {
+      var ms2 = await db.ref('teams/'+teamId+'/matches_pro').limitToFirst(3).get();
+      var inferredNames = {};
+      if(ms2.exists()){
+        ms2.forEach(function(mSnap){
+          var mapsObj = (mSnap.val()||{}).maps || {};
+          Object.values(mapsObj).forEach(function(mp){
+            var rounds = mp.rounds || [];
+            var arr = Array.isArray(rounds) ? rounds : Object.values(rounds);
+            arr.forEach(function(r){
+              if(!r) return;
+              var pls = Array.isArray(r.players) ? r.players : [];
+              pls.forEach(function(p){
+                if(p && Number(p.teamIndex||0)===0){
+                  var nm = p.name || p.username || '';
+                  if(nm) inferredNames[nm] = true;
+                }
+              });
+            });
+          });
+        });
+      }
+      rosterPlayers = Object.keys(inferredNames).sort();
+    } catch(e2) { console.warn('Demo roster inference failed:', e2); }
   }
 
   // ── Scan matches for opponents / maps / sites ────────────────────────────────
